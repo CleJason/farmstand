@@ -55,6 +55,14 @@ export function parseReview(body: Record<string, unknown>) {
     body: text,
     rating,
     source: String(body.source ?? "").trim().slice(0, 50) || null,
+    products:
+      String(body.products ?? "")
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .join(", ")
+        .slice(0, 500) || null,
+    reply: String(body.reply ?? "").trim().slice(0, 4000) || null,
     reviewDate,
     visible: body.visible === undefined ? true : Boolean(body.visible),
   };

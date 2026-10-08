@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Stars from "@/components/Stars";
+import ReviewCard from "@/components/ReviewCard";
 
 interface Review {
   id: string;
@@ -9,14 +10,32 @@ interface Review {
   rating: number;
   body: string;
   source: string | null;
+  products: string | null;
+  reply: string | null;
   reviewDate: string;
   visible: boolean;
 }
 
-type Form = { name: string; rating: number; body: string; source: string; reviewDate: string };
+type Form = {
+  name: string;
+  rating: number;
+  body: string;
+  source: string;
+  products: string;
+  reply: string;
+  reviewDate: string;
+};
 
 const today = () => new Date().toISOString().slice(0, 10);
-const emptyForm = (): Form => ({ name: "", rating: 5, body: "", source: "", reviewDate: today() });
+const emptyForm = (): Form => ({
+  name: "",
+  rating: 5,
+  body: "",
+  source: "",
+  products: "",
+  reply: "",
+  reviewDate: today(),
+});
 
 const inputClass =
   "w-full text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500";
@@ -50,7 +69,15 @@ export default function AdminReviewsPage() {
 
   const openEdit = (r: Review) => {
     setEditingId(r.id);
-    setForm({ name: r.name, rating: r.rating, body: r.body, source: r.source ?? "", reviewDate: r.reviewDate.slice(0, 10) });
+    setForm({
+      name: r.name,
+      rating: r.rating,
+      body: r.body,
+      source: r.source ?? "",
+      products: r.products ?? "",
+      reply: r.reply ?? "",
+      reviewDate: r.reviewDate.slice(0, 10),
+    });
     setError(null);
     setShowModal(true);
   };
@@ -113,19 +140,16 @@ export default function AdminReviewsPage() {
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
           {reviews.map((r) => (
-            <div key={r.id} className={`bg-white rounded-xl border border-stone-200 p-4 space-y-2 ${!r.visible ? "opacity-60" : ""}`}>
-              <div className="flex items-center justify-between gap-2">
-                <Stars rating={r.rating} />
-                <span className="text-[11px] text-stone-400">
-                  {new Date(r.reviewDate).toLocaleDateString("en-US")}
-                  {r.source && ` · ${r.source}`}
-                </span>
+            <div key={r.id} className={`space-y-2 ${!r.visible ? "opacity-60" : ""}`}>
+              {/* Same card customers see on the home page */}
+              <ReviewCard review={r} />
+              <div className="flex items-center gap-2 px-1">
+                {r.source && <span className="text-[11px] text-stone-400">From {r.source}</span>}
+                {!r.reply && <span className="text-[11px] text-amber-700">No reply yet</span>}
               </div>
-              <p className="text-sm text-stone-700 whitespace-pre-line line-clamp-4">{r.body}</p>
-              <p className="text-xs font-semibold text-stone-900">— {r.name}</p>
-              <div className="flex items-center gap-2 pt-2 border-t border-stone-100">
+              <div className="flex items-center gap-2 px-1">
                 <button onClick={() => openEdit(r)} className="text-xs font-medium px-2.5 py-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700">
-                  Edit
+                  {r.reply ? "Edit" : "Edit / Reply"}
                 </button>
                 <button
                   onClick={() => toggle(r)}
@@ -144,7 +168,7 @@ export default function AdminReviewsPage() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-stone-900 mb-4">{editingId ? "Edit Review" : "Add Review"}</h2>
             <form onSubmit={save} className="space-y-3">
               <div>
@@ -169,6 +193,26 @@ export default function AdminReviewsPage() {
                   <input value={form.source} onChange={(e) => set({ source: e.target.value })} placeholder="e.g. Hotplate" className={inputClass} />
                 </label>
               </div>
+              <label className="block">
+                <span className="block text-xs font-medium text-stone-600 mb-1">Products (optional)</span>
+                <input
+                  value={form.products}
+                  onChange={(e) => set({ products: e.target.value })}
+                  placeholder="e.g. Mini Cinnamon Rolls, The Sunday Roll"
+                  className={inputClass}
+                />
+                <span className="block text-[11px] text-stone-400 mt-1">Separate with commas. Shown as tags on the review.</span>
+              </label>
+              <label className="block">
+                <span className="block text-xs font-medium text-stone-600 mb-1">Your reply (optional)</span>
+                <textarea
+                  rows={3}
+                  value={form.reply}
+                  onChange={(e) => set({ reply: e.target.value })}
+                  placeholder="Shown under the review with your shop name"
+                  className={inputClass}
+                />
+              </label>
               {error && <p className="text-sm text-red-600">{error}</p>}
               {!editingId && <p className="text-[11px] text-stone-400">After saving, the form stays open so you can add the next one.</p>}
               <div className="flex gap-2 pt-2">

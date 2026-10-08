@@ -271,6 +271,8 @@ model Review {
   rating     Int      // 1-5
   body       String
   source     String?  // e.g. "Hotplate"
+  products   String?  // products it's about, comma-separated, e.g. "Mini Cinnamon Rolls, The Sunday Roll"
+  reply      String?  // the owner's public reply
   reviewDate DateTime @default(now())
   visible    Boolean  @default(true)
   createdAt  DateTime @default(now())

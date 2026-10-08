@@ -2,25 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Stars from "@/components/Stars";
-
-interface Review {
-  id: string;
-  name: string;
-  rating: number;
-  body: string;
-  source: string | null;
-  reviewDate: string;
-}
+import ReviewCard, { type ReviewData } from "@/components/ReviewCard";
 
 /** "What customers say" on the home page; hidden when there are no reviews. */
 export default function ReviewsSection() {
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviews, setReviews] = useState<ReviewData[]>([]);
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     fetch("/api/reviews")
       .then((r) => (r.ok ? r.json() : []))
-      .then((d) => setReviews(Array.isArray(d) ? d.filter((r: Review & { visible?: boolean }) => r.visible !== false) : []))
+      .then((d) =>
+        setReviews(Array.isArray(d) ? d.filter((r: ReviewData & { visible?: boolean }) => r.visible !== false) : [])
+      )
       .catch(() => {});
   }, []);
 
@@ -41,17 +35,9 @@ export default function ReviewsSection() {
             </span>
           </div>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
           {shown.map((r) => (
-            <figure key={r.id} className="bg-white rounded-2xl border border-stone-200 p-5 flex flex-col gap-3">
-              <Stars rating={r.rating} />
-              <blockquote className="text-sm text-stone-700 leading-relaxed whitespace-pre-line flex-1">{r.body}</blockquote>
-              <figcaption className="text-xs text-stone-500">
-                <span className="font-semibold text-stone-900">{r.name}</span>
-                {" · "}
-                {new Date(r.reviewDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-              </figcaption>
-            </figure>
+            <ReviewCard key={r.id} review={r} />
           ))}
         </div>
         {reviews.length > 6 && (

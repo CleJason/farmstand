@@ -190,7 +190,7 @@ jobs:
         run: |
           psql "$PGURL" -v ON_ERROR_STOP=1 <<SQL
           INSERT INTO "DiscountCode" (id, code, type, value, "maxUses", "updatedAt") VALUES ('dc1', 'TEST10', 'PERCENT', 10, 1, now());
-          INSERT INTO "Review" (id, name, rating, body, "updatedAt") VALUES ('r1', 'Shown', 5, 'Great', now());
+          INSERT INTO "Review" (id, name, rating, body, products, reply, "updatedAt") VALUES ('r1', 'Shown', 5, 'Great', 'Roll A, Roll B', 'Thank you!', now());
           INSERT INTO "Review" (id, name, rating, body, visible, "updatedAt") VALUES ('r2', 'Hidden', 3, 'Meh', false, now());
           SQL
           second=$(curl -s http://localhost:3000/api/drops/d1 | jq -r '.pickupSlots[0].times[1].time')
@@ -208,6 +208,8 @@ jobs:
           c=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/discounts); echo "list codes signed out -> $c"; [ "$c" = "401" ] || exit 1
 
           n=$(curl -s http://localhost:3000/api/reviews | jq length); echo "public reviews: $n"; [ "$n" = "1" ] || exit 1
+          reply=$(curl -s http://localhost:3000/api/reviews | jq -r '.[0].reply + " | " + .[0].products')
+          echo "review reply/products: $reply"; [ "$reply" = "Thank you! | Roll A, Roll B" ] || exit 1
 
           a=$(curl -s -X POST http://localhost:3000/api/login/admin-check -H 'Content-Type: application/json' -d '{"email":"Owner@Example.com"}')
           b=$(curl -s -X POST http://localhost:3000/api/login/admin-check -H 'Content-Type: application/json' -d '{"email":"someone@example.com"}')
