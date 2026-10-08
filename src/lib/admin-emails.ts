@@ -1,10 +1,11 @@
 /**
- * Admin accounts are fixed by the server owner in the container settings
- * (ADMIN_EMAIL, comma-separated for several), so nobody else can claim admin
- * through the setup wizard.
+ * Admin accounts are fixed by the server owner in the container settings, so
+ * nobody else can claim admin. ADMIN_EMAIL is the owner (comma-separated for
+ * several); ADMIN_EMAIL_2 is an optional extra admin such as an assistant.
  */
 export function getAdminEmails(): string[] {
-  return (process.env.ADMIN_EMAIL ?? "")
+  return [process.env.ADMIN_EMAIL, process.env.ADMIN_EMAIL_2]
+    .join(",")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);

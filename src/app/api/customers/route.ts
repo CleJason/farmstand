@@ -126,3 +126,54 @@ export async function GET() {
   );
   return NextResponse.json(list);
 }
+
+/**
+ * Delete a customer: removes their account (if any) and their name, email and
+ * phone from past orders. The orders themselves stay, so sales totals and
+ * stock history are unchanged. ?key= is the customer's key from GET.
+ */
+export async function DELETE(req: Request) {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const key = new URL(req.url).searchParams.get("key") ?? "";
+  const [kind, ...rest] = key.split(":");
+  const value = rest.join(":");
+  if (!value) return NextResponse.json({ error: "Missing customer" }, { status: 400 });
+
+  const anonymize = { guestEmail: null, guestPhone: null, notes: null };
+
+  if (kind === "user") {
+    const user = await prisma.user.findUnique({ where: { id: value } });
+    if (!user) return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    if (user.role === "ADMIN") {
+      return NextResponse.json({ error: "Admins can't be deleted here" }, { status: 400 });
+    }
+    await prisma.$transaction([
+      prisma.order.updateMany({
+        where: { OR: [{ userId: user.id }, { guestEmail: { equals: user.email, mode: "insensitive" } }] },
+        data: { ...anonymize, userId: null },
+      }),
+      prisma.user.delete({ where: { id: user.id } }), // sessions/accounts cascade
+    ]);
+  } else if (kind === "email") {
+    await prisma.order.updateMany({
+      where: { userId: null, guestEmail: { equals: value, mode: "insensitive" } },
+      data: anonymize,
+    });
+  } else if (kind === "phone") {
+    // Phones were grouped by digits only, so match on that
+    const orders = await prisma.order.findMany({
+      where: { userId: null, guestEmail: null, guestPhone: { not: null } },
+      select: { id: true, guestPhone: true },
+    });
+    const ids = orders.filter((o) => o.guestPhone?.replace(/[^\d+]/g, "") === value).map((o) => o.id);
+    await prisma.order.updateMany({ where: { id: { in: ids } }, data: anonymize });
+  } else {
+    return NextResponse.json({ error: "Invalid customer" }, { status: 400 });
+  }
+
+  return NextResponse.json({ ok: true });
+}

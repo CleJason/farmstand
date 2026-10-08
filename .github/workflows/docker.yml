@@ -144,8 +144,9 @@ jobs:
           INSERT INTO "Product" (id, name, price, "updatedAt") VALUES ('p1', 'Test Item', 500, now());
           INSERT INTO "Drop" (id, title, "orderOpenAt", "orderCloseAt", status, "updatedAt")
             VALUES ('d1', 'Test Drop', now() - interval '1 day', now() + interval '1 day', 'OPEN', now());
-          INSERT INTO "PickupSlot" (id, "dropId", label, "pickupDate", "endDate", location, "intervalMinutes", "maxPerTime")
-            VALUES ('s1', 'd1', 'Test window', '$start', '$end', 'Test St', 30, 1);
+          INSERT INTO "PickupSlot" (id, "dropId", label, "pickupDate", "endDate", location, address, "intervalMinutes", "maxPerTime")
+            VALUES ('s1', 'd1', 'Test window', '$start', '$end', 'Testville, OH', 'SECRET-SLOT-ADDRESS', 30, 1);
+          INSERT INTO "Setting" (key, value, "updatedAt") VALUES ('SITE_PICKUP_INFO', 'SECRET-SITE-ADDRESS', now());
           INSERT INTO "DropProduct" (id, "dropId", "productId", "quantityLimit") VALUES ('dp1', 'd1', 'p1', 10);
           SQL
 
@@ -161,12 +162,27 @@ jobs:
               -d "{\"type\":\"DROP\",\"dropId\":\"d1\",\"pickupSlotId\":\"s1\",\"pickupTime\":\"$1\",\"paymentMethod\":\"VENMO\",\"guestEmail\":\"c@example.com\",\"items\":[{\"dropProductId\":\"dp1\",\"quantity\":1}]}"
           }
           c=$(order "$first"); echo "order at first time -> $c $(cat /tmp/order.json)"; [ "$c" = "200" ] || exit 1
+          cp /tmp/order.json /tmp/order1.json
           full=$(curl -s http://localhost:3000/api/drops/d1 | jq -r '.pickupSlots[0].times[0].full')
           echo "first time full now: $full"; [ "$full" = "true" ] || exit 1
           c=$(order "$first"); echo "second order same time -> $c $(cat /tmp/order.json)"; [ "$c" = "400" ] || exit 1
           c=$(order "2000-01-01T00:00:00.000Z"); echo "order at bogus time -> $c $(cat /tmp/order.json)"; [ "$c" = "400" ] || exit 1
           sold=$(psql "$PGURL" -tAc 'SELECT "quantitySold" FROM "DropProduct" WHERE id = '"'"'dp1'"'"'')
           echo "quantitySold: $sold"; [ "$sold" = "1" ] || exit 1
+
+          # Exact pickup address stays private until the order is paid
+          for url in /api/drops/d1 /api/drops /api/settings/site /drops/d1 /farmstand; do
+            if curl -sL "http://localhost:3000$url" | grep -q 'SECRET-'; then echo "Address leaked at $url"; exit 1; fi
+          done
+          echo "address hidden from public pages and APIs"
+          oid=$(jq -r .orderId /tmp/order1.json)
+          p=$(curl -s "http://localhost:3000/api/orders/$oid/pickup"); echo "pickup before paid: $p"
+          echo "$p" | grep -q '"paid":false' || exit 1
+          psql "$PGURL" -c "UPDATE \"Order\" SET status = 'PAID' WHERE id = '$oid'"
+          p=$(curl -s "http://localhost:3000/api/orders/$oid/pickup"); echo "pickup after paid: $p"
+          echo "$p" | grep -q 'SECRET-SLOT-ADDRESS' || exit 1
+          c=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:3000/api/orders/$oid")
+          echo "GET full order while signed out -> $c"; [ "$c" = "401" ] || exit 1
 
       - name: Container logs
         if: always()

@@ -38,7 +38,17 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
   {
     title: "Pickup & contact",
     fields: [
-      { key: "SITE_PICKUP_INFO", label: "Pickup address & instructions", multiline: true },
+      {
+        key: "SITE_PICKUP_AREA",
+        label: "Pickup area (shown to everyone)",
+        hint: "Just the city and state, e.g. Springfield, Ohio.",
+      },
+      {
+        key: "SITE_PICKUP_INFO",
+        label: "Exact pickup address & instructions (private)",
+        multiline: true,
+        hint: "Only shown to customers after they've paid, and included in their confirmation. A drop's pickup day can have its own address instead.",
+      },
       { key: "SITE_CONTACT_EMAIL", label: "Contact email" },
       { key: "SITE_CONTACT_PHONE", label: "Contact phone" },
     ],

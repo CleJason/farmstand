@@ -9,7 +9,8 @@ export const SITE_DEFAULTS = {
   SITE_DROPS_BLURB: "Pre-order during the ordering window, then pick up at your chosen time.",
   SITE_FARMSTAND_HEADING: "Farmstand",
   SITE_FARMSTAND_BLURB: "Grabbed something from the stand? Pick what you took and pay right here.",
-  SITE_PICKUP_INFO: "",
+  SITE_PICKUP_AREA: "", // public, e.g. "Springfield, Ohio"
+  SITE_PICKUP_INFO: "", // exact address & instructions — only sent to paid customers
   SITE_CONTACT_EMAIL: "",
   SITE_CONTACT_PHONE: "",
   SITE_INSTAGRAM: "",
@@ -36,6 +37,16 @@ export const TOGGLE_KEYS: SiteKey[] = [
 ];
 
 export const isOn = (v: string) => v === "true";
+
+/** Settings that must never reach the browser for non-admins. */
+export const PRIVATE_SITE_KEYS: SiteKey[] = ["SITE_PICKUP_INFO"];
+
+/** Site settings safe to send to any visitor (private fields blanked). */
+export function publicSite(site: SiteSettings): SiteSettings {
+  const copy = { ...site };
+  for (const k of PRIVATE_SITE_KEYS) copy[k] = "";
+  return copy;
+}
 
 export function isHexColor(v: string) {
   return /^#[0-9a-fA-F]{6}$/.test(v);

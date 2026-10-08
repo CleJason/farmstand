@@ -10,6 +10,7 @@ interface PickupSlot {
   pickupDate: string;
   endDate: string | null;
   location: string | null;
+  address: string | null;
   intervalMinutes: number;
   maxPerTime: number | null;
 }
@@ -47,7 +48,8 @@ type WindowForm = {
   date: string; // yyyy-mm-dd
   start: string; // HH:MM
   end: string; // HH:MM
-  location: string;
+  location: string; // public area
+  address: string; // private, sent after payment
   interval: string;
   maxPerTime: string;
 };
@@ -83,6 +85,7 @@ const emptyWindow = (): WindowForm => ({
   start: "16:00",
   end: "18:00",
   location: "",
+  address: "",
   interval: "30",
   maxPerTime: "",
 });
@@ -152,6 +155,7 @@ export default function AdminDropsPage() {
           start: toTimeInput(start),
           end: s.endDate ? toTimeInput(new Date(s.endDate)) : toTimeInput(start),
           location: s.location ?? "",
+          address: s.address ?? "",
           interval: String(s.intervalMinutes || 30),
           maxPerTime: s.maxPerTime ? String(s.maxPerTime) : "",
         };
@@ -193,6 +197,7 @@ export default function AdminDropsPage() {
           pickupDate: at(w.date, w.start).toISOString(),
           endDate: end ? end.toISOString() : null,
           location: w.location,
+          address: w.address,
           intervalMinutes: Number(w.interval) || 30,
           maxPerTime: w.maxPerTime ? Number(w.maxPerTime) : null,
         };
@@ -449,14 +454,25 @@ export default function AdminDropsPage() {
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <label className="block">
-                          <span className="block text-[11px] text-stone-500 mb-0.5">Location</span>
-                          <input value={w.location} onChange={(e) => setWindow(idx, { location: e.target.value })} placeholder="e.g. 123 Main St" className={inputClass} />
+                          <span className="block text-[11px] text-stone-500 mb-0.5">Area (shown to everyone)</span>
+                          <input value={w.location} onChange={(e) => setWindow(idx, { location: e.target.value })} placeholder="e.g. Springfield, Ohio" className={inputClass} />
                         </label>
                         <label className="block">
                           <span className="block text-[11px] text-stone-500 mb-0.5">Max pickups per time</span>
                           <input type="number" min="1" value={w.maxPerTime} onChange={(e) => setWindow(idx, { maxPerTime: e.target.value })} placeholder="No limit" className={inputClass} />
                         </label>
                       </div>
+                      <label className="block">
+                        <span className="block text-[11px] text-stone-500 mb-0.5">
+                          Exact address (private — only sent to customers after they pay)
+                        </span>
+                        <input
+                          value={w.address}
+                          onChange={(e) => setWindow(idx, { address: e.target.value })}
+                          placeholder="Leave blank to use the address in Site settings"
+                          className={inputClass}
+                        />
+                      </label>
                       <div className="flex items-center justify-between text-[11px] text-stone-500">
                         <span>{w.date && w.start ? `${windowLabel(w)} · ${count} ${count === 1 ? "time" : "times"}` : "Pick a day"}</span>
                         {windows.length > 1 && (

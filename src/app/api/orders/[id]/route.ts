@@ -3,12 +3,20 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { fireNotification } from "@/lib/notifications";
 import { adjustStock, countsStock } from "@/lib/stock";
-import { formatPickup } from "@/lib/pickup";
+import { formatPickup, pickupAddressFor } from "@/lib/pickup";
+import { getSiteSettings } from "@/lib/site";
 
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Full order details (customer info, pickup address) are admin-only;
+  // customers get their pickup address from /api/orders/[id]/pickup once paid
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { id } = await params;
   const order = await prisma.order.findUnique({
     where: { id },
@@ -82,6 +90,8 @@ export async function PUT(
       pickupSlot: order.pickupSlot?.label,
       pickupTime: formatPickup(order.pickupTime),
       pickupLocation: order.pickupSlot?.location ?? null,
+      // Paid now, so the customer gets the exact address
+      pickupAddress: order.type === "DROP" ? pickupAddressFor(order.pickupSlot, await getSiteSettings()) : null,
     });
   } else if (statusChanged && (status === "CANCELLED" || status === "REFUNDED")) {
     await fireNotification("order.cancelled", {

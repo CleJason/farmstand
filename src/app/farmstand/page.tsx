@@ -193,7 +193,7 @@ export default function FarmstandKioskPage() {
             <div className="text-3xl">🛍️</div>
             <p className="text-stone-600 font-semibold">No extras out right now.</p>
             <p className="text-xs text-stone-400 whitespace-pre-line">
-              {site.SITE_PICKUP_INFO || "Check back soon!"}
+              Check back soon!
             </p>
           </div>
         ) : (

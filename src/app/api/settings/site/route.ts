@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { getSiteSettings, isHexColor, SITE_KEYS, TOGGLE_KEYS, type SiteKey } from "@/lib/site";
+import { getSiteSettings, isHexColor, publicSite, SITE_KEYS, TOGGLE_KEYS, type SiteKey } from "@/lib/site";
 
 const MAX_LENGTH = 2000;
 
 export async function GET() {
-  return NextResponse.json(await getSiteSettings());
+  // Private fields (exact pickup address) only go to admins
+  const session = await auth();
+  const site = await getSiteSettings();
+  return NextResponse.json(session?.user?.role === "ADMIN" ? site : publicSite(site));
 }
 
 /** Save any of the site fields. Empty values fall back to the defaults. Admin only. */

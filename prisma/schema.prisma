@@ -115,7 +115,8 @@ model PickupSlot {
   label           String    // e.g. "Fri, Oct 9 · 4:00–6:00 PM"
   pickupDate      DateTime  // window start
   endDate         DateTime? // window end; null = a single pickup time
-  location        String?
+  location        String?   // public area, e.g. "Springfield, Ohio"
+  address         String?   // exact address — only revealed to customers once paid
   intervalMinutes Int       @default(30)
   maxPerTime      Int?      // null = unlimited
   drop            Drop      @relation(fields: [dropId], references: [id], onDelete: Cascade)

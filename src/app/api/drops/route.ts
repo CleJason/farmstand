@@ -2,21 +2,28 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { DropInputError, parseProducts, parseSlots } from "@/lib/drop-input";
+import { hideAddress } from "@/lib/pickup";
 
 export async function GET() {
+  const session = await auth();
+  const isAdmin = session?.user?.role === "ADMIN";
   const drops = await prisma.drop.findMany({
     include: {
-      pickupSlots: true,
+      pickupSlots: { orderBy: { pickupDate: "asc" } },
       dropProducts: {
         include: { product: true },
       },
-      orders: {
+      // Order counts/totals are for the admin dashboard only
+      orders: isAdmin && {
         select: { id: true, total: true, status: true },
       },
     },
     orderBy: { orderOpenAt: "desc" },
   });
-  return NextResponse.json(drops);
+  // Exact pickup addresses only go to paid customers
+  return NextResponse.json(
+    isAdmin ? drops : drops.map((d) => ({ ...d, pickupSlots: d.pickupSlots.map(hideAddress) }))
+  );
 }
 
 export async function POST(req: Request) {

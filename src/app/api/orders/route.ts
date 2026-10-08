@@ -6,7 +6,7 @@ import { fireNotification } from "@/lib/notifications";
 import { getStripe } from "@/lib/stripe";
 import { getSetting } from "@/lib/settings";
 import { adjustStock, countsStock } from "@/lib/stock";
-import { formatPickup, pickupTimeCounts, pickupTimes } from "@/lib/pickup";
+import { formatPickup, hideAddress, isPaidStatus, pickupTimeCounts, pickupTimes } from "@/lib/pickup";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -40,7 +40,14 @@ export async function GET(req: Request) {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(orders);
+  if (session?.user?.role === "ADMIN") return NextResponse.json(orders);
+  // A customer's own orders: exact pickup address only on paid ones
+  return NextResponse.json(
+    orders.map((o) => ({
+      ...o,
+      pickupSlot: o.pickupSlot && !isPaidStatus(o.status) ? hideAddress(o.pickupSlot) : o.pickupSlot,
+    }))
+  );
 }
 
 /** Thrown for problems with the customer's order; becomes a 400 with this message. */

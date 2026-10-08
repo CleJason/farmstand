@@ -72,6 +72,7 @@ export default function DropDetailPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [pickupInfo, setPickupInfo] = useState<{ paid: boolean; address?: string | null } | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -219,9 +220,14 @@ export default function DropDetailPage() {
           <p className="text-[#735D54] text-sm leading-relaxed">
             Thank you! Your order and pickup time have been saved. We&apos;ll have it ready for you.
           </p>
-          {site.SITE_PICKUP_INFO && (
-            <p className="text-[#735D54] text-sm leading-relaxed whitespace-pre-line bg-[#FAF6F0] rounded-xl p-3">
-              {site.SITE_PICKUP_INFO}
+          {pickupInfo?.paid && pickupInfo.address ? (
+            <div className="text-left text-sm bg-[#FAF6F0] rounded-xl p-3 space-y-1">
+              <p className="font-semibold text-[#2D1E18]">Pickup address</p>
+              <p className="text-[#735D54] whitespace-pre-line">{pickupInfo.address}</p>
+            </div>
+          ) : (
+            <p className="text-[#735D54] text-xs leading-relaxed">
+              The exact pickup address will be sent with your confirmation once payment is confirmed.
             </p>
           )}
           <div className="pt-2">
@@ -557,8 +563,21 @@ export default function DropDetailPage() {
           paypalUsername={paymentSettings.paypalUsername}
           venmoUsername={paymentSettings.venmoUsername}
           onSuccess={() => {
+            const orderId = activeOrder.orderId;
             setCompleted(true);
             setActiveOrder(null);
+            // Card payments are confirmed by Stripe a moment later; ask twice
+            const fetchPickup = () =>
+              fetch(`/api/orders/${orderId}/pickup`)
+                .then((r) => r.json())
+                .then((info) => {
+                  setPickupInfo(info);
+                  return info;
+                })
+                .catch(() => null);
+            fetchPickup().then((info) => {
+              if (!info?.paid) setTimeout(fetchPickup, 4000);
+            });
           }}
           onClose={() => setActiveOrder(null)}
         />

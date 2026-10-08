@@ -8,6 +8,7 @@ export type SlotInput = {
   pickupDate: Date;
   endDate: Date | null;
   location: string | null;
+  address: string | null;
   intervalMinutes: number;
   maxPerTime: number | null;
 };
@@ -45,6 +46,7 @@ export function parseSlots(raw: unknown): SlotInput[] {
       pickupDate,
       endDate,
       location: String(s?.location || "").trim() || null,
+      address: String(s?.address || "").trim() || null,
       intervalMinutes,
       maxPerTime: optionalInt(s?.maxPerTime, 1),
     };

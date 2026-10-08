@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
 import { Geist } from "next/font/google";
 import { getSetting } from "@/lib/settings";
-import { getSiteSettings, isHexColor, isOn } from "@/lib/site";
+import { getSiteSettings, isHexColor, isOn, publicSite } from "@/lib/site";
 import { SiteProvider } from "@/components/SiteProvider";
 import { auth } from "@/lib/auth";
 import "./globals.css";
@@ -50,7 +50,7 @@ export default async function RootLayout({
   return (
     <html lang="en" style={{ "--brand": brandColor(site.SITE_BRAND_COLOR) } as React.CSSProperties}>
       <body className={`${geistSans.variable} font-sans antialiased`}>
-        <SiteProvider site={site} viewer={viewer}>
+        <SiteProvider site={publicSite(site)} viewer={viewer}>
           {children}
         </SiteProvider>
       </body>

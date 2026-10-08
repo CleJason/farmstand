@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { fireNotification } from "@/lib/notifications";
 import { getSetting } from "@/lib/settings";
 import { adjustStock, countsStock } from "@/lib/stock";
-import { formatPickup } from "@/lib/pickup";
+import { formatPickup, pickupAddressFor } from "@/lib/pickup";
+import { getSiteSettings } from "@/lib/site";
 
 export async function POST(req: Request) {
   const stripe = await getStripe();
@@ -70,6 +71,8 @@ export async function POST(req: Request) {
           pickupSlot: order.pickupSlot?.label,
           pickupTime: formatPickup(order.pickupTime),
           pickupLocation: order.pickupSlot?.location ?? null,
+          // Paid, so the customer gets the exact address
+          pickupAddress: order.type === "DROP" ? pickupAddressFor(order.pickupSlot, await getSiteSettings()) : null,
         }
       );
     }

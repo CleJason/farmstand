@@ -3,6 +3,24 @@ import type { PickupSlot, Prisma } from "@prisma/client";
 /** Orders in these statuses take up a pickup time (same rule as stock). */
 export const PICKUP_COUNTED_STATUSES = ["AWAITING_CONFIRM", "PAID", "READY", "PICKED_UP"];
 
+/** Paid orders are the only ones that get the exact pickup address. */
+export function isPaidStatus(status: string) {
+  return status === "PAID" || status === "READY" || status === "PICKED_UP";
+}
+
+/** Exact address for a pickup: the window's own address, else the shop-wide one. */
+export function pickupAddressFor(
+  slot: Pick<PickupSlot, "address"> | null | undefined,
+  site: { SITE_PICKUP_INFO: string }
+): string | null {
+  return slot?.address || site.SITE_PICKUP_INFO || null;
+}
+
+/** Remove the private address from a pickup window before it goes to a non-admin. */
+export function hideAddress<T extends { address?: string | null }>(slot: T): T {
+  return { ...slot, address: null };
+}
+
 type Window = Pick<PickupSlot, "pickupDate" | "endDate" | "intervalMinutes">;
 
 /** The times a customer can pick in a window: start, start+interval, … up to and including the end. */

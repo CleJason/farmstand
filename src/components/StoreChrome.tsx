@@ -120,9 +120,9 @@ export function StoreFooter() {
           <p className="text-xs text-stone-400 mt-0.5">{site.SITE_TAGLINE}</p>
         </div>
 
-        {(site.SITE_PICKUP_INFO || site.SITE_CONTACT_EMAIL || site.SITE_CONTACT_PHONE) && (
+        {(site.SITE_PICKUP_AREA || site.SITE_CONTACT_EMAIL || site.SITE_CONTACT_PHONE) && (
           <div className="text-xs text-stone-500 space-y-1">
-            {site.SITE_PICKUP_INFO && <p className="whitespace-pre-line">{site.SITE_PICKUP_INFO}</p>}
+            {site.SITE_PICKUP_AREA && <p>📍 {site.SITE_PICKUP_AREA}</p>}
             {site.SITE_CONTACT_EMAIL && (
               <p>
                 <a href={`mailto:${site.SITE_CONTACT_EMAIL}`} className="hover:text-stone-800">

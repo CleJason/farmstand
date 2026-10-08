@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { DropInputError, parseProducts, parseSlots } from "@/lib/drop-input";
-import { pickupTimeCounts, timesWithAvailability } from "@/lib/pickup";
+import { hideAddress, pickupTimeCounts, timesWithAvailability } from "@/lib/pickup";
 
 export async function GET(
   _req: Request,
@@ -40,7 +40,10 @@ export async function GET(
 
   // Each window's selectable times, marking any that are already full
   const counts = await pickupTimeCounts(prisma, drop.pickupSlots.map((s) => s.id));
-  const pickupSlots = drop.pickupSlots.map((s) => ({ ...s, times: timesWithAvailability(s, counts) }));
+  const pickupSlots = drop.pickupSlots.map((s) => ({
+    ...(isAdmin ? s : hideAddress(s)), // exact address only goes to paid customers
+    times: timesWithAvailability(s, counts),
+  }));
 
   return NextResponse.json({ ...drop, pickupSlots });
 }

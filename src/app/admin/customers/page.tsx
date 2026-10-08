@@ -37,13 +37,36 @@ export default function AdminCustomersPage() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Customer | null>(null);
 
-  useEffect(() => {
+  const load = () =>
     fetch("/api/customers")
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setCustomers(Array.isArray(data) ? data : []))
       .catch(() => setCustomers([]))
       .finally(() => setLoading(false));
+
+  useEffect(() => {
+    load();
   }, []);
+
+  const deleteCustomer = async (c: Customer) => {
+    const who = c.name || c.email || c.phone || "this customer";
+    if (
+      !confirm(
+        `Delete ${who}?\n\nTheir account (if any) and their name, email and phone are removed. ` +
+          `Their past orders stay in your sales records without contact info. This can't be undone.`
+      )
+    ) {
+      return;
+    }
+    const res = await fetch(`/api/customers?key=${encodeURIComponent(c.key)}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Couldn't delete customer");
+      return;
+    }
+    setSelected(null);
+    load();
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -206,12 +229,20 @@ export default function AdminCustomersPage() {
               )}
             </div>
 
-            <button
-              onClick={() => setSelected(null)}
-              className="w-full border border-stone-300 text-stone-700 font-semibold text-sm px-4 py-2 rounded-lg"
-            >
-              Close
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => deleteCustomer(selected)}
+                className="border border-red-200 text-red-600 hover:bg-red-50 font-semibold text-sm px-4 py-2 rounded-lg"
+              >
+                Delete customer
+              </button>
+              <button
+                onClick={() => setSelected(null)}
+                className="flex-1 border border-stone-300 text-stone-700 font-semibold text-sm px-4 py-2 rounded-lg"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
