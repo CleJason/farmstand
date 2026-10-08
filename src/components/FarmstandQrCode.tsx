@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
+import { useSite } from "@/components/SiteProvider";
 
 /** Printable QR code pointing customers at the walk-up farmstand page. */
 export default function FarmstandQrCode() {
+  const site = useSite();
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [dataUrl, setDataUrl] = useState<string | null>(null);
@@ -42,13 +44,13 @@ export default function FarmstandQrCode() {
             className="bg-white rounded-2xl p-6 max-w-sm w-full text-center space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-bold text-stone-900">Farmstand QR Code</h2>
+            <h2 className="text-lg font-bold text-stone-900">{site.SITE_FARMSTAND_HEADING} QR Code</h2>
             <p className="text-xs text-stone-500">
               Print this and post it at the stand. Scanning opens the walk-up shop.
             </p>
             {dataUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={dataUrl} alt="Farmstand QR code" className="w-full aspect-square" />
+              <img src={dataUrl} alt={`${site.SITE_FARMSTAND_HEADING} QR code`} className="w-full aspect-square" />
             ) : (
               <div className="w-full aspect-square flex items-center justify-center">
                 <div className="w-5 h-5 border-2 border-stone-300 border-t-amber-600 rounded-full animate-spin" />

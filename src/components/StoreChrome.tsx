@@ -66,6 +66,7 @@ const pill =
   "inline-flex items-center gap-1.5 text-sm font-medium text-stone-700 border border-stone-200 bg-white hover:bg-stone-50 rounded-lg px-2.5 sm:px-3 py-1.5 transition-colors";
 
 export function StoreHeader() {
+  const site = useSite();
   return (
     <nav className="border-b border-stone-100 bg-white/80 backdrop-blur-sm sticky top-0 z-30">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -81,7 +82,7 @@ export function StoreHeader() {
             href="/farmstand"
             className="hidden md:inline text-sm text-stone-500 hover:text-stone-900 font-medium transition-colors"
           >
-            Farmstand
+            {site.SITE_FARMSTAND_HEADING}
           </Link>
           <AccountLinks />
         </div>

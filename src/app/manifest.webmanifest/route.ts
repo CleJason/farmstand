@@ -30,7 +30,7 @@ export async function GET() {
     shortcuts: [
       { name: "Orders", url: "/admin" },
       { name: "Products", url: "/admin/products" },
-      { name: "Farmstand", url: "/admin/farmstand" },
+      { name: site.SITE_FARMSTAND_HEADING, url: "/admin/farmstand" },
     ],
   };
 

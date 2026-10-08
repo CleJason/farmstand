@@ -150,7 +150,7 @@ export default function FarmstandKioskPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAF6F0]">
-        <div className="text-[#8A756C] font-semibold text-sm">Loading Farmstand...</div>
+        <div className="text-[#8A756C] font-semibold text-sm">Loading...</div>
       </div>
     );
   }

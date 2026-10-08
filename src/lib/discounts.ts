@@ -28,7 +28,7 @@ export async function evaluateDiscount(
   }
   if (discount.appliesTo !== "ALL" && discount.appliesTo !== orderType) {
     throw new DiscountError(
-      discount.appliesTo === "DROP" ? "That code only works on pre-orders" : "That code only works at the farmstand"
+      discount.appliesTo === "DROP" ? "That code only works on pre-orders" : "That code doesn't work on pre-orders"
     );
   }
   if (discount.minSubtotal !== null && subtotal < discount.minSubtotal) {

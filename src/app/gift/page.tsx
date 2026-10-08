@@ -105,7 +105,7 @@ export default function GiftCardPage() {
           <div className="text-4xl">🎁</div>
           <h1 className="text-3xl font-bold text-stone-900 tracking-tight mt-2">Gift Cards</h1>
           <p className="text-sm text-stone-500 mt-2">
-            Give someone a treat from {site.SITE_NAME}. They can use it on pre-orders or at the farmstand.
+            Give someone a treat from {site.SITE_NAME}. They can use it on pre-orders or at {site.SITE_FARMSTAND_HEADING}.
           </p>
         </div>
 

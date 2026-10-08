@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatPrice } from "@/lib/utils";
+import { useSite } from "@/components/SiteProvider";
 
 interface DiscountCode {
   id: string;
@@ -32,9 +33,14 @@ const inputClass =
   "w-full text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500";
 
 const describe = (d: DiscountCode) => (d.type === "PERCENT" ? `${d.value}% off` : `${formatPrice(d.value)} off`);
-const appliesLabel = { ALL: "Everything", DROP: "Pre-orders only", FARMSTAND: "Farmstand only" };
 
 export default function AdminDiscountsPage() {
+  const site = useSite();
+  const appliesLabel = {
+    ALL: "Everything",
+    DROP: "Pre-orders only",
+    FARMSTAND: `${site.SITE_FARMSTAND_HEADING} only`,
+  };
   const [codes, setCodes] = useState<DiscountCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -218,7 +224,7 @@ export default function AdminDiscountsPage() {
                 <select value={form.appliesTo} onChange={(e) => set({ appliesTo: e.target.value as Form["appliesTo"] })} className={inputClass}>
                   <option value="ALL">Everything</option>
                   <option value="DROP">Pre-orders (drops) only</option>
-                  <option value="FARMSTAND">Farmstand only</option>
+                  <option value="FARMSTAND">{site.SITE_FARMSTAND_HEADING} only</option>
                 </select>
               </label>
               <div className="grid grid-cols-3 gap-3">

@@ -14,6 +14,7 @@ import {
   siYoutube,
   type SimpleIcon,
 } from "simple-icons";
+import { useState } from "react";
 import { Globe, Mail, Phone } from "lucide-react";
 import { useSite } from "@/components/SiteProvider";
 import type { SiteKey } from "@/lib/site-defaults";
@@ -41,6 +42,46 @@ function profileUrl(value: string, base: string) {
   if (/^https?:\/\//i.test(v)) return v;
   if (v.includes("/")) return `https://${v}`;
   return base + v.replace(/^@/, "");
+}
+
+/**
+ * mailto: links do nothing when the visitor has no email app set up (common
+ * with webmail), so show the address with Copy and "Open email app" instead.
+ */
+function EmailButton({ email }: { email: string }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      window.prompt("Copy this email address:", email);
+    }
+  };
+
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-label="Email" title={email} aria-expanded={open} className={circle}>
+        <Mail size={18} />
+      </button>
+      {open && (
+        <div className="absolute z-20 top-12 left-1/2 -translate-x-1/2 w-64 bg-white border border-stone-200 rounded-xl shadow-lg p-3 space-y-2 text-left">
+          <p className="text-sm font-medium text-stone-900 break-all">{email}</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={copy} className="flex-1 text-xs font-semibold border border-stone-200 rounded-lg py-1.5 hover:bg-stone-50">
+              {copied ? "Copied!" : "Copy"}
+            </button>
+            <a href={`mailto:${email}`} className="flex-1 text-center text-xs font-semibold bg-amber-600 text-white rounded-lg py-1.5 hover:bg-amber-700">
+              Open email app
+            </a>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 const circle =
@@ -77,11 +118,7 @@ export default function SocialLinks({ className = "" }: { className?: string }) 
           <Globe size={18} />
         </a>
       )}
-      {email && (
-        <a href={`mailto:${email}`} aria-label="Email" title={email} className={circle}>
-          <Mail size={18} />
-        </a>
-      )}
+      {email && <EmailButton email={email} />}
       {phone && (
         <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} aria-label="Call" title={phone} className={circle}>
           <Phone size={18} />

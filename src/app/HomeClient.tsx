@@ -124,14 +124,14 @@ export default function HomeClient() {
               No active drops right now
             </h3>
             <p className="text-stone-500 text-sm mt-2 max-w-sm mx-auto">
-              The next drop will be posted soon. Check the farmstand for
+              The next drop will be posted soon. Check {site.SITE_FARMSTAND_HEADING} for
               what&apos;s available now!
             </p>
             <Link
               href="/farmstand"
               className="inline-block mt-6 bg-amber-600 hover:bg-amber-700 text-white font-semibold px-5 py-2 rounded-full text-sm transition-colors"
             >
-              Visit Farmstand →
+              Visit {site.SITE_FARMSTAND_HEADING} →
             </Link>
           </div>
         ) : (

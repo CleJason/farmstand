@@ -29,9 +29,13 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
     ],
   },
   {
-    title: "Farmstand page",
+    title: "Walk-up / QR page",
     fields: [
-      { key: "SITE_FARMSTAND_HEADING", label: "Heading" },
+      {
+        key: "SITE_FARMSTAND_HEADING",
+        label: "Name",
+        hint: "What you call it, e.g. Farmstand or Porch Pickup. Used everywhere: menus, buttons, admin, QR code and discounts.",
+      },
       { key: "SITE_FARMSTAND_BLURB", label: "Description", multiline: true },
     ],
   },

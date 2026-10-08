@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
+import { useSite } from "@/components/SiteProvider";
 import type { Customer } from "@/app/api/customers/route";
 
 const shortDate = (iso: string | null) =>
@@ -32,6 +33,7 @@ function toCsv(rows: Customer[]): string {
 }
 
 export default function AdminCustomersPage() {
+  const site = useSite();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -215,7 +217,7 @@ export default function AdminCustomersPage() {
                         <span>
                           <span className="font-mono text-stone-900">#{o.id.slice(-6)}</span>{" "}
                           <span className="text-stone-500">
-                            · {shortDate(o.createdAt)} · {o.type === "FARMSTAND" ? "Farmstand" : o.type === "GIFT" ? "Gift card" : "Drop"}
+                            · {shortDate(o.createdAt)} · {o.type === "FARMSTAND" ? site.SITE_FARMSTAND_HEADING : o.type === "GIFT" ? "Gift card" : "Drop"}
                           </span>
                         </span>
                         <span className="text-right whitespace-nowrap">

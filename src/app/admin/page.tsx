@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatPrice } from "@/lib/utils";
+import { useSite } from "@/components/SiteProvider";
 
 interface Order {
   id: string;
@@ -42,6 +43,7 @@ const statusConfig: Record<string, { label: string; classes: string }> = {
 };
 
 export default function AdminDashboardPage() {
+  const site = useSite();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>("ALL");
@@ -112,7 +114,7 @@ export default function AdminDashboardPage() {
       <div>
         <h1 className="text-xl font-bold text-stone-900">Orders</h1>
         <p className="text-sm text-stone-500 mt-0.5">
-          Manage pre-orders and farmstand purchases.
+          Pre-orders, {site.SITE_FARMSTAND_HEADING} purchases and gift cards.
         </p>
       </div>
 
@@ -168,7 +170,7 @@ export default function AdminDashboardPage() {
         {[
           { key: "ALL", label: "All" },
           { key: "DROP", label: "Drops" },
-          { key: "FARMSTAND", label: "Farmstand" },
+          { key: "FARMSTAND", label: site.SITE_FARMSTAND_HEADING },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -226,7 +228,11 @@ export default function AdminDashboardPage() {
                           : "bg-blue-50 text-blue-600"
                       }`}
                     >
-                      {order.type === "FARMSTAND" ? "Farmstand" : order.type === "GIFT" ? "🎁 Gift card" : "Drop"}
+                      {order.type === "FARMSTAND"
+                        ? site.SITE_FARMSTAND_HEADING
+                        : order.type === "GIFT"
+                        ? "🎁 Gift card"
+                        : "Drop"}
                     </span>
                     <span className="text-[11px] text-stone-400 font-medium">
                       {order.paymentMethod}

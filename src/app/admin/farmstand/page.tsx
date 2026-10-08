@@ -5,6 +5,7 @@ import Image from "next/image";
 import { formatPrice } from "@/lib/utils";
 import ImageUpload from "@/components/ImageUpload";
 import FarmstandQrCode from "@/components/FarmstandQrCode";
+import { useSite } from "@/components/SiteProvider";
 
 interface FarmstandItem {
   id: string;
@@ -18,6 +19,7 @@ interface FarmstandItem {
 }
 
 export default function AdminFarmstandPage() {
+  const site = useSite();
   const [items, setItems] = useState<FarmstandItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -109,7 +111,7 @@ export default function AdminFarmstandPage() {
   };
 
   const deleteItem = async (id: string) => {
-    if (!confirm("Remove this farmstand item?")) return;
+    if (!confirm("Remove this item?")) return;
     try {
       const res = await fetch(`/api/farmstand/${id}`, { method: "DELETE" });
       if (res.ok) loadItems();
@@ -122,9 +124,9 @@ export default function AdminFarmstandPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-stone-900">Farmstand</h1>
+          <h1 className="text-xl font-bold text-stone-900">{site.SITE_FARMSTAND_HEADING}</h1>
           <p className="text-sm text-stone-500 mt-0.5">
-            Manage walk-up farmstand inventory.
+            Walk-up items customers pay for on the spot (QR code page).
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -147,7 +149,7 @@ export default function AdminFarmstandPage() {
         <div className="bg-white rounded-xl p-10 border border-stone-200 text-center">
           <p className="text-stone-500 font-medium">No items configured</p>
           <p className="text-xs text-stone-400 mt-1">
-            Add items to display on the farmstand kiosk.
+            Add items to show on your {site.SITE_FARMSTAND_HEADING} page.
           </p>
         </div>
       ) : (
@@ -297,7 +299,7 @@ export default function AdminFarmstandPage() {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
             <h2 className="text-lg font-bold text-stone-900 mb-4">
-              {editingId ? "Edit Farmstand Item" : "Add Farmstand Item"}
+              {editingId ? "Edit Item" : `Add ${site.SITE_FARMSTAND_HEADING} Item`}
             </h2>
             <form onSubmit={handleSave} className="space-y-4">
               <ImageUpload
