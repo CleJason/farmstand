@@ -23,7 +23,8 @@ export async function PUT(req: Request) {
   const updates: { key: string; value: string }[] = [];
   for (const key of SITE_KEYS) {
     if (typeof body[key] !== "string") continue;
-    const value = body[key].trim().slice(0, MAX_LENGTH);
+    const max = key === "SITE_PRIVACY" || key === "SITE_TERMS" ? 20000 : MAX_LENGTH;
+    const value = body[key].trim().slice(0, max);
     updates.push({ key, value });
   }
 

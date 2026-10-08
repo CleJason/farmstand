@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import CheckoutModal from "@/components/CheckoutModal";
 import { StoreHeader } from "@/components/StoreChrome";
+import LegalFooter from "@/components/LegalFooter";
 import { useSite } from "@/components/SiteProvider";
 import { formatPrice } from "@/lib/utils";
 
@@ -188,6 +189,10 @@ export default function GiftCardPage() {
           )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
+          <p className="text-[11px] text-stone-400 text-center">
+            By buying you agree to our <Link href="/terms" className="underline">Terms</Link> and{" "}
+            <Link href="/privacy" className="underline">Privacy Policy</Link>.
+          </p>
           <button
             type="submit"
             disabled={submitting || !finalAmount}
@@ -197,6 +202,7 @@ export default function GiftCardPage() {
           </button>
         </form>
       </main>
+      <LegalFooter />
 
       {activeOrder && payments && (
         <CheckoutModal

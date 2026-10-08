@@ -4,11 +4,20 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ImageUpload from "@/components/ImageUpload";
 import { SITE_DEFAULTS, isHexColor, isOn, type SiteKey, type SiteSettings } from "@/lib/site-defaults";
+import { defaultPrivacy, defaultTerms } from "@/lib/legal";
 
 const inputClass =
   "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500";
 
-type FieldDef = { key: SiteKey; label: string; multiline?: boolean; hint?: string };
+type FieldDef = {
+  key: SiteKey;
+  label: string;
+  multiline?: boolean;
+  rows?: number;
+  hint?: string;
+  /** Built-in starter text, insertable with a button when the field is empty */
+  starter?: (site: SiteSettings) => string;
+};
 
 const GROUPS: { title: string; fields: FieldDef[] }[] = [
   {
@@ -55,6 +64,27 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
       },
       { key: "SITE_CONTACT_EMAIL", label: "Contact email", hint: "Shown as an email icon on the home page." },
       { key: "SITE_CONTACT_PHONE", label: "Contact phone", hint: "Shown as a phone icon on the home page." },
+    ],
+  },
+  {
+    title: "Legal pages (linked at the bottom of every page)",
+    fields: [
+      {
+        key: "SITE_PRIVACY",
+        label: "Privacy Policy",
+        multiline: true,
+        rows: 10,
+        starter: defaultPrivacy,
+        hint: "Leave empty to use the built-in starter, filled in with your business name and contact info. Use “## ” for headings and “- ” for bullet points. Not legal advice; adjust it to fit your business.",
+      },
+      {
+        key: "SITE_TERMS",
+        label: "Terms",
+        multiline: true,
+        rows: 10,
+        starter: defaultTerms,
+        hint: "Leave empty to use the built-in starter. Same formatting as above.",
+      },
     ],
   },
   {
@@ -191,13 +221,24 @@ export default function SiteSettingsForm() {
             <label key={f.key} className="block">
               <span className="block text-xs font-medium text-stone-700 mb-1">{f.label}</span>
               {f.multiline ? (
-                <textarea
-                  rows={3}
-                  value={values[f.key]}
-                  onChange={(e) => set(f.key, e.target.value)}
-                  placeholder={SITE_DEFAULTS[f.key]}
-                  className={inputClass}
-                />
+                <>
+                  <textarea
+                    rows={f.rows ?? 3}
+                    value={values[f.key]}
+                    onChange={(e) => set(f.key, e.target.value)}
+                    placeholder={f.starter ? "Using the built-in starter text" : SITE_DEFAULTS[f.key]}
+                    className={inputClass}
+                  />
+                  {f.starter && !values[f.key] && (
+                    <button
+                      type="button"
+                      onClick={() => set(f.key, f.starter!(values))}
+                      className="mt-1 text-xs font-medium text-amber-700 underline"
+                    >
+                      Copy the starter text here to edit it
+                    </button>
+                  )}
+                </>
               ) : (
                 <input
                   type="text"

@@ -33,6 +33,9 @@ export const SITE_DEFAULTS = {
   SITE_NAME_IN_TAB: "true",
   SITE_NAME_IN_NOTIFICATIONS: "true",
   SITE_BRAND_COLOR: "#D97706",
+  // Legal pages (/privacy, /terms). Empty = the built-in starter text.
+  SITE_PRIVACY: "",
+  SITE_TERMS: "",
 };
 
 export type SiteKey = keyof typeof SITE_DEFAULTS;
@@ -48,8 +51,11 @@ export const TOGGLE_KEYS: SiteKey[] = [
 
 export const isOn = (v: string) => v === "true";
 
-/** Settings that must never reach the browser for non-admins. */
-export const PRIVATE_SITE_KEYS: SiteKey[] = ["SITE_PICKUP_INFO"];
+/**
+ * Settings not sent to the browser with every page: the private pickup
+ * address, and the long legal texts (only /privacy and /terms need them).
+ */
+export const PRIVATE_SITE_KEYS: SiteKey[] = ["SITE_PICKUP_INFO", "SITE_PRIVACY", "SITE_TERMS"];
 
 /** Site settings safe to send to any visitor (private fields blanked). */
 export function publicSite(site: SiteSettings): SiteSettings {

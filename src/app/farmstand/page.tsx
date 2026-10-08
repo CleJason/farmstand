@@ -7,6 +7,8 @@ import CheckoutModal from "@/components/CheckoutModal";
 import { useSite } from "@/components/SiteProvider";
 import DiscountInput, { type AppliedDiscount } from "@/components/DiscountInput";
 import GiftCardInput, { type AppliedGift } from "@/components/GiftCardInput";
+import LegalFooter from "@/components/LegalFooter";
+import Link from "next/link";
 
 interface FarmstandItem {
   id: string;
@@ -287,6 +289,8 @@ export default function FarmstandKioskPage() {
         )}
       </main>
 
+      <LegalFooter />
+
       {/* Floating Bottom Drawer */}
       {totalItemsCount > 0 && (
         <div className="fixed bottom-0 inset-x-0 bg-white border-t border-stone-200 p-4 shadow-xl z-40 max-w-xl mx-auto rounded-t-2xl">
@@ -354,6 +358,13 @@ export default function FarmstandKioskPage() {
 
             <DiscountInput type="FARMSTAND" subtotal={cartTotal} onChange={setDiscount} />
             <GiftCardInput amountDue={cartTotal - (discount?.discount ?? 0)} onChange={setGift} />
+
+            <p className="text-[10px] text-stone-400 leading-snug">
+              Adding a phone means you agree to a text receipt (msg &amp; data rates may apply; reply STOP to opt out).
+              By paying you agree to our{" "}
+              <Link href="/terms" className="underline">Terms</Link> and{" "}
+              <Link href="/privacy" className="underline">Privacy Policy</Link>.
+            </p>
 
             {/* Action Button */}
             <button

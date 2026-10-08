@@ -9,6 +9,7 @@ import CheckoutModal from "@/components/CheckoutModal";
 import { useSite } from "@/components/SiteProvider";
 import DiscountInput, { type AppliedDiscount } from "@/components/DiscountInput";
 import GiftCardInput, { type AppliedGift } from "@/components/GiftCardInput";
+import LegalFooter from "@/components/LegalFooter";
 
 interface DropDetails {
   id: string;
@@ -481,6 +482,10 @@ export default function DropDetailPage() {
                   onChange={(e) => setGuestPhone(e.target.value)}
                   className="w-full text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-600"
                 />
+                <p className="text-[11px] text-[#8A756C] mt-1">
+                  If you add a phone number, you agree to get texts about this order. Msg &amp; data rates may apply. Reply
+                  STOP to opt out.
+                </p>
               </div>
             </div>
 
@@ -555,7 +560,14 @@ export default function DropDetailPage() {
             </div>
           </section>
         )}
+        <p className="text-[11px] text-[#8A756C] text-center">
+          By placing an order you agree to our{" "}
+          <Link href="/terms" className="underline">Terms</Link> and{" "}
+          <Link href="/privacy" className="underline">Privacy Policy</Link>.
+        </p>
       </main>
+
+      <LegalFooter />
 
       {/* Floating Checkout Bar */}
       {totalItemsCount > 0 && (

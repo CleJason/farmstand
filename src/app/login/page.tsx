@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { useSite } from "@/components/SiteProvider";
 import { ShopBrand } from "@/components/StoreChrome";
+import LegalFooter from "@/components/LegalFooter";
 
 function LoginForm() {
   const site = useSite();
@@ -133,6 +134,7 @@ export default function LoginPage() {
           <LoginForm />
         </Suspense>
       </div>
+      <LegalFooter />
     </div>
   );
 }

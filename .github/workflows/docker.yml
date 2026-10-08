@@ -170,8 +170,14 @@ jobs:
           sold=$(psql "$PGURL" -tAc 'SELECT "quantitySold" FROM "DropProduct" WHERE id = '"'"'dp1'"'"'')
           echo "quantitySold: $sold"; [ "$sold" = "1" ] || exit 1
 
+          # Legal pages render the starter text
+          for p in privacy terms; do
+            curl -s "http://localhost:3000/$p" | grep -q "Reply STOP\|By placing an order" || { echo "/$p missing starter text"; exit 1; }
+          done
+          echo "legal pages ok"
+
           # Exact pickup address stays private until the order is paid
-          for url in /api/drops/d1 /api/drops /api/settings/site /drops/d1 /farmstand; do
+          for url in /api/drops/d1 /api/drops /api/settings/site /drops/d1 /farmstand /privacy /terms; do
             if curl -sL "http://localhost:3000$url" | grep -q 'SECRET-'; then echo "Address leaked at $url"; exit 1; fi
           done
           echo "address hidden from public pages and APIs"
