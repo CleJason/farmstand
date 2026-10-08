@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<!--
+  Unraid template for the farmstand app.
+  Replace YOUR_GITHUB_USER with the GitHub account that builds the image
+  (the owner of your copy of the repo). Image names must be lowercase.
+-->
+<Container version="2">
+  <Name>farmstand</Name>
+  <Repository>ghcr.io/your_github_user/farmstand:latest</Repository>
+  <Registry>https://github.com/YOUR_GITHUB_USER/farmstand</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/YOUR_GITHUB_USER/farmstand/issues</Support>
+  <Project>https://github.com/YOUR_GITHUB_USER/farmstand</Project>
+  <Overview>Self-hosted online shop for small makers and farm stands: weekly pre-order drops with pickup times, a walk-up QR farmstand page, Stripe / Venmo / PayPal payments, customer list, and n8n notifications (email and SMS via SMS Gate). After install, open the Web UI and follow /setup; most settings can then be changed in Admin → Settings.</Overview>
+  <Category>Productivity: Tools:</Category>
+  <WebUI>http://[IP]:[PORT:3000]/</WebUI>
+  <TemplateURL/>
+  <!-- The app serves its own icon. Set this to http://YOUR-SERVER-IP:HOST-PORT/icon.png -->
+  <Icon>http://YOUR-SERVER-IP:3000/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires>A PostgreSQL 16 database (e.g. the postgresql16 app from Community Apps).</Requires>
+
+  <!-- Required -->
+  <Config Name="WebUI Port" Target="3000" Default="3000" Mode="tcp" Description="Port for the web interface." Type="Port" Display="always" Required="true" Mask="false">3000</Config>
+  <Config Name="Database URL" Target="DATABASE_URL" Default="postgresql://farmstand:PASSWORD@SERVER-IP:5432/farmstand?schema=public" Mode="" Description="PostgreSQL connection string. Create a database and user named farmstand in your Postgres container, then fill in its password, IP and port. Use letters and numbers only in the password. Tables are created automatically on first start." Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Auth Secret" Target="AUTH_SECRET" Default="" Mode="" Description="Required. Any long random string (40+ characters), e.g. from: openssl rand -base64 32. Keep it the same between updates or everyone gets signed out." Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Public URL" Target="NEXTAUTH_URL" Default="https://shop.example.com" Mode="" Description="The address people use to reach the site, e.g. your Cloudflare Tunnel domain. While testing at home use http://SERVER-IP:PORT. Used in sign-in links." Type="Variable" Display="always" Required="true" Mask="false">https://shop.example.com</Config>
+  <Config Name="Uploads Storage" Target="/app/public/uploads" Default="/mnt/user/appdata/farmstand/uploads" Mode="rw" Description="Where uploaded product photos, logos and icons are stored." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/farmstand/uploads</Config>
+
+  <!-- Sign-in email (can also be set later in Admin → Settings → Email; those values win) -->
+  <Config Name="SMTP Server" Target="EMAIL_SERVER_HOST" Default="" Mode="" Description="Outgoing mail server for sign-in links, e.g. smtp.gmail.com or smtp.zoho.com. Optional here; you can set it in Admin → Settings → Email instead." Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="SMTP Port" Target="EMAIL_SERVER_PORT" Default="465" Mode="" Description="Usually 465 (SSL) or 587." Type="Variable" Display="always" Required="false" Mask="false">465</Config>
+  <Config Name="SMTP Username" Target="EMAIL_SERVER_USER" Default="" Mode="" Description="Full email address that sends the sign-in links." Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="SMTP App Password" Target="EMAIL_SERVER_PASS" Default="" Mode="" Description="An app password from your email provider (not your normal password)." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="Email From" Target="EMAIL_FROM" Default="" Mode="" Description="Sender shown on emails, e.g. Your Shop &lt;you@example.com&gt;. Defaults to the SMTP username." Type="Variable" Display="always" Required="false" Mask="false"/>
+
+  <!-- Optional: notifications and payments (also editable in Admin → Settings) -->
+  <Config Name="n8n Webhook URL" Target="N8N_WEBHOOK_BASE_URL" Default="" Mode="" Description="Optional. Base URL of your n8n webhooks, e.g. http://SERVER-IP:5678/webhook. n8n sends order emails and texts; SMS goes through SMS Gate, configured inside the sample n8n workflow (n8n/order-notifications-workflow.json), not in this app." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="n8n Webhook Secret" Target="N8N_WEBHOOK_SECRET" Default="" Mode="" Description="Optional shared secret sent to n8n in the x-webhook-secret header." Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="Stripe Secret Key" Target="STRIPE_SECRET_KEY" Default="" Mode="" Description="Optional (card payments). Easier to set in Admin → Settings → Payments." Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="Stripe Publishable Key" Target="NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" Default="" Mode="" Description="Optional (card payments). Easier to set in Admin → Settings → Payments." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Stripe Webhook Secret" Target="STRIPE_WEBHOOK_SECRET" Default="" Mode="" Description="Optional (card payments). Easier to set in Admin → Settings → Payments." Type="Variable" Display="advanced" Required="false" Mask="true"/>
+
+  <!-- Advanced -->
+  <Config Name="Trust Host" Target="AUTH_TRUST_HOST" Default="true" Mode="" Description="Leave true (needed behind Cloudflare Tunnel or a reverse proxy)." Type="Variable" Display="advanced" Required="true" Mask="false">true</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID that owns uploaded files (99 = nobody on Unraid)." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID that owns uploaded files (100 = users on Unraid)." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+</Container>

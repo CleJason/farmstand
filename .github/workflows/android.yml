@@ -1,0 +1,156 @@
+name: Build Android admin app (APK)
+
+# Run manually: Actions → "Build Android admin app (APK)" → Run workflow.
+# Builds an installable APK (no Play Store) that opens https://<domain>/admin
+# full-screen. Fork the repo and run it with your own domain to get your own app.
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: "Your site's public domain, e.g. shop.example.com (must be https)"
+        required: true
+      app_name:
+        description: "App name on the phone (blank = '<Business name> Admin' from your site)"
+        required: false
+      package_id:
+        description: "Android package id (blank = derived from the domain)"
+        required: false
+      publish:
+        description: "Publish as a GitHub release (untick for a test build)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write # attach the APK to a GitHub release
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    env:
+      DOMAIN: ${{ inputs.domain }}
+      APP_NAME: ${{ inputs.app_name }}
+      KEY_ALIAS: farmstand
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Work out package id and version
+        run: |
+          domain=$(echo "$DOMAIN" | sed -E 's#^https?://##; s#/.*$##' | tr 'A-Z' 'a-z')
+          if [ -n "${{ inputs.package_id }}" ]; then
+            pkg="${{ inputs.package_id }}"
+          else
+            # shop.example.com -> com.example.shop.admin (letters/digits only per segment)
+            pkg=$(echo "$domain" | awk -F. '{for(i=NF;i>0;i--) printf "%s%s", $i, (i>1?".":"")}' \
+              | sed -E 's/[^a-z0-9.]//g; s/\.([0-9])/.n\1/g').admin
+          fi
+          echo "PACKAGE_ID=$pkg" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=1.0.${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "Package: $pkg"
+
+      # Same key every build so phones accept updates. Store it once as repo
+      # secrets (see README); without them a new key is made and offered as an
+      # artifact so you can save it.
+      - name: Signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/signing"
+          ks="$RUNNER_TEMP/signing/farmstand.keystore"
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$ks"
+            pass="$KEYSTORE_PASSWORD"
+            echo "NEW_KEY=false" >> "$GITHUB_ENV"
+          else
+            pass=$(openssl rand -hex 24)
+            echo "::add-mask::$pass"
+            keytool -genkeypair -keystore "$ks" -storetype PKCS12 -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 \
+              -validity 10000 -storepass "$pass" -keypass "$pass" -dname "CN=$PACKAGE_ID"
+            echo "$pass" > "$RUNNER_TEMP/signing/keystore-password.txt"
+            base64 -w0 "$ks" > "$RUNNER_TEMP/signing/keystore-base64.txt"
+            echo "NEW_KEY=true" >> "$GITHUB_ENV"
+          fi
+          echo "KS_PASS=$pass" >> "$GITHUB_ENV"
+          echo "KEYSTORE_PATH=$ks" >> "$GITHUB_ENV"
+          fp=$(keytool -list -v -keystore "$ks" -alias "$KEY_ALIAS" -storepass "$pass" \
+            | sed -n 's/.*SHA256: *//p' | head -n 1)
+          echo "CERT_SHA256=$fp" >> "$GITHUB_ENV"
+
+      - name: Serve fallback icon (used if the site isn't reachable yet)
+        run: |
+          (cd public && python3 -m http.server 8765 >/dev/null 2>&1 &)
+          echo "LOCAL_ICON_BASE=http://localhost:8765" >> "$GITHUB_ENV"
+          sleep 1
+
+      - name: Generate Android project
+        run: |
+          mkdir -p "$RUNNER_TEMP/tools" && cd "$RUNNER_TEMP/tools"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund @bubblewrap/core@1.25.0
+          cp "$GITHUB_WORKSPACE/android/generate-twa.mjs" .
+          OUT_DIR="$RUNNER_TEMP/twa" node generate-twa.mjs
+
+      - name: Build and sign APK
+        run: |
+          cd "$RUNNER_TEMP/twa"
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
+          unsigned=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
+          "$bt/zipalign" -f -p 4 "$unsigned" aligned.apk
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          apk="$GITHUB_WORKSPACE/out/${PACKAGE_ID}-${VERSION_NAME}.apk"
+          "$bt/apksigner" sign --ks "$KEYSTORE_PATH" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass "pass:$KS_PASS" --key-pass "pass:$KS_PASS" --out "$apk" aligned.apk
+          "$bt/apksigner" verify "$apk"
+          echo "APK=$apk" >> "$GITHUB_ENV"
+
+      - name: Keep APK as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: ${{ env.APK }}
+          retention-days: 30
+
+      - name: Publish APK as a release
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="android-${VERSION_NAME}"
+          gh release create "$tag" "$APK" \
+            --title "Android admin app ${VERSION_NAME}" \
+            --notes "Admin app for https://${DOMAIN}/admin (package ${PACKAGE_ID}). Download the .apk on your phone and open it to install."
+
+      - name: Save new signing key (only when no key secrets are set)
+        if: env.NEW_KEY == 'true' && inputs.publish
+        uses: actions/upload-artifact@v4
+        with:
+          name: SAVE-THIS-android-signing-key
+          path: ${{ runner.temp }}/signing/
+          retention-days: 7
+
+      - name: Summary
+        run: |
+          {
+            echo "## Android admin app ${VERSION_NAME}"
+            echo "- Package: \`${PACKAGE_ID}\`"
+            echo "- Opens: https://${DOMAIN}/admin"
+            echo "- Signing certificate SHA-256: \`${CERT_SHA256}\`"
+            echo ""
+            echo "In the app: **Admin → Settings → Android app**, enter the package and fingerprint above so the app opens without a browser bar."
+            if [ "$NEW_KEY" = "true" ]; then
+              echo ""
+              echo "**A new signing key was created.** Download the *SAVE-THIS-android-signing-key* artifact and add it as repo secrets (see README) — otherwise the next APK can't update this one."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

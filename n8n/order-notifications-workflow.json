@@ -1,0 +1,64 @@
+{
+  "name": "Farm Stand - Order Confirmation & Notifications",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order.confirmed",
+        "options": {}
+      },
+      "id": "webhook-order-confirmed",
+      "name": "Webhook: Order Confirmed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "you@example.com",
+        "toEmail": "={{ $json.body.customerEmail }}",
+        "subject": "={{ $json.body.businessName }} - Order Confirmed! (#{{ $json.body.orderId.slice(-6).toUpperCase() }})",
+        "text": "=Thank you for your order!\n\nOrder ID: #{{ $json.body.orderId.slice(-6).toUpperCase() }}\nTotal: ${{ ($json.body.total / 100).toFixed(2) }}\nPayment Method: {{ $json.body.paymentMethod }}\nPickup Slot: {{ $json.body.pickupSlot || 'Farmstand Walk-up' }}\n\nWe look forward to baking for you!",
+        "options": {}
+      },
+      "id": "email-customer",
+      "name": "Email Customer",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [520, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://YOUR-PHONE-IP:8080/v1/message",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\": \"{{ $json.body.customerPhone }}\",\n  \"message\": \"{{ $json.body.businessName }}: Your order #{{ $json.body.orderId.slice(-6).toUpperCase() }} is confirmed! Pickup: {{ $json.body.pickupSlot || 'Farmstand' }}. Thank you!\"\n}",
+        "options": {}
+      },
+      "id": "sms-customer-smsgate",
+      "name": "SMS Gate (Android)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [520, 400]
+    }
+  ],
+  "connections": {
+    "Webhook: Order Confirmed": {
+      "main": [
+        [
+          {
+            "node": "Email Customer",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "SMS Gate (Android)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

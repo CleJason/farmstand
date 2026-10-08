@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+:root {
+  --background: #FFFFFF;
+  --foreground: #1C1917;
+  --accent: #D97706;
+  --accent-hover: #B45309;
+  --muted: #78716C;
+  --card: #FFFFFF;
+  --card-border: #E7E5E4;
+  --surface: #FAFAF8;
+
+  /*
+   * Brand color (Admin → Settings → Site). The UI's accent classes are
+   * Tailwind "amber", so the amber scale is derived from --brand; the root
+   * layout sets --brand from the owner's chosen color.
+   */
+  --brand: #D97706;
+  --color-amber-50: color-mix(in oklab, var(--brand) 8%, white);
+  --color-amber-100: color-mix(in oklab, var(--brand) 16%, white);
+  --color-amber-200: color-mix(in oklab, var(--brand) 30%, white);
+  --color-amber-300: color-mix(in oklab, var(--brand) 50%, white);
+  --color-amber-400: color-mix(in oklab, var(--brand) 75%, white);
+  --color-amber-500: color-mix(in oklab, var(--brand) 90%, white);
+  --color-amber-600: var(--brand);
+  --color-amber-700: color-mix(in oklab, var(--brand) 85%, black);
+  --color-amber-800: color-mix(in oklab, var(--brand) 70%, black);
+  --color-amber-900: color-mix(in oklab, var(--brand) 55%, black);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans, system-ui, -apple-system, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth transitions everywhere */
+* {
+  transition-property: color, background-color, border-color, opacity;
+  transition-timing-function: ease;
+  transition-duration: 150ms;
+}
+
+/* Better scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #D6D3D1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A8A29E;
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 8px;
+}

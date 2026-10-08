@@ -1,0 +1,168 @@
+"use client";
+
+import { useState } from "react";
+import {
+  Elements,
+  PaymentElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
+import { formatPrice, paypalMeUrl, venmoUrl } from "@/lib/utils";
+
+interface CheckoutModalProps {
+  orderId: string;
+  clientSecret: string | null;
+  stripePublishableKey?: string;
+  paymentMethod: "STRIPE" | "PAYPAL" | "VENMO";
+  total: number;
+  paypalUsername?: string;
+  venmoUsername?: string;
+  onSuccess: () => void;
+  onClose: () => void;
+}
+
+function StripeCheckoutForm({
+  total,
+  onSuccess,
+}: {
+  total: number;
+  onSuccess: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setLoading(true);
+    setErrorMessage(null);
+
+    const { error, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: window.location.href,
+      },
+      redirect: "if_required",
+    });
+
+    if (error) {
+      setErrorMessage(error.message || "An error occurred with your payment.");
+      setLoading(false);
+    } else if (paymentIntent && paymentIntent.status === "succeeded") {
+      onSuccess();
+    } else {
+      onSuccess();
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PaymentElement />
+      {errorMessage && (
+        <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
+          {errorMessage}
+        </div>
+      )}
+      <button
+        type="submit"
+        disabled={!stripe || loading}
+        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl transition disabled:opacity-50"
+      >
+        {loading ? "Processing..." : `Pay ${formatPrice(total)}`}
+      </button>
+    </form>
+  );
+}
+
+export default function CheckoutModal({
+  orderId,
+  clientSecret,
+  stripePublishableKey,
+  paymentMethod,
+  total,
+  paypalUsername,
+  venmoUsername,
+  onSuccess,
+  onClose,
+}: CheckoutModalProps) {
+  const stripePromise = stripePublishableKey
+    ? loadStripe(stripePublishableKey)
+    : null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl font-bold"
+        >
+          ✕
+        </button>
+
+        <h2 className="text-xl font-bold text-gray-900 mb-2">
+          Complete Your Order
+        </h2>
+        <p className="text-sm text-gray-500 mb-6">
+          Order #{orderId.slice(-6).toUpperCase()} · Total:{" "}
+          <span className="font-semibold text-gray-900">{formatPrice(total)}</span>
+        </p>
+
+        {paymentMethod === "STRIPE" && clientSecret && stripePromise ? (
+          <Elements
+            stripe={stripePromise}
+            options={{ clientSecret, appearance: { theme: "stripe" } }}
+          >
+            <StripeCheckoutForm total={total} onSuccess={onSuccess} />
+          </Elements>
+        ) : paymentMethod === "PAYPAL" ? (
+          <div className="space-y-4 text-center">
+            <div className="p-4 bg-sky-50 rounded-xl border border-sky-100 text-sky-900 text-sm">
+              Click below to send <strong>{formatPrice(total)}</strong> to PayPal.
+              Include your Order ID <strong>#{orderId.slice(-6).toUpperCase()}</strong> in the note!
+            </div>
+            <a
+              href={paypalMeUrl(paypalUsername, total)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full bg-[#0070BA] hover:bg-[#003087] text-white font-medium py-3 rounded-xl transition"
+            >
+              Open PayPal.me ({formatPrice(total)}) →
+            </a>
+            <button
+              onClick={onSuccess}
+              className="w-full border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2.5 rounded-xl transition text-sm"
+            >
+              I have sent the payment
+            </button>
+          </div>
+        ) : paymentMethod === "VENMO" ? (
+          <div className="space-y-4 text-center">
+            <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-blue-900 text-sm">
+              Click below to send <strong>{formatPrice(total)}</strong> on Venmo to{" "}
+              <strong>@{venmoUsername}</strong>. Put Order #
+              <strong>{orderId.slice(-6).toUpperCase()}</strong> in the note!
+            </div>
+            <a
+              href={venmoUrl(venmoUsername, total, `Order #${orderId.slice(-6)}`)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full bg-[#008CFF] hover:bg-[#0070CC] text-white font-medium py-3 rounded-xl transition"
+            >
+              Open Venmo ({formatPrice(total)}) →
+            </a>
+            <button
+              onClick={onSuccess}
+              className="w-full border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2.5 rounded-xl transition text-sm"
+            >
+              I have sent the payment
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}

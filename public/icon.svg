@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#FEF3C7"/>
+  <!-- product mark -->
+  <path d="M96 300c0-86 72-148 160-148s160 62 160 148c0 30-20 52-50 52H146c-30 0-50-22-50-52z" fill="#D97706"/>
+  <!-- score marks -->
+  <g fill="none" stroke="#FEF3C7" stroke-width="20" stroke-linecap="round">
+    <path d="M178 232l40 44"/>
+    <path d="M238 208l40 44"/>
+    <path d="M298 232l40 44"/>
+  </g>
+  <!-- board -->
+  <rect x="128" y="372" width="256" height="24" rx="12" fill="#92400E"/>
+</svg>
