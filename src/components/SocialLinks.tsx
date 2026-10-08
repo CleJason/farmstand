@@ -85,7 +85,7 @@ function EmailButton({ email }: { email: string }) {
 }
 
 const circle =
-  "w-10 h-10 rounded-full bg-white border border-stone-200 text-stone-600 hover:text-amber-700 hover:border-amber-300 flex items-center justify-center transition-colors";
+  "w-11 h-11 rounded-full bg-white border border-stone-200 shadow-sm text-stone-600 hover:text-white hover:bg-amber-600 hover:border-amber-600 hover:-translate-y-0.5 flex items-center justify-center transition-all";
 
 /** Icons for every social link and contact method the owner filled in (none shown if empty). */
 export default function SocialLinks({ className = "" }: { className?: string }) {

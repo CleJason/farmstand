@@ -43,11 +43,12 @@ export default function ReviewsSection() {
   const average = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
 
   return (
-    <section className="bg-[#FAFAF8] border-t border-stone-100">
+    <section className="bg-gradient-to-b from-white to-amber-50/60 border-t border-amber-100">
       <div className="max-w-5xl mx-auto px-4 py-12">
         <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-stone-900 tracking-tight">What customers say</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-stone-900 tracking-tight">What customers say</h2>
+            <div aria-hidden className="mt-2 h-1 w-12 rounded-full bg-amber-500/80" />
             <div className="mt-1 flex items-center gap-2 text-sm text-stone-500">
               <Stars rating={Math.round(average)} />
               <span>

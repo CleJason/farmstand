@@ -60,38 +60,41 @@ export default function HomeClient() {
     <div className="min-h-screen bg-white">
       <StoreHeader />
 
-      {/* Hero */}
-      <header className="bg-[#FAFAF8] border-b border-stone-100">
-        <div className="max-w-5xl mx-auto px-4 py-16 md:py-24 text-center">
-          <p className="text-amber-600 text-sm font-semibold tracking-wide uppercase mb-3">
+      {/* Hero: warm wash of the brand color with soft glows behind the text */}
+      <header className="relative overflow-hidden border-b border-amber-100 bg-gradient-to-b from-amber-50 via-[#FFFDF9] to-white">
+        <div aria-hidden className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-amber-200/40 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-32 -right-16 h-80 w-80 rounded-full bg-amber-300/25 blur-3xl" />
+        <div className="relative max-w-5xl mx-auto px-4 py-16 md:py-24 text-center">
+          <p className="inline-block text-amber-700 bg-white/70 border border-amber-200 text-xs font-semibold tracking-wider uppercase rounded-full px-3.5 py-1 mb-5 shadow-sm">
             {site.SITE_TAGLINE}
           </p>
           <h1 className="text-4xl md:text-6xl font-bold text-stone-900 tracking-tight leading-tight">
             {site.SITE_HEADLINE}
           </h1>
-          <p className="mt-4 text-stone-500 text-base md:text-lg max-w-xl mx-auto leading-relaxed whitespace-pre-line">
+          <div aria-hidden className="mx-auto mt-4 h-1 w-16 rounded-full bg-amber-500/80" />
+          <p className="mt-5 text-stone-600 text-base md:text-lg max-w-xl mx-auto leading-relaxed whitespace-pre-line">
             {site.SITE_INTRO}
           </p>
           {site.SITE_PICKUP_AREA && (
-            <p className="mt-5 text-stone-800 text-lg md:text-xl font-semibold">
-              📍 {site.SITE_PICKUP_AREA}
+            <p className="mt-6 inline-flex items-center gap-1.5 text-stone-800 text-lg md:text-xl font-semibold bg-white/80 border border-stone-200 rounded-full px-4 py-1.5 shadow-sm">
+              <span aria-hidden>📍</span> {site.SITE_PICKUP_AREA}
             </p>
           )}
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <a
               href="#drops"
-              className="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-6 py-2.5 rounded-full text-sm transition-colors shadow-sm"
+              className="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-7 py-3 rounded-full text-sm shadow-md shadow-amber-600/25 hover:-translate-y-0.5 transition-all"
             >
               View This Week&apos;s Drop
             </a>
             <Link
               href="/farmstand"
-              className="border border-stone-300 hover:border-stone-400 text-stone-700 font-semibold px-6 py-2.5 rounded-full text-sm transition-colors"
+              className="bg-white border border-stone-300 hover:border-amber-400 text-stone-800 font-semibold px-7 py-3 rounded-full text-sm shadow-sm hover:-translate-y-0.5 transition-all"
             >
               {site.SITE_FARMSTAND_HEADING}
             </Link>
           </div>
-          <SocialLinks className="mt-6" />
+          <SocialLinks className="mt-7" />
         </div>
       </header>
 
@@ -104,10 +107,11 @@ export default function HomeClient() {
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-4 py-12" id="drops">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-stone-900 tracking-tight">
+          <h2 className="text-2xl md:text-3xl font-bold text-stone-900 tracking-tight">
             {site.SITE_DROPS_HEADING}
           </h2>
-          <p className="text-sm text-stone-500 mt-1">
+          <div aria-hidden className="mt-2 h-1 w-12 rounded-full bg-amber-500/80" />
+          <p className="text-sm text-stone-500 mt-3">
             {site.SITE_DROPS_BLURB}
           </p>
         </div>
@@ -118,9 +122,9 @@ export default function HomeClient() {
             <p className="text-sm text-stone-400 mt-3">Loading drops...</p>
           </div>
         ) : drops.length === 0 ? (
-          <div className="bg-[#FAFAF8] rounded-2xl p-12 text-center border border-stone-100">
-            <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">🌾</span>
+          <div className="rounded-3xl p-12 text-center border-2 border-dashed border-amber-200 bg-gradient-to-br from-amber-50/80 to-white">
+            <div className="w-16 h-16 bg-white shadow-sm border border-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">🗓️</span>
             </div>
             <h3 className="font-semibold text-stone-900 text-lg">
               No active drops right now
@@ -131,7 +135,7 @@ export default function HomeClient() {
             </p>
             <Link
               href="/farmstand"
-              className="inline-block mt-6 bg-amber-600 hover:bg-amber-700 text-white font-semibold px-5 py-2 rounded-full text-sm transition-colors"
+              className="inline-block mt-6 bg-amber-600 hover:bg-amber-700 text-white font-semibold px-6 py-2.5 rounded-full text-sm shadow-md shadow-amber-600/25 hover:-translate-y-0.5 transition-all"
             >
               Visit {site.SITE_FARMSTAND_HEADING} →
             </Link>
@@ -143,7 +147,7 @@ export default function HomeClient() {
               return (
                 <div
                   key={drop.id}
-                  className="bg-white rounded-2xl border border-stone-200 overflow-hidden hover:shadow-md transition-shadow duration-300"
+                  className="bg-white rounded-3xl border border-stone-200 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
                 >
                   {/* Drop Header */}
                   <div className="p-6 md:p-8">

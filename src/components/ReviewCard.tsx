@@ -28,7 +28,7 @@ export default function ReviewCard({ review }: { review: ReviewData }) {
     .filter(Boolean);
 
   return (
-    <figure className="bg-white rounded-2xl border border-stone-200 p-5 flex flex-col gap-3 text-left">
+    <figure className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5 flex flex-col gap-3 text-left">
       <div className="flex items-baseline justify-between gap-2">
         <figcaption className="font-semibold text-stone-900">{review.name}</figcaption>
         <span className="text-xs text-stone-400 shrink-0">

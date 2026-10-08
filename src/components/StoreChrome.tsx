@@ -25,7 +25,11 @@ export function ShopBrand({ className = "" }: { className?: string }) {
         <img
           src={site.SITE_LOGO_URL}
           alt=""
-          className={showName ? "h-8 w-8 rounded-lg object-contain" : "h-9 max-w-[160px] object-contain"}
+          className={
+            showName
+              ? "h-11 w-11 sm:h-12 sm:w-12 rounded-lg object-contain"
+              : "h-12 sm:h-14 max-w-[180px] sm:max-w-[240px] object-contain"
+          }
         />
       )}
       {showName && <span>{site.SITE_NAME}</span>}
@@ -68,8 +72,8 @@ const pill =
 export function StoreHeader() {
   const site = useSite();
   return (
-    <nav className="border-b border-stone-100 bg-white/80 backdrop-blur-sm sticky top-0 z-30">
-      <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+    <nav className="border-b border-stone-100 bg-white/85 backdrop-blur-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] sticky top-0 z-30">
+      <div className="max-w-5xl mx-auto px-4 h-16 sm:h-[72px] flex items-center justify-between gap-2">
         <ShopBrand className="text-lg" />
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Icon-only on phones, icon + label on wider screens */}
