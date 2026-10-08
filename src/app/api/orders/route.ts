@@ -5,9 +5,18 @@ import { auth } from "@/lib/auth";
 import { fireNotification } from "@/lib/notifications";
 import { getStripe } from "@/lib/stripe";
 import { getSetting } from "@/lib/settings";
-import { adjustStock, countsStock } from "@/lib/stock";
-import { adjustDiscountUse, DiscountError, evaluateDiscount, normalizeCode } from "@/lib/discounts";
-import { formatPickup, hideAddress, isPaidStatus, pickupTimeCounts, pickupTimes } from "@/lib/pickup";
+import { DiscountError, evaluateDiscount, normalizeCode } from "@/lib/discounts";
+import { evaluateGift, GiftError, normalizeGiftCode } from "@/lib/gift";
+import { applyStatusChange } from "@/lib/order-effects";
+import { getSiteSettings } from "@/lib/site";
+import {
+  formatPickup,
+  hideAddress,
+  isPaidStatus,
+  pickupAddressFor,
+  pickupTimeCounts,
+  pickupTimes,
+} from "@/lib/pickup";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -199,7 +208,15 @@ export async function POST(req: Request) {
         discountCode = result.code.code;
         discount = result.amount;
       }
-      return { ...priced, subtotal, discountCode, discount };
+      // Gift card pays what's left after the discount (up to its balance)
+      let giftCode: string | null = null;
+      let giftAmount = 0;
+      if (normalizeGiftCode(data.giftCode)) {
+        const result = await evaluateGift(db, data.giftCode, subtotal - discount);
+        giftCode = result.gift.code;
+        giftAmount = result.amount;
+      }
+      return { ...priced, subtotal, discountCode, discount, giftCode, giftAmount };
     };
 
     const orderData = ({
@@ -208,7 +225,10 @@ export async function POST(req: Request) {
       subtotal,
       discountCode,
       discount,
+      giftCode,
+      giftAmount,
     }: Awaited<ReturnType<typeof price>>) => {
+      const total = subtotal - discount - giftAmount;
       return {
         type,
         dropId: type === "DROP" ? dropId : null,
@@ -217,11 +237,14 @@ export async function POST(req: Request) {
         userId: session?.user?.id || null,
         guestEmail: guestEmail || null,
         guestPhone: guestPhone || null,
-        paymentMethod,
+        // Nothing left to pay once a gift card covers it all
+        paymentMethod: total === 0 ? "GIFT_CARD" : paymentMethod,
         subtotal,
         discountCode,
         discount,
-        total: subtotal - discount,
+        giftCode,
+        giftAmount,
+        total,
         notes: notes || null,
         manualPaymentRef: manualPaymentRef || null,
         items: {
@@ -234,16 +257,19 @@ export async function POST(req: Request) {
         },
       };
     };
-    const include = { pickupSlot: true } as const;
+    const include = { pickupSlot: true, items: true } as const;
 
-    if (paymentMethod === "STRIPE") {
+    // Preview the price to see whether a gift card covers everything
+    const preview = orderData(await price(prisma));
+
+    if (paymentMethod === "STRIPE" && preview.total > 0) {
       const stripe = await getStripe();
       if (!stripe) {
         return NextResponse.json({ error: "Card payments are not set up yet" }, { status: 500 });
       }
 
       // Stock is checked now but only counted once the payment succeeds (webhook).
-      const base = orderData(await price(prisma));
+      const base = preview;
       if (base.total < 50) {
         return NextResponse.json(
           { error: "Card payments need a total of at least $0.50 — please choose another payment method" },
@@ -281,23 +307,45 @@ export async function POST(req: Request) {
     }
 
     // Venmo / PayPal: reserve stock now so it can't be oversold while the
-    // owner confirms the payment. Serializable so concurrent orders can't
-    // both pass the stock check.
+    // owner confirms the payment. Fully gift-card-paid orders are PAID right
+    // away. Serializable so concurrent orders can't both pass the checks.
     const { order, lines } = await prisma.$transaction(
       async (tx) => {
         const priced = await price(tx);
-        const order = await tx.order.create({
-          data: { ...orderData(priced), status: "AWAITING_CONFIRM" },
-          include,
-        });
-        if (countsStock(order.status)) {
-          await adjustStock(tx, priced.lines, 1);
-          await adjustDiscountUse(tx, order.discountCode, 1);
-        }
+        const data = orderData(priced);
+        const status = data.total === 0 ? "PAID" : "AWAITING_CONFIRM";
+        const order = await tx.order.create({ data: { ...data, status }, include });
+        await applyStatusChange(tx, order, null, status);
         return { order, lines: priced.lines };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
     );
+
+    if (order.status === "PAID") {
+      // Covered by a gift card: confirm to the customer straight away
+      await fireNotification(order.type === "FARMSTAND" ? "farmstand.purchased" : "order.confirmed", {
+        orderId: order.id,
+        type: order.type,
+        status: order.status,
+        paymentMethod: order.paymentMethod,
+        total: order.total,
+        giftCode: order.giftCode,
+        giftAmount: order.giftAmount,
+        customerEmail: order.guestEmail || session?.user?.email || null,
+        customerPhone: order.guestPhone,
+        pickupSlot: order.pickupSlot?.label,
+        pickupTime: formatPickup(order.pickupTime),
+        pickupLocation: order.pickupSlot?.location ?? null,
+        pickupAddress: order.type === "DROP" ? pickupAddressFor(order.pickupSlot, await getSiteSettings()) : null,
+      });
+      return NextResponse.json({
+        orderId: order.id,
+        clientSecret: null,
+        paymentMethod: order.paymentMethod,
+        total: order.total,
+        status: order.status,
+      });
+    }
 
     // Owner alert only — the customer is confirmed once the owner marks it PAID.
     const appUrl = await getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || "");
@@ -307,6 +355,8 @@ export async function POST(req: Request) {
       total: order.total,
       discountCode: order.discountCode,
       discount: order.discount,
+      giftCode: order.giftCode,
+      giftAmount: order.giftAmount,
       paymentMethod: order.paymentMethod,
       customerName: session?.user?.name || null,
       customerEmail: order.guestEmail || session?.user?.email || null,
@@ -329,7 +379,7 @@ export async function POST(req: Request) {
       status: order.status,
     });
   } catch (err: any) {
-    if (err instanceof OrderError || err instanceof DiscountError) {
+    if (err instanceof OrderError || err instanceof DiscountError || err instanceof GiftError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2034") {

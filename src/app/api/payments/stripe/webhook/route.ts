@@ -3,8 +3,9 @@ import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { fireNotification } from "@/lib/notifications";
 import { getSetting } from "@/lib/settings";
-import { adjustStock, countsStock } from "@/lib/stock";
-import { adjustDiscountUse } from "@/lib/discounts";
+import { countsStock } from "@/lib/stock";
+import { applyStatusChange } from "@/lib/order-effects";
+import { notifyGiftActivated } from "@/lib/gift-notify";
 import { formatPickup, pickupAddressFor } from "@/lib/pickup";
 import { getSiteSettings } from "@/lib/site";
 
@@ -49,18 +50,21 @@ export async function POST(req: Request) {
     // Only act on the first delivery: Stripe retries webhooks, and the owner
     // may already have moved the order along manually.
     if (order && !countsStock(order.status)) {
-      const marked = await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx) => {
         const { count } = await tx.order.updateMany({
           where: { id: order.id, status: order.status },
           data: { status: "PAID" },
         });
-        if (count === 1) {
-          await adjustStock(tx, order.items, 1);
-          await adjustDiscountUse(tx, order.discountCode, 1);
-        }
-        return count === 1;
+        if (count !== 1) return null;
+        // Stock, discount use, gift card spend; activates a gift card this order bought
+        return { activatedGift: await applyStatusChange(tx, order, order.status, "PAID") };
       });
-      if (!marked) return NextResponse.json({ received: true });
+      if (!result) return NextResponse.json({ received: true });
+
+      if (order.type === "GIFT") {
+        if (result.activatedGift) await notifyGiftActivated(result.activatedGift);
+        return NextResponse.json({ received: true });
+      }
 
       await fireNotification(
         order.type === "FARMSTAND" ? "farmstand.purchased" : "order.confirmed",

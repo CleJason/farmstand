@@ -8,6 +8,7 @@ import { formatDate, formatPrice } from "@/lib/utils";
 import CheckoutModal from "@/components/CheckoutModal";
 import { useSite } from "@/components/SiteProvider";
 import DiscountInput, { type AppliedDiscount } from "@/components/DiscountInput";
+import GiftCardInput, { type AppliedGift } from "@/components/GiftCardInput";
 
 interface DropDetails {
   id: string;
@@ -49,6 +50,7 @@ export default function DropDetailPage() {
   const [selectedSlotId, setSelectedSlotId] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [discount, setDiscount] = useState<AppliedDiscount>(null);
+  const [gift, setGift] = useState<AppliedGift>(null);
   const [notes, setNotes] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -171,6 +173,7 @@ export default function DropDetailPage() {
           pickupSlotId: selectedSlotId,
           pickupTime: selectedTime,
           discountCode: discount?.code ?? null,
+          giftCode: gift?.code ?? null,
           items,
           paymentMethod,
           notes,
@@ -181,6 +184,16 @@ export default function DropDetailPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Order failed");
+
+      // Fully paid by gift card: nothing more to pay
+      if (data.status === "PAID") {
+        setCompleted(true);
+        fetch(`/api/orders/${data.orderId}/pickup`)
+          .then((r) => r.json())
+          .then(setPickupInfo)
+          .catch(() => {});
+        return;
+      }
 
       setActiveOrder({
         orderId: data.orderId,
@@ -488,6 +501,11 @@ export default function DropDetailPage() {
             </div>
 
             <div>
+              <label className="block text-xs font-bold text-[#2D1E18] mb-1">Gift Card</label>
+              <GiftCardInput amountDue={cartTotal - (discount?.discount ?? 0)} onChange={setGift} />
+            </div>
+
+            <div>
               <label className="block text-xs font-bold text-[#2D1E18] mb-2">
                 Select Payment Method
               </label>
@@ -546,10 +564,10 @@ export default function DropDetailPage() {
                 {totalItemsCount} {totalItemsCount === 1 ? "item" : "items"} selected
               </div>
               <div className="text-xl font-black text-[#2D1E18]">
-                {discount && (
+                {(discount || gift) && (
                   <span className="text-sm font-medium text-stone-400 line-through mr-2">{formatPrice(cartTotal)}</span>
                 )}
-                {formatPrice(cartTotal - (discount?.discount ?? 0))}
+                {formatPrice(cartTotal - (discount?.discount ?? 0) - (gift?.amount ?? 0))}
               </div>
             </div>
             <button

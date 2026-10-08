@@ -215,7 +215,7 @@ export default function AdminCustomersPage() {
                         <span>
                           <span className="font-mono text-stone-900">#{o.id.slice(-6)}</span>{" "}
                           <span className="text-stone-500">
-                            · {shortDate(o.createdAt)} · {o.type === "FARMSTAND" ? "Farmstand" : "Drop"}
+                            · {shortDate(o.createdAt)} · {o.type === "FARMSTAND" ? "Farmstand" : o.type === "GIFT" ? "Gift card" : "Drop"}
                           </span>
                         </span>
                         <span className="text-right whitespace-nowrap">

@@ -67,6 +67,12 @@ export function StoreHeader() {
         <ShopBrand className="text-lg" />
         <div className="flex items-center gap-4">
           <Link
+            href="/gift"
+            className="hidden sm:inline text-sm text-stone-500 hover:text-stone-900 font-medium transition-colors"
+          >
+            Gift Cards
+          </Link>
+          <Link
             href="/farmstand"
             className="text-sm text-stone-500 hover:text-stone-900 font-medium transition-colors"
           >

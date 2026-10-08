@@ -173,7 +173,9 @@ model Order {
   subtotal        Int           // cents
   discountCode    String?       // code applied at checkout, if any
   discount        Int      @default(0) // cents taken off the subtotal
-  total           Int           // cents (subtotal - discount)
+  giftCode        String?       // gift card used to pay part/all of this order
+  giftAmount      Int      @default(0) // cents paid from that gift card
+  total           Int           // cents left to pay (subtotal - discount - giftAmount)
   notes           String?
   // Guest info (farmstand — no login required)
   guestEmail      String?
@@ -242,6 +244,24 @@ model DiscountCode {
   active      Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+// Gift cards: bought online (an Order of type GIFT) or created by the owner.
+// Spent across orders until the balance runs out.
+model GiftCertificate {
+  id             String   @id @default(cuid())
+  code           String   @unique // e.g. GIFT-AB12-CD34
+  initialAmount  Int               // cents
+  balance        Int               // cents left
+  status         String   @default("PENDING") // PENDING (awaiting payment) | ACTIVE | VOID
+  recipientName  String?
+  recipientEmail String?
+  fromName       String?
+  message        String?
+  purchaserEmail String?
+  orderId        String?  @unique  // the GIFT order that bought it (null = created by owner)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 // Added by the owner (e.g. copied from another platform); shown on the home page

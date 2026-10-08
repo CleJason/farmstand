@@ -215,6 +215,48 @@ jobs:
           echo "$a" | grep -q '"admin":true' || exit 1
           echo "$b" | grep -q '"admin":false' || exit 1
 
+      - name: Gift cards
+        env:
+          PGURL: postgresql://farmstand:smoketest@localhost:5432/farmstand
+        run: |
+          psql "$PGURL" -v ON_ERROR_STOP=1 <<SQL
+          INSERT INTO "GiftCertificate" (id, code, "initialAmount", balance, status, "updatedAt") VALUES ('g1', 'GIFT-TEST-0001', 300, 300, 'ACTIVE', now());
+          INSERT INTO "GiftCertificate" (id, code, "initialAmount", balance, status, "updatedAt") VALUES ('g2', 'GIFT-TEST-0002', 1000, 1000, 'ACTIVE', now());
+          INSERT INTO "FarmstandItem" (id, name, price, available, "quantityAvailable", "updatedAt") VALUES ('f1', 'Stand Item', 400, true, 10, now());
+          SQL
+          bal() { psql "$PGURL" -tAc "SELECT balance FROM \"GiftCertificate\" WHERE id = '$1'"; }
+
+          # Partial: $5 drop item, $3 gift card -> $2 left to pay by Venmo, card drained
+          third=$(curl -s http://localhost:3000/api/drops/d1 | jq -r '.pickupSlots[0].times[2].time')
+          c=$(curl -s -o /tmp/g.json -w '%{http_code}' -X POST http://localhost:3000/api/orders -H 'Content-Type: application/json' \
+            -d "{\"type\":\"DROP\",\"dropId\":\"d1\",\"pickupSlotId\":\"s1\",\"pickupTime\":\"$third\",\"giftCode\":\"gift-test-0001\",\"paymentMethod\":\"VENMO\",\"guestEmail\":\"g@example.com\",\"items\":[{\"dropProductId\":\"dp1\",\"quantity\":1}]}")
+          echo "drop order with \$3 gift card -> $c $(cat /tmp/g.json)"; [ "$c" = "200" ] || exit 1
+          [ "$(jq -r .total /tmp/g.json)" = "200" ] || { echo "Expected 500 - 300 = 200"; exit 1; }
+          echo "GIFT-TEST-0001 balance: $(bal g1)"; [ "$(bal g1)" = "0" ] || exit 1
+
+          # Fully covered at the farmstand -> paid straight away, $6 left on the card
+          c=$(curl -s -o /tmp/g.json -w '%{http_code}' -X POST http://localhost:3000/api/orders -H 'Content-Type: application/json' \
+            -d '{"type":"FARMSTAND","giftCode":"GIFT-TEST-0002","paymentMethod":"STRIPE","items":[{"farmstandItemId":"f1","quantity":1}]}')
+          echo "farmstand order fully on gift card -> $c $(cat /tmp/g.json)"; [ "$c" = "200" ] || exit 1
+          [ "$(jq -r .status /tmp/g.json)" = "PAID" ] || { echo "Expected PAID"; exit 1; }
+          echo "GIFT-TEST-0002 balance: $(bal g2)"; [ "$(bal g2)" = "600" ] || exit 1
+
+          # Empty card is refused
+          chk=$(curl -s -X POST http://localhost:3000/api/gift-cards/check -H 'Content-Type: application/json' -d '{"code":"GIFT-TEST-0001","amountDue":500}')
+          echo "check empty card: $chk"; echo "$chk" | grep -q '"valid":false' || exit 1
+
+          # Buying one online: pending until paid, so its code can't be used yet
+          c=$(curl -s -o /tmp/buy.json -w '%{http_code}' -X POST http://localhost:3000/api/gift-cards/purchase -H 'Content-Type: application/json' \
+            -d '{"amount":2500,"paymentMethod":"VENMO","purchaserEmail":"buyer@example.com","recipientEmail":"friend@example.com","recipientName":"Friend"}')
+          echo "buy gift card -> $c $(cat /tmp/buy.json)"; [ "$c" = "200" ] || exit 1
+          oid=$(jq -r .orderId /tmp/buy.json)
+          code=$(psql "$PGURL" -tAc "SELECT code FROM \"GiftCertificate\" WHERE \"orderId\" = '$oid'")
+          st=$(psql "$PGURL" -tAc "SELECT status FROM \"GiftCertificate\" WHERE \"orderId\" = '$oid'")
+          echo "bought card $code is $st"; [ "$st" = "PENDING" ] || exit 1
+          chk=$(curl -s -X POST http://localhost:3000/api/gift-cards/check -H 'Content-Type: application/json' -d "{\"code\":\"$code\",\"amountDue\":500}")
+          echo "check unpaid card: $chk"; echo "$chk" | grep -q '"valid":false' || exit 1
+          c=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/gift-cards); echo "list gift cards signed out -> $c"; [ "$c" = "401" ] || exit 1
+
       - name: Container logs
         if: always()
         run: docker logs farmstand || true

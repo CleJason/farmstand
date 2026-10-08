@@ -11,6 +11,8 @@ interface Order {
   total: number;
   discount: number;
   discountCode: string | null;
+  giftCode: string | null;
+  giftAmount: number;
   notes: string | null;
   guestEmail: string | null;
   guestPhone: string | null;
@@ -219,10 +221,12 @@ export default function AdminDashboardPage() {
                       className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                         order.type === "FARMSTAND"
                           ? "bg-orange-50 text-orange-600"
+                          : order.type === "GIFT"
+                          ? "bg-pink-50 text-pink-600"
                           : "bg-blue-50 text-blue-600"
                       }`}
                     >
-                      {order.type === "FARMSTAND" ? "Farmstand" : "Drop"}
+                      {order.type === "FARMSTAND" ? "Farmstand" : order.type === "GIFT" ? "🎁 Gift card" : "Drop"}
                     </span>
                     <span className="text-[11px] text-stone-400 font-medium">
                       {order.paymentMethod}
@@ -235,6 +239,11 @@ export default function AdminDashboardPage() {
                     {order.discountCode && (
                       <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
                         {order.discountCode} −{formatPrice(order.discount)}
+                      </span>
+                    )}
+                    {order.giftCode && (
+                      <span className="text-[11px] text-pink-700 bg-pink-50 px-2 py-0.5 rounded-full">
+                        🎁 −{formatPrice(order.giftAmount)}
                       </span>
                     )}
                     <span

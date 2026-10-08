@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { fireNotification } from "@/lib/notifications";
-import { adjustStock, countsStock } from "@/lib/stock";
-import { adjustDiscountUse } from "@/lib/discounts";
+import { applyStatusChange } from "@/lib/order-effects";
+import { notifyGiftActivated } from "@/lib/gift-notify";
 import { formatPickup, pickupAddressFor } from "@/lib/pickup";
 import { getSiteSettings } from "@/lib/site";
 
@@ -59,7 +59,7 @@ export async function PUT(
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
-  const order = await prisma.$transaction(async (tx) => {
+  const { order, activatedGift } = await prisma.$transaction(async (tx) => {
     const updated = await tx.order.update({
       where: { id },
       data: {
@@ -72,19 +72,16 @@ export async function PUT(
       },
     });
 
-    // Count stock when the order enters a counted status, release it when it leaves
-    const before = countsStock(existing.status);
-    const after = countsStock(updated.status);
-    if (before !== after) {
-      await adjustStock(tx, existing.items, after ? 1 : -1);
-      await adjustDiscountUse(tx, existing.discountCode, after ? 1 : -1);
-    }
-
-    return updated;
+    // Stock, discount use and gift card balance follow the status; a gift card
+    // bought by this order activates once it's paid
+    const activatedGift = await applyStatusChange(tx, existing, existing.status, updated.status);
+    return { order: updated, activatedGift };
   });
 
   const statusChanged = existing.status !== order.status;
-  if (statusChanged && status === "PAID") {
+  if (activatedGift) {
+    await notifyGiftActivated(activatedGift);
+  } else if (statusChanged && status === "PAID" && order.type !== "GIFT") {
     await fireNotification("order.confirmed", {
       orderId: order.id,
       status: order.status,

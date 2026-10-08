@@ -9,6 +9,7 @@ import { getSiteSettings, isOn } from "@/lib/site";
 type NotificationEvent =
   | "order.confirmed"
   | "order.awaiting_payment"
+  | "gift.activated"
   | "order.cancelled"
   | "order.failed"
   | "drop.announced"

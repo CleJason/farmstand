@@ -6,6 +6,7 @@ import { formatPrice } from "@/lib/utils";
 import CheckoutModal from "@/components/CheckoutModal";
 import { useSite } from "@/components/SiteProvider";
 import DiscountInput, { type AppliedDiscount } from "@/components/DiscountInput";
+import GiftCardInput, { type AppliedGift } from "@/components/GiftCardInput";
 
 interface FarmstandItem {
   id: string;
@@ -21,6 +22,7 @@ interface FarmstandItem {
 export default function FarmstandKioskPage() {
   const site = useSite();
   const [discount, setDiscount] = useState<AppliedDiscount>(null);
+  const [gift, setGift] = useState<AppliedGift>(null);
   const [items, setItems] = useState<FarmstandItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<{ [id: string]: number }>({});
@@ -117,6 +119,7 @@ export default function FarmstandKioskPage() {
           type: "FARMSTAND",
           items: orderItems,
           discountCode: discount?.code ?? null,
+          giftCode: gift?.code ?? null,
           paymentMethod,
           guestEmail: guestEmail || null,
           guestPhone: guestPhone || null,
@@ -125,6 +128,12 @@ export default function FarmstandKioskPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create order");
+
+      // Fully paid by gift card: nothing more to pay
+      if (data.status === "PAID") {
+        setCompleted(true);
+        return;
+      }
 
       setActiveOrder({
         orderId: data.orderId,
@@ -342,6 +351,7 @@ export default function FarmstandKioskPage() {
             </div>
 
             <DiscountInput type="FARMSTAND" subtotal={cartTotal} onChange={setDiscount} />
+            <GiftCardInput amountDue={cartTotal - (discount?.discount ?? 0)} onChange={setGift} />
 
             {/* Action Button */}
             <button
@@ -352,7 +362,7 @@ export default function FarmstandKioskPage() {
               <span>
                 Pay for {totalItemsCount} {totalItemsCount === 1 ? "item" : "items"}
               </span>
-              <span>{formatPrice(cartTotal - (discount?.discount ?? 0))} →</span>
+              <span>{formatPrice(cartTotal - (discount?.discount ?? 0) - (gift?.amount ?? 0))} →</span>
             </button>
           </div>
         </div>
