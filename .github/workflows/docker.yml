@@ -172,7 +172,7 @@ jobs:
 
           # Legal pages render the starter text
           for p in privacy terms; do
-            curl -s "http://localhost:3000/$p" | grep -q "Reply STOP\|By placing an order" || { echo "/$p missing starter text"; exit 1; }
+            curl -s "http://localhost:3000/$p" | grep -qi "reply STOP\|By placing an order" || { echo "/$p missing starter text"; exit 1; }
           done
           echo "legal pages ok"
 
