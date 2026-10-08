@@ -57,6 +57,12 @@ export default async function AdminLayout({
               {site.SITE_NAME}
             </h1>
           </Link>
+          <Link
+            href="/"
+            className="mt-3 flex items-center justify-center gap-1.5 w-full text-sm font-semibold px-3 py-2 rounded-lg border border-stone-200 text-stone-700 hover:bg-stone-50 transition-colors"
+          >
+            ← View storefront
+          </Link>
         </div>
 
         <nav className="flex-1 p-3 space-y-0.5">
