@@ -32,23 +32,15 @@ export function ShopBrand({ className = "" }: { className?: string }) {
 }
 
 /** Sign In when signed out; Admin (for admins) and Sign out when signed in. */
-function AccountLinks({ variant }: { variant: "header" | "footer" }) {
+function AccountLinks() {
   const viewer = useViewer();
-  const quiet =
-    variant === "header"
-      ? "text-sm text-stone-500 hover:text-stone-900 font-medium transition-colors"
-      : "hover:text-stone-600 transition-colors";
+  const quiet = "text-sm text-stone-500 hover:text-stone-900 font-medium transition-colors";
+  const primary =
+    "text-sm bg-stone-900 text-white px-4 py-1.5 rounded-full font-medium hover:bg-stone-800 transition-colors";
 
   if (!viewer) {
     return (
-      <Link
-        href="/login"
-        className={
-          variant === "header"
-            ? "text-sm bg-stone-900 text-white px-4 py-1.5 rounded-full font-medium hover:bg-stone-800 transition-colors"
-            : quiet
-        }
-      >
+      <Link href="/login" className={primary}>
         Sign In
       </Link>
     );
@@ -57,14 +49,7 @@ function AccountLinks({ variant }: { variant: "header" | "footer" }) {
   return (
     <>
       {viewer.isAdmin && (
-        <Link
-          href="/admin"
-          className={
-            variant === "header"
-              ? "text-sm bg-stone-900 text-white px-4 py-1.5 rounded-full font-medium hover:bg-stone-800 transition-colors"
-              : quiet
-          }
-        >
+        <Link href="/admin" className={primary}>
           Admin
         </Link>
       )}
@@ -87,71 +72,10 @@ export function StoreHeader() {
           >
             Farmstand
           </Link>
-          <AccountLinks variant="header" />
+          <AccountLinks />
         </div>
       </div>
     </nav>
   );
 }
 
-function withProtocol(url: string) {
-  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
-}
-
-function socialUrl(value: string, base: string) {
-  const v = value.trim();
-  if (/^https?:\/\/|\./.test(v)) return withProtocol(v);
-  return `${base}${v.replace(/^@/, "")}`;
-}
-
-export function StoreFooter() {
-  const site = useSite();
-  const socials = [
-    site.SITE_INSTAGRAM && { label: "Instagram", href: socialUrl(site.SITE_INSTAGRAM, "https://instagram.com/") },
-    site.SITE_FACEBOOK && { label: "Facebook", href: socialUrl(site.SITE_FACEBOOK, "https://facebook.com/") },
-    site.SITE_WEBSITE && { label: "Website", href: withProtocol(site.SITE_WEBSITE) },
-  ].filter(Boolean) as { label: string; href: string }[];
-
-  return (
-    <footer className="border-t border-stone-100 bg-[#FAFAF8]">
-      <div className="max-w-5xl mx-auto px-4 py-8 grid gap-6 sm:grid-cols-3 text-sm">
-        <div>
-          <p className="font-semibold text-stone-900">{site.SITE_NAME}</p>
-          <p className="text-xs text-stone-400 mt-0.5">{site.SITE_TAGLINE}</p>
-        </div>
-
-        {(site.SITE_PICKUP_AREA || site.SITE_CONTACT_EMAIL || site.SITE_CONTACT_PHONE) && (
-          <div className="text-xs text-stone-500 space-y-1">
-            {site.SITE_PICKUP_AREA && <p>📍 {site.SITE_PICKUP_AREA}</p>}
-            {site.SITE_CONTACT_EMAIL && (
-              <p>
-                <a href={`mailto:${site.SITE_CONTACT_EMAIL}`} className="hover:text-stone-800">
-                  {site.SITE_CONTACT_EMAIL}
-                </a>
-              </p>
-            )}
-            {site.SITE_CONTACT_PHONE && (
-              <p>
-                <a href={`tel:${site.SITE_CONTACT_PHONE.replace(/[^\d+]/g, "")}`} className="hover:text-stone-800">
-                  {site.SITE_CONTACT_PHONE}
-                </a>
-              </p>
-            )}
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-start gap-x-4 gap-y-2 text-xs text-stone-400 sm:justify-end sm:col-start-3">
-          {socials.map((s) => (
-            <a key={s.label} href={s.href} target="_blank" rel="noreferrer" className="hover:text-stone-600">
-              {s.label}
-            </a>
-          ))}
-          <Link href="/farmstand" className="hover:text-stone-600 transition-colors">
-            Farmstand
-          </Link>
-          <AccountLinks variant="footer" />
-        </div>
-      </div>
-    </footer>
-  );
-}

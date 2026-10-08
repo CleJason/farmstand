@@ -5,7 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { formatDate, formatPrice } from "@/lib/utils";
 import { useSite } from "@/components/SiteProvider";
-import { StoreFooter, StoreHeader } from "@/components/StoreChrome";
+import { StoreHeader } from "@/components/StoreChrome";
+import SocialLinks from "@/components/SocialLinks";
 
 interface Drop {
   id: string;
@@ -68,6 +69,11 @@ export default function HomeClient() {
           <p className="mt-4 text-stone-500 text-base md:text-lg max-w-xl mx-auto leading-relaxed whitespace-pre-line">
             {site.SITE_INTRO}
           </p>
+          {site.SITE_PICKUP_AREA && (
+            <p className="mt-5 text-stone-800 text-lg md:text-xl font-semibold">
+              📍 {site.SITE_PICKUP_AREA}
+            </p>
+          )}
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <a
               href="#drops"
@@ -82,6 +88,7 @@ export default function HomeClient() {
               {site.SITE_FARMSTAND_HEADING}
             </Link>
           </div>
+          <SocialLinks className="mt-6" />
         </div>
       </header>
 
@@ -239,7 +246,6 @@ export default function HomeClient() {
         )}
       </main>
 
-      <StoreFooter />
     </div>
   );
 }

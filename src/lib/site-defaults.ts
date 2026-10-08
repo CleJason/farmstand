@@ -13,8 +13,18 @@ export const SITE_DEFAULTS = {
   SITE_PICKUP_INFO: "", // exact address & instructions — only sent to paid customers
   SITE_CONTACT_EMAIL: "",
   SITE_CONTACT_PHONE: "",
+  // Social links: a username/handle or a full link. Only filled ones are shown.
   SITE_INSTAGRAM: "",
   SITE_FACEBOOK: "",
+  SITE_TIKTOK: "",
+  SITE_X: "",
+  SITE_YOUTUBE: "",
+  SITE_PINTEREST: "",
+  SITE_THREADS: "",
+  SITE_SNAPCHAT: "",
+  SITE_BLUESKY: "",
+  SITE_ETSY: "",
+  SITE_NEXTDOOR: "",
   SITE_WEBSITE: "",
   SITE_LOGO_URL: "",
   // Where the logo / business name appear ("true" | "false")
