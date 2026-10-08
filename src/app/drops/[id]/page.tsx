@@ -15,7 +15,13 @@ interface DropDetails {
   orderOpenAt: string;
   orderCloseAt: string;
   status: string;
-  pickupSlots: { id: string; label: string; pickupDate: string }[];
+  pickupSlots: {
+    id: string;
+    label: string;
+    pickupDate: string;
+    location: string | null;
+    times: { time: string; full: boolean }[];
+  }[];
   dropProducts: {
     id: string;
     quantityLimit: number | null;
@@ -40,6 +46,7 @@ export default function DropDetailPage() {
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<{ [dropProductId: string]: number }>({});
   const [selectedSlotId, setSelectedSlotId] = useState<string>("");
+  const [selectedTime, setSelectedTime] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -77,8 +84,8 @@ export default function DropDetailPage() {
         const settingsData = await settingsRes.json();
 
         setDrop(dropData);
-        if (dropData.pickupSlots?.length > 0) {
-          setSelectedSlotId(dropData.pickupSlots[0].id);
+        if (dropData.pickupSlots?.length === 1) {
+          selectSlot(dropData.pickupSlots[0]);
         }
 
         setPaymentSettings(settingsData);
@@ -94,6 +101,15 @@ export default function DropDetailPage() {
     }
     if (id) load();
   }, [id]);
+
+  // Picking a day clears the time, unless the window only has one time
+  function selectSlot(slot: DropDetails["pickupSlots"][number]) {
+    setSelectedSlotId(slot.id);
+    const open = slot.times.filter((t) => !t.full);
+    setSelectedTime(slot.times.length === 1 && open.length === 1 ? open[0].time : "");
+  }
+
+  const selectedSlot = drop?.pickupSlots.find((s) => s.id === selectedSlotId);
 
   const updateQty = (dropProductId: string, delta: number) => {
     setCart((prev) => {
@@ -123,8 +139,8 @@ export default function DropDetailPage() {
   const totalItemsCount = Object.values(cart).reduce((a, b) => a + b, 0);
 
   const handleCheckout = async () => {
-    if (!selectedSlotId) {
-      alert("Please choose a pickup slot!");
+    if (drop!.pickupSlots.length > 0 && (!selectedSlotId || !selectedTime)) {
+      alert("Please choose a pickup day and time!");
       return;
     }
     if (!guestEmail) {
@@ -150,6 +166,7 @@ export default function DropDetailPage() {
           type: "DROP",
           dropId: drop!.id,
           pickupSlotId: selectedSlotId,
+          pickupTime: selectedTime,
           items,
           paymentMethod,
           notes,
@@ -261,28 +278,61 @@ export default function DropDetailPage() {
         {/* Step 1: Pickup Slot Selection */}
         <section className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm space-y-3">
           <h2 className="font-bold text-lg text-[#2D1E18]">
-            1. Select Your Pickup Slot
+            1. Choose Your Pickup Time
           </h2>
           <div className="grid sm:grid-cols-2 gap-3">
             {drop.pickupSlots.map((slot) => {
               const isSelected = selectedSlotId === slot.id;
+              const allFull = slot.times.every((t) => t.full);
               return (
                 <button
                   type="button"
                   key={slot.id}
-                  onClick={() => setSelectedSlotId(slot.id)}
-                  className={`p-4 rounded-xl border text-left transition duration-150 flex items-center justify-between ${
+                  disabled={allFull}
+                  onClick={() => selectSlot(slot)}
+                  className={`p-4 rounded-xl border text-left transition duration-150 flex items-center justify-between gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
                     isSelected
                       ? "border-amber-600 bg-[#FAF6F0] text-[#2D1E18] font-bold shadow-xs"
                       : "border-stone-200 hover:border-stone-300 text-[#735D54]"
                   }`}
                 >
-                  <span className="text-sm">{slot.label}</span>
+                  <span>
+                    <span className="block text-sm">{slot.label}</span>
+                    {slot.location && <span className="block text-xs font-normal text-[#8A756C]">📍 {slot.location}</span>}
+                    {allFull && <span className="block text-xs font-normal">Fully booked</span>}
+                  </span>
                   {isSelected && <span className="text-amber-600">✓</span>}
                 </button>
               );
             })}
           </div>
+
+          {selectedSlot && selectedSlot.times.length > 1 && (
+            <div className="space-y-2 pt-2">
+              <p className="text-sm font-semibold text-[#2D1E18]">Pick a time</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedSlot.times.map((t) => {
+                  const isChosen = selectedTime === t.time;
+                  return (
+                    <button
+                      type="button"
+                      key={t.time}
+                      disabled={t.full}
+                      onClick={() => setSelectedTime(t.time)}
+                      title={t.full ? "Full" : undefined}
+                      className={`px-3 py-2 rounded-lg border text-sm transition duration-150 disabled:opacity-40 disabled:line-through disabled:cursor-not-allowed ${
+                        isChosen
+                          ? "border-amber-600 bg-amber-600 text-white font-semibold"
+                          : "border-stone-200 hover:border-stone-300 text-[#2D1E18]"
+                      }`}
+                    >
+                      {new Date(t.time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Step 2: Food Menu */}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { DropInputError, parseProducts, parseSlots } from "@/lib/drop-input";
 
 export async function GET() {
   const drops = await prisma.drop.findMany({
@@ -31,6 +32,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Title and order open/close dates are required" }, { status: 400 });
   }
 
+  let slots, dropProducts;
+  try {
+    slots = parseSlots(pickupSlots).map(({ id: _id, ...s }) => s);
+    dropProducts = parseProducts(products);
+  } catch (err) {
+    if (err instanceof DropInputError) return NextResponse.json({ error: err.message }, { status: 400 });
+    throw err;
+  }
+
   const drop = await prisma.drop.create({
     data: {
       title,
@@ -39,19 +49,8 @@ export async function POST(req: Request) {
       orderCloseAt: new Date(orderCloseAt),
       status: status || "DRAFT",
       maxOrders: maxOrders ? Number(maxOrders) : null,
-      pickupSlots: {
-        create: (pickupSlots || []).map((slot: { label: string; pickupDate: string }) => ({
-          label: slot.label,
-          pickupDate: new Date(slot.pickupDate),
-        })),
-      },
-      dropProducts: {
-        create: (products || []).map((p: { productId: string; quantityLimit?: number; priceOverride?: number }) => ({
-          productId: p.productId,
-          quantityLimit: p.quantityLimit !== undefined && p.quantityLimit !== null ? Number(p.quantityLimit) : null,
-          priceOverride: p.priceOverride !== undefined && p.priceOverride !== null ? Math.round(Number(p.priceOverride)) : null,
-        })),
-      },
+      pickupSlots: { create: slots },
+      dropProducts: { create: dropProducts },
     },
     include: {
       pickupSlots: true,

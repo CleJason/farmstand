@@ -2,7 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatPrice } from "@/lib/utils";
+
+interface PickupSlot {
+  id: string;
+  label: string;
+  pickupDate: string;
+  endDate: string | null;
+  location: string | null;
+  intervalMinutes: number;
+  maxPerTime: number | null;
+}
 
 interface Drop {
   id: string;
@@ -11,12 +21,15 @@ interface Drop {
   orderOpenAt: string;
   orderCloseAt: string;
   status: string;
-  pickupSlots: { id: string; label: string; pickupDate: string }[];
+  maxOrders: number | null;
+  pickupSlots: PickupSlot[];
   dropProducts: {
     id: string;
+    productId: string;
     quantityLimit: number | null;
     quantitySold: number;
-    product: { name: string };
+    priceOverride: number | null;
+    product: { name: string; price: number };
   }[];
   orders: { id: string; total: number; status: string }[];
 }
@@ -25,43 +38,81 @@ interface Product {
   id: string;
   name: string;
   price: number;
+  active: boolean;
 }
+
+// Form state for one pickup window (all values as typed in local time)
+type WindowForm = {
+  id?: string;
+  date: string; // yyyy-mm-dd
+  start: string; // HH:MM
+  end: string; // HH:MM
+  location: string;
+  interval: string;
+  maxPerTime: string;
+};
+
+type ProductForm = { included: boolean; limit: string; price: string };
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const toDateInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const toTimeInput = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const toDateTimeInput = (iso: string) => {
+  const d = new Date(iso);
+  return `${toDateInput(d)}T${toTimeInput(d)}`;
+};
+const at = (date: string, time: string) => new Date(`${date}T${time}`);
+const timeLabel = (d: Date) => d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+function windowLabel(w: WindowForm) {
+  const start = at(w.date, w.start);
+  const day = start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  return w.end && w.end !== w.start ? `${day} · ${timeLabel(start)}–${timeLabel(at(w.date, w.end))}` : `${day} · ${timeLabel(start)}`;
+}
+
+function timesInWindow(w: WindowForm) {
+  if (!w.date || !w.start) return 0;
+  if (!w.end || w.end === w.start) return 1;
+  const span = at(w.date, w.end).getTime() - at(w.date, w.start).getTime();
+  const step = Math.max(5, Number(w.interval) || 30) * 60_000;
+  return span < 0 ? 0 : Math.floor(span / step) + 1;
+}
+
+const emptyWindow = (): WindowForm => ({
+  date: "",
+  start: "16:00",
+  end: "18:00",
+  location: "",
+  interval: "30",
+  maxPerTime: "",
+});
+
+const inputClass =
+  "w-full text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500";
 
 export default function AdminDropsPage() {
   const [drops, setDrops] = useState<Drop[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  // New drop form
-  const [title, setTitle] = useState("This Week's Drop");
-  const [description, setDescription] = useState(
-    "Pre-order during the ordering window, then pick up at your chosen time."
-  );
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [orderOpenAt, setOrderOpenAt] = useState("");
   const [orderCloseAt, setOrderCloseAt] = useState("");
-
-  // Slots
-  const [slots, setSlots] = useState<{ label: string; pickupDate: string }[]>([
-    { label: "Friday Pickup · 2:00 PM – 6:00 PM", pickupDate: "" },
-    { label: "Saturday Pickup · 9:00 AM – 1:00 PM", pickupDate: "" },
-  ]);
-
-  // Selected products for this drop
-  const [selectedItems, setSelectedItems] = useState<{
-    [productId: string]: number;
-  }>({});
+  const [maxOrders, setMaxOrders] = useState("");
+  const [windows, setWindows] = useState<WindowForm[]>([emptyWindow()]);
+  const [productForm, setProductForm] = useState<Record<string, ProductForm>>({});
 
   const loadData = async () => {
     try {
-      const [dropsRes, prodRes] = await Promise.all([
-        fetch("/api/drops"),
-        fetch("/api/products"),
-      ]);
+      const [dropsRes, prodRes] = await Promise.all([fetch("/api/drops"), fetch("/api/products")]);
       const dropsData = await dropsRes.json();
       const prodData = await prodRes.json();
-      setDrops(dropsData);
-      setProducts(prodData);
+      setDrops(Array.isArray(dropsData) ? dropsData : []);
+      setProducts(Array.isArray(prodData) ? prodData : []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -73,39 +124,116 @@ export default function AdminDropsPage() {
     loadData();
   }, []);
 
-  const handleCreateDrop = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const dropProductsPayload = Object.entries(selectedItems)
-        .filter(([_, qty]) => qty > 0)
-        .map(([productId, quantityLimit]) => ({
-          productId,
-          quantityLimit,
-        }));
+  const openNew = () => {
+    setEditingId(null);
+    setTitle("This Week's Drop");
+    setDescription("");
+    setOrderOpenAt("");
+    setOrderCloseAt("");
+    setMaxOrders("");
+    setWindows([emptyWindow()]);
+    setProductForm({});
+    setShowModal(true);
+  };
 
-      const res = await fetch("/api/drops", {
-        method: "POST",
+  const openEdit = (drop: Drop) => {
+    setEditingId(drop.id);
+    setTitle(drop.title);
+    setDescription(drop.description ?? "");
+    setOrderOpenAt(toDateTimeInput(drop.orderOpenAt));
+    setOrderCloseAt(toDateTimeInput(drop.orderCloseAt));
+    setMaxOrders(drop.maxOrders ? String(drop.maxOrders) : "");
+    setWindows(
+      drop.pickupSlots.map((s) => {
+        const start = new Date(s.pickupDate);
+        return {
+          id: s.id,
+          date: toDateInput(start),
+          start: toTimeInput(start),
+          end: s.endDate ? toTimeInput(new Date(s.endDate)) : toTimeInput(start),
+          location: s.location ?? "",
+          interval: String(s.intervalMinutes || 30),
+          maxPerTime: s.maxPerTime ? String(s.maxPerTime) : "",
+        };
+      })
+    );
+    setProductForm(
+      Object.fromEntries(
+        drop.dropProducts.map((dp) => [
+          dp.productId,
+          {
+            included: true,
+            limit: dp.quantityLimit !== null ? String(dp.quantityLimit) : "",
+            price: dp.priceOverride !== null ? (dp.priceOverride / 100).toFixed(2) : "",
+          },
+        ])
+      )
+    );
+    setShowModal(true);
+  };
+
+  const setWindow = (idx: number, patch: Partial<WindowForm>) =>
+    setWindows((ws) => ws.map((w, i) => (i === idx ? { ...w, ...patch } : w)));
+
+  const setProduct = (productId: string, patch: Partial<ProductForm>) =>
+    setProductForm((pf) => ({
+      ...pf,
+      [productId]: { ...(pf[productId] ?? { included: false, limit: "", price: "" }), ...patch },
+    }));
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const pickupSlots = windows
+      .filter((w) => w.date && w.start)
+      .map((w) => {
+        const end = w.end && w.end !== w.start ? at(w.date, w.end) : null;
+        return {
+          id: w.id,
+          label: windowLabel(w),
+          pickupDate: at(w.date, w.start).toISOString(),
+          endDate: end ? end.toISOString() : null,
+          location: w.location,
+          intervalMinutes: Number(w.interval) || 30,
+          maxPerTime: w.maxPerTime ? Number(w.maxPerTime) : null,
+        };
+      });
+    const dropProducts = Object.entries(productForm)
+      .filter(([, p]) => p.included)
+      .map(([productId, p]) => ({
+        productId,
+        quantityLimit: p.limit === "" ? null : Number(p.limit),
+        priceOverride: p.price === "" ? null : Math.round(Number(p.price) * 100),
+      }));
+
+    if (pickupSlots.length === 0) return alert("Add at least one pickup day and time.");
+    if (dropProducts.length === 0) return alert("Choose at least one product for this drop.");
+
+    setSaving(true);
+    try {
+      const res = await fetch(editingId ? `/api/drops/${editingId}` : "/api/drops", {
+        method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
           description,
-          orderOpenAt,
-          orderCloseAt,
-          status: "OPEN",
-          pickupSlots: slots.filter((s) => s.label && s.pickupDate),
-          products: dropProductsPayload,
+          orderOpenAt: new Date(orderOpenAt).toISOString(),
+          orderCloseAt: new Date(orderCloseAt).toISOString(),
+          maxOrders: maxOrders || null,
+          ...(editingId ? {} : { status: "OPEN" }),
+          pickupSlots,
+          products: dropProducts,
         }),
       });
-
-      if (res.ok) {
-        setShowModal(false);
-        loadData();
-      } else {
-        const err = await res.json();
-        alert(err.error || "Failed to create drop");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to save drop");
       }
-    } catch (e) {
-      alert("Error creating drop");
+      setShowModal(false);
+      loadData();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to save drop");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -117,101 +245,96 @@ export default function AdminDropsPage() {
         body: JSON.stringify({ status }),
       });
       loadData();
-    } catch (e) {
+    } catch {
       alert("Failed to update status");
     }
   };
 
+  // Products shown in the form: active ones plus any already in the drop being edited
+  const formProducts = products.filter((p) => p.active || productForm[p.id]?.included);
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-black text-[#2D1E18] tracking-tight">
-            Weekly Pre-Order Drops
-          </h1>
-          <p className="text-sm text-[#735D54] mt-1">
-            Set ordering windows and pickup times for each drop.
+          <h1 className="text-xl font-bold text-stone-900">Drops</h1>
+          <p className="text-sm text-stone-500 mt-0.5">
+            Pre-order windows with pickup days and times.
           </p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
-          className="bg-[#C85A32] hover:bg-[#B24D28] text-white font-bold text-sm px-5 py-2.5 rounded-xl transition duration-150 shadow-sm flex items-center gap-2"
+          onClick={openNew}
+          className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5"
         >
-          <span>+</span>
-          <span>Create New Drop</span>
+          <span className="text-base leading-none">+</span>
+          New Drop
         </button>
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-[#8A756C] font-medium">
-          Loading drops...
+        <div className="text-center py-16">
+          <div className="inline-block w-5 h-5 border-2 border-stone-300 border-t-amber-600 rounded-full animate-spin" />
         </div>
       ) : drops.length === 0 ? (
-        <div className="bg-white rounded-2xl p-12 border border-stone-200 text-center space-y-2">
-          <div className="text-3xl">🌾</div>
-          <p className="text-stone-500 font-semibold">No drops created yet.</p>
-          <p className="text-xs text-stone-400">
-            Click &quot;+ Create New Drop&quot; to schedule your first weekly batch!
-          </p>
+        <div className="bg-white rounded-xl p-10 border border-stone-200 text-center">
+          <p className="text-stone-500 font-medium">No drops yet</p>
+          <p className="text-xs text-stone-400 mt-1">Create your first drop to start taking pre-orders.</p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-4">
           {drops.map((drop) => {
             const totalOrders = drop.orders?.length || 0;
             return (
-              <div
-                key={drop.id}
-                className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm flex flex-col justify-between space-y-4 hover:border-[#E8DFD5] transition duration-150"
-              >
+              <div key={drop.id} className="bg-white rounded-xl p-5 border border-stone-200 flex flex-col gap-4">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span
-                      className={`text-xs font-bold px-3 py-1 rounded-full ${
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                         drop.status === "OPEN"
-                          ? "bg-[#EBF2EA] text-[#2E6B38] border border-[#D1E3D0]"
+                          ? "bg-emerald-50 text-emerald-700"
                           : drop.status === "CLOSED"
                           ? "bg-stone-100 text-stone-600"
-                          : "bg-[#FEF5E7] text-[#B86B1E] border border-[#FAD7A0]"
+                          : "bg-amber-50 text-amber-700"
                       }`}
                     >
                       {drop.status === "OPEN" ? "Ordering Open" : drop.status}
                     </span>
-                    <span className="text-xs text-[#8A756C] font-medium">
-                      {totalOrders} {totalOrders === 1 ? "order" : "orders"} placed
+                    <span className="text-xs text-stone-500">
+                      {totalOrders} {totalOrders === 1 ? "order" : "orders"}
                     </span>
                   </div>
 
-                  <h3 className="text-xl font-bold text-[#2D1E18]">
-                    {drop.title}
-                  </h3>
-                  {drop.description && (
-                    <p className="text-xs text-[#735D54] leading-relaxed">
-                      {drop.description}
-                    </p>
-                  )}
+                  <h3 className="text-lg font-bold text-stone-900">{drop.title}</h3>
+                  {drop.description && <p className="text-xs text-stone-500">{drop.description}</p>}
 
-                  <div className="bg-[#FAF6F0] p-3.5 rounded-xl text-xs space-y-1.5 border border-[#E8DFD5] text-[#2D1E18]">
+                  <div className="bg-stone-50 p-3 rounded-lg text-xs space-y-1 text-stone-700">
                     <div>
-                      <strong className="text-[#735D54]">Opens:</strong>{" "}
-                      {formatDate(drop.orderOpenAt)}
+                      <strong className="text-stone-500">Opens:</strong> {formatDate(drop.orderOpenAt)}
                     </div>
                     <div>
-                      <strong className="text-[#735D54]">Cutoff:</strong>{" "}
-                      {formatDate(drop.orderCloseAt)}
+                      <strong className="text-stone-500">Cutoff:</strong> {formatDate(drop.orderCloseAt)}
                     </div>
                   </div>
 
-                  <div className="text-xs space-y-1">
-                    <div className="font-bold text-[#2D1E18]">
-                      Offered this week:
+                  {drop.pickupSlots.length > 0 && (
+                    <div className="text-xs space-y-1">
+                      <div className="font-semibold text-stone-900">Pickup</div>
+                      {drop.pickupSlots.map((s) => (
+                        <div key={s.id} className="text-stone-600">
+                          {s.label}
+                          {s.location && <span className="text-stone-400"> · {s.location}</span>}
+                          {s.maxPerTime && <span className="text-stone-400"> · max {s.maxPerTime}/time</span>}
+                        </div>
+                      ))}
                     </div>
+                  )}
+
+                  <div className="text-xs space-y-1">
+                    <div className="font-semibold text-stone-900">Products</div>
                     <div className="flex flex-wrap gap-1.5">
                       {drop.dropProducts.map((dp) => (
-                        <span
-                          key={dp.id}
-                          className="bg-[#FAF6F0] border border-[#E8DFD5] text-[#2D1E18] px-2.5 py-1 rounded-lg text-[11px] font-medium"
-                        >
-                          {dp.product.name} ({dp.quantitySold}/
+                        <span key={dp.id} className="bg-stone-50 border border-stone-200 text-stone-700 px-2 py-1 rounded-md text-[11px]">
+                          {dp.product.name} · {formatPrice(dp.priceOverride ?? dp.product.price)} ({dp.quantitySold}/
                           {dp.quantityLimit ?? "∞"})
                         </span>
                       ))}
@@ -219,30 +342,32 @@ export default function AdminDropsPage() {
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-[#F3ECE2] flex items-center justify-between gap-2">
+                <div className="pt-3 mt-auto border-t border-stone-100 flex items-center justify-between gap-2">
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => openEdit(drop)}
+                      className="text-xs font-medium px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg"
+                    >
+                      Edit
+                    </button>
                     {drop.status === "OPEN" ? (
                       <button
                         onClick={() => updateDropStatus(drop.id, "CLOSED")}
-                        className="text-xs font-bold px-3 py-1.5 bg-[#FAF6F0] hover:bg-[#F3ECE2] text-[#2D1E18] border border-[#E8DFD5] rounded-xl transition duration-150"
+                        className="text-xs font-medium px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg"
                       >
                         Close Orders
                       </button>
                     ) : (
                       <button
                         onClick={() => updateDropStatus(drop.id, "OPEN")}
-                        className="text-xs font-bold px-3.5 py-1.5 bg-[#C85A32] hover:bg-[#B24D28] text-white rounded-xl transition duration-150 shadow-sm"
+                        className="text-xs font-semibold px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
                       >
                         Open Orders
                       </button>
                     )}
                   </div>
-                  <Link
-                    href={`/drops/${drop.id}`}
-                    target="_blank"
-                    className="text-xs text-[#C85A32] font-bold hover:underline"
-                  >
-                    Customer Menu ↗
+                  <Link href={`/drops/${drop.id}`} className="text-xs text-amber-700 font-semibold hover:underline">
+                    Customer view →
                   </Link>
                 </div>
               </div>
@@ -251,140 +376,144 @@ export default function AdminDropsPage() {
         </div>
       )}
 
-      {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto space-y-4 border border-stone-200">
-            <h2 className="text-xl font-bold text-[#2D1E18]">Create New Drop</h2>
-            <form onSubmit={handleCreateDrop} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-[#2D1E18] mb-1">
-                  Title *
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-stone-900 mb-4">{editingId ? "Edit Drop" : "New Drop"}</h2>
+            <form onSubmit={handleSave} className="space-y-5">
+              <div className="grid gap-3">
+                <label className="block">
+                  <span className="block text-xs font-medium text-stone-600 mb-1">Title *</span>
+                  <input required value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full text-sm px-3.5 py-2 border border-stone-200 rounded-xl focus:outline-none focus:border-[#C85A32]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2D1E18] mb-1">
-                  Description
+                <label className="block">
+                  <span className="block text-xs font-medium text-stone-600 mb-1">Description</span>
+                  <textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} />
                 </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full text-sm px-3.5 py-2 border border-stone-200 rounded-xl focus:outline-none focus:border-[#C85A32]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-[#2D1E18] mb-1">
-                    Orders Open Date &amp; Time *
+                <div className="grid sm:grid-cols-3 gap-3">
+                  <label className="block">
+                    <span className="block text-xs font-medium text-stone-600 mb-1">Orders open *</span>
+                    <input type="datetime-local" required value={orderOpenAt} onChange={(e) => setOrderOpenAt(e.target.value)} className={inputClass} />
                   </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={orderOpenAt}
-                    onChange={(e) => setOrderOpenAt(e.target.value)}
-                    className="w-full text-sm px-3 py-2 border border-stone-200 rounded-xl focus:outline-none focus:border-[#C85A32]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#2D1E18] mb-1">
-                    Orders Cutoff Date &amp; Time *
+                  <label className="block">
+                    <span className="block text-xs font-medium text-stone-600 mb-1">Orders close *</span>
+                    <input type="datetime-local" required value={orderCloseAt} onChange={(e) => setOrderCloseAt(e.target.value)} className={inputClass} />
                   </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={orderCloseAt}
-                    onChange={(e) => setOrderCloseAt(e.target.value)}
-                    className="w-full text-sm px-3 py-2 border border-stone-200 rounded-xl focus:outline-none focus:border-[#C85A32]"
-                  />
+                  <label className="block">
+                    <span className="block text-xs font-medium text-stone-600 mb-1">Max orders (optional)</span>
+                    <input type="number" min="1" value={maxOrders} onChange={(e) => setMaxOrders(e.target.value)} placeholder="No limit" className={inputClass} />
+                  </label>
                 </div>
               </div>
 
-              {/* Slots */}
+              {/* Pickup windows */}
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-[#2D1E18]">
-                  Pickup Slots
-                </label>
-                {slots.map((slot, idx) => (
-                  <div key={idx} className="grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      placeholder="Slot label"
-                      value={slot.label}
-                      onChange={(e) => {
-                        const copy = [...slots];
-                        copy[idx].label = e.target.value;
-                        setSlots(copy);
-                      }}
-                      className="text-xs px-3 py-2 border border-stone-200 rounded-xl focus:outline-none focus:border-[#C85A32]"
-                    />
-                    <input
-                      type="datetime-local"
-                      required
-                      value={slot.pickupDate}
-                      onChange={(e) => {
-                        const copy = [...slots];
-                        copy[idx].pickupDate = e.target.value;
-                        setSlots(copy);
-                      }}
-                      className="text-xs px-3 py-2 border border-stone-200 rounded-xl focus:outline-none focus:border-[#C85A32]"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {/* Items */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-[#2D1E18]">
-                  Products to Offer (optional quantity limit)
-                </label>
-                {products.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between p-2.5 rounded-xl bg-[#FAF6F0] border border-[#E8DFD5] text-xs"
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-stone-900">When customers pick up</span>
+                  <button
+                    type="button"
+                    onClick={() => setWindows((ws) => [...ws, emptyWindow()])}
+                    className="text-xs font-medium text-amber-700 hover:underline"
                   >
-                    <span className="font-semibold text-[#2D1E18]">{p.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#735D54]">Batch limit:</span>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="0"
-                        value={selectedItems[p.id] || ""}
-                        onChange={(e) =>
-                          setSelectedItems({
-                            ...selectedItems,
-                            [p.id]: Number(e.target.value),
-                          })
-                        }
-                        className="w-16 px-2 py-1 bg-white border border-stone-200 rounded-lg text-center font-bold text-[#2D1E18]"
-                      />
+                    + Add pickup day
+                  </button>
+                </div>
+                <p className="text-[11px] text-stone-500">
+                  Customers choose a time in each window, every interval (start and end included).
+                </p>
+                {windows.map((w, idx) => {
+                  const count = timesInWindow(w);
+                  return (
+                    <div key={w.id ?? `new-${idx}`} className="border border-stone-200 rounded-xl p-3 space-y-2 bg-stone-50">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <label className="block col-span-2 sm:col-span-1">
+                          <span className="block text-[11px] text-stone-500 mb-0.5">Day</span>
+                          <input type="date" required value={w.date} onChange={(e) => setWindow(idx, { date: e.target.value })} className={inputClass} />
+                        </label>
+                        <label className="block">
+                          <span className="block text-[11px] text-stone-500 mb-0.5">From</span>
+                          <input type="time" required value={w.start} onChange={(e) => setWindow(idx, { start: e.target.value })} className={inputClass} />
+                        </label>
+                        <label className="block">
+                          <span className="block text-[11px] text-stone-500 mb-0.5">To</span>
+                          <input type="time" value={w.end} onChange={(e) => setWindow(idx, { end: e.target.value })} className={inputClass} />
+                        </label>
+                        <label className="block col-span-2 sm:col-span-1">
+                          <span className="block text-[11px] text-stone-500 mb-0.5">Every</span>
+                          <select value={w.interval} onChange={(e) => setWindow(idx, { interval: e.target.value })} className={inputClass}>
+                            <option value="15">15 min</option>
+                            <option value="30">30 min</option>
+                            <option value="60">1 hour</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="block">
+                          <span className="block text-[11px] text-stone-500 mb-0.5">Location</span>
+                          <input value={w.location} onChange={(e) => setWindow(idx, { location: e.target.value })} placeholder="e.g. 123 Main St" className={inputClass} />
+                        </label>
+                        <label className="block">
+                          <span className="block text-[11px] text-stone-500 mb-0.5">Max pickups per time</span>
+                          <input type="number" min="1" value={w.maxPerTime} onChange={(e) => setWindow(idx, { maxPerTime: e.target.value })} placeholder="No limit" className={inputClass} />
+                        </label>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-stone-500">
+                        <span>{w.date && w.start ? `${windowLabel(w)} · ${count} ${count === 1 ? "time" : "times"}` : "Pick a day"}</span>
+                        {windows.length > 1 && (
+                          <button type="button" onClick={() => setWindows((ws) => ws.filter((_, i) => i !== idx))} className="text-red-600 hover:underline">
+                            Remove
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+
+              {/* Products */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-stone-900">Products in this drop</span>
+                {formProducts.length === 0 ? (
+                  <p className="text-xs text-stone-500">Add products on the Products page first.</p>
+                ) : (
+                  formProducts.map((p) => {
+                    const f = productForm[p.id] ?? { included: false, limit: "", price: "" };
+                    return (
+                      <div key={p.id} className={`rounded-xl border p-3 text-xs ${f.included ? "border-amber-300 bg-amber-50/40" : "border-stone-200"}`}>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={f.included}
+                            onChange={(e) => setProduct(p.id, { included: e.target.checked })}
+                            className="h-4 w-4 accent-amber-600"
+                          />
+                          <span className="font-semibold text-stone-900 flex-1">{p.name}</span>
+                          <span className="text-stone-500">{formatPrice(p.price)}</span>
+                        </label>
+                        {f.included && (
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            <label className="block">
+                              <span className="block text-[11px] text-stone-500 mb-0.5">How many available</span>
+                              <input type="number" min="0" value={f.limit} onChange={(e) => setProduct(p.id, { limit: e.target.value })} placeholder="No limit" className={inputClass} />
+                            </label>
+                            <label className="block">
+                              <span className="block text-[11px] text-stone-500 mb-0.5">Price for this drop ($)</span>
+                              <input type="number" min="0" step="0.01" value={f.price} onChange={(e) => setProduct(p.id, { price: e.target.value })} placeholder={(p.price / 100).toFixed(2)} className={inputClass} />
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
               <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 border border-stone-200 py-2.5 rounded-xl font-medium text-sm text-[#735D54] hover:bg-stone-50 transition"
-                >
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 border border-stone-200 py-2 rounded-lg font-medium text-sm text-stone-600 hover:bg-stone-50">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-[#C85A32] hover:bg-[#B24D28] text-white font-bold py-2.5 rounded-xl text-sm transition shadow-sm"
-                >
-                  Publish Drop
+                <button type="submit" disabled={saving} className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold py-2 rounded-lg text-sm">
+                  {saving ? "Saving..." : editingId ? "Save Changes" : "Publish Drop"}
                 </button>
               </div>
             </form>

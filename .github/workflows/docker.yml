@@ -133,6 +133,41 @@ jobs:
             fi
           done
 
+      - name: Pickup time slots (seeded drop, real orders)
+        env:
+          PGURL: postgresql://farmstand:smoketest@localhost:5432/farmstand
+        run: |
+          # A drop open now, one 1-hour pickup window every 30 min (3 times), max 1 order per time
+          start=$(date -u -d 'tomorrow 16:00' +'%Y-%m-%d %H:%M:%S')
+          end=$(date -u -d 'tomorrow 17:00' +'%Y-%m-%d %H:%M:%S')
+          psql "$PGURL" -v ON_ERROR_STOP=1 <<SQL
+          INSERT INTO "Product" (id, name, price, "updatedAt") VALUES ('p1', 'Test Item', 500, now());
+          INSERT INTO "Drop" (id, title, "orderOpenAt", "orderCloseAt", status, "updatedAt")
+            VALUES ('d1', 'Test Drop', now() - interval '1 day', now() + interval '1 day', 'OPEN', now());
+          INSERT INTO "PickupSlot" (id, "dropId", label, "pickupDate", "endDate", location, "intervalMinutes", "maxPerTime")
+            VALUES ('s1', 'd1', 'Test window', '$start', '$end', 'Test St', 30, 1);
+          INSERT INTO "DropProduct" (id, "dropId", "productId", "quantityLimit") VALUES ('dp1', 'd1', 'p1', 10);
+          SQL
+
+          drop=$(curl -s http://localhost:3000/api/drops/d1)
+          times=$(echo "$drop" | jq -r '.pickupSlots[0].times | length')
+          first=$(echo "$drop" | jq -r '.pickupSlots[0].times[0].time')
+          echo "window times: $times, first: $first"
+          [ "$times" = "3" ] || { echo "Expected 3 times"; exit 1; }
+
+          order() {
+            curl -s -o /tmp/order.json -w '%{http_code}' -X POST http://localhost:3000/api/orders \
+              -H 'Content-Type: application/json' \
+              -d "{\"type\":\"DROP\",\"dropId\":\"d1\",\"pickupSlotId\":\"s1\",\"pickupTime\":\"$1\",\"paymentMethod\":\"VENMO\",\"guestEmail\":\"c@example.com\",\"items\":[{\"dropProductId\":\"dp1\",\"quantity\":1}]}"
+          }
+          c=$(order "$first"); echo "order at first time -> $c $(cat /tmp/order.json)"; [ "$c" = "200" ] || exit 1
+          full=$(curl -s http://localhost:3000/api/drops/d1 | jq -r '.pickupSlots[0].times[0].full')
+          echo "first time full now: $full"; [ "$full" = "true" ] || exit 1
+          c=$(order "$first"); echo "second order same time -> $c $(cat /tmp/order.json)"; [ "$c" = "400" ] || exit 1
+          c=$(order "2000-01-01T00:00:00.000Z"); echo "order at bogus time -> $c $(cat /tmp/order.json)"; [ "$c" = "400" ] || exit 1
+          sold=$(psql "$PGURL" -tAc 'SELECT "quantitySold" FROM "DropProduct" WHERE id = '"'"'dp1'"'"'')
+          echo "quantitySold: $sold"; [ "$sold" = "1" ] || exit 1
+
       - name: Container logs
         if: always()
         run: docker logs farmstand || true

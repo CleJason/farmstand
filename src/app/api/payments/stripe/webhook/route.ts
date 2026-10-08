@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { fireNotification } from "@/lib/notifications";
 import { getSetting } from "@/lib/settings";
 import { adjustStock, countsStock } from "@/lib/stock";
+import { formatPickup } from "@/lib/pickup";
 
 export async function POST(req: Request) {
   const stripe = await getStripe();
@@ -67,6 +68,8 @@ export async function POST(req: Request) {
           customerEmail: order.guestEmail || order.user?.email,
           customerPhone: order.guestPhone || order.user?.phone,
           pickupSlot: order.pickupSlot?.label,
+          pickupTime: formatPickup(order.pickupTime),
+          pickupLocation: order.pickupSlot?.location ?? null,
         }
       );
     }

@@ -14,7 +14,8 @@ interface Order {
   guestPhone: string | null;
   manualPaymentRef: string | null;
   createdAt: string;
-  pickupSlot: { label: string } | null;
+  pickupSlot: { label: string; location: string | null } | null;
+  pickupTime: string | null;
   user: { name: string | null; email: string; phone: string | null } | null;
   drop: { title: string } | null;
   items: {
@@ -240,7 +241,19 @@ export default function AdminDashboardPage() {
                 <div className="text-xs text-stone-500 mb-3">
                   <span>{email}</span>
                   {order.pickupSlot && (
-                    <span className="ml-3">📍 {order.pickupSlot.label}</span>
+                    <span className="ml-3">
+                      📍{" "}
+                      {order.pickupTime
+                        ? new Date(order.pickupTime).toLocaleString("en-US", {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })
+                        : order.pickupSlot.label}
+                      {order.pickupSlot.location && ` · ${order.pickupSlot.location}`}
+                    </span>
                   )}
                 </div>
 

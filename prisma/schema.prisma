@@ -106,14 +106,20 @@ model Drop {
   orders       Order[]
 }
 
-// Each drop can have multiple pickup slots (e.g. Friday 2-6pm, Saturday 9am-noon)
+// Each drop can have multiple pickup windows (e.g. Friday 4-6pm, Saturday 9-11am).
+// Customers pick a time inside the window every `intervalMinutes`
+// (start and end included), optionally capped at `maxPerTime` orders per time.
 model PickupSlot {
-  id          String   @id @default(cuid())
-  dropId      String
-  label       String   // e.g. "Friday, Oct 11 · 2:00–6:00 PM"
-  pickupDate  DateTime
-  drop        Drop     @relation(fields: [dropId], references: [id], onDelete: Cascade)
-  orders      Order[]
+  id              String    @id @default(cuid())
+  dropId          String
+  label           String    // e.g. "Fri, Oct 9 · 4:00–6:00 PM"
+  pickupDate      DateTime  // window start
+  endDate         DateTime? // window end; null = a single pickup time
+  location        String?
+  intervalMinutes Int       @default(30)
+  maxPerTime      Int?      // null = unlimited
+  drop            Drop      @relation(fields: [dropId], references: [id], onDelete: Cascade)
+  orders          Order[]
 }
 
 // Products offered within a specific drop, with per-drop qty limits
@@ -160,6 +166,7 @@ model Order {
   type            String        // DROP or FARMSTAND
   dropId          String?
   pickupSlotId    String?
+  pickupTime      DateTime?     // the time the customer chose inside the pickup window
   status          String   @default("PENDING")
   paymentMethod   String   @default("STRIPE")
   subtotal        Int           // cents

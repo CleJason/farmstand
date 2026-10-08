@@ -6,6 +6,7 @@ import { fireNotification } from "@/lib/notifications";
 import { getStripe } from "@/lib/stripe";
 import { getSetting } from "@/lib/settings";
 import { adjustStock, countsStock } from "@/lib/stock";
+import { formatPickup, pickupTimeCounts, pickupTimes } from "@/lib/pickup";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -83,22 +84,26 @@ function checkStock(name: string, quantity: number, remaining: number) {
   }
 }
 
-/** Look up real prices and check availability/stock for the requested order. */
+/**
+ * Look up real prices and check availability/stock for the requested order,
+ * plus (for drops) that the chosen pickup time exists and isn't full.
+ */
 async function priceOrder(
   db: Prisma.TransactionClient,
-  input: { type: string; dropId?: string; pickupSlotId?: string; items: unknown }
-): Promise<PricedLine[]> {
+  input: { type: string; dropId?: string; pickupSlotId?: string; pickupTime?: string; items: unknown }
+): Promise<{ lines: PricedLine[]; pickupTime: Date | null }> {
   if (input.type === "FARMSTAND") {
     const requested = parseItems(input.items, "farmstandItemId");
     const stock = await db.farmstandItem.findMany({
       where: { id: { in: requested.map((r) => r.id) } },
     });
-    return requested.map(({ id, quantity }) => {
+    const lines = requested.map(({ id, quantity }) => {
       const item = stock.find((s) => s.id === id);
       if (!item || !item.available) throw new OrderError("An item in your cart is no longer available");
       checkStock(item.name, quantity, item.quantityAvailable - item.quantitySold);
       return { dropProductId: null, farmstandItemId: id, name: item.name, quantity, price: item.price };
     });
+    return { lines, pickupTime: null };
   }
 
   if (!input.dropId) throw new OrderError("No drop selected");
@@ -112,8 +117,20 @@ async function priceOrder(
   if (drop.status !== "OPEN" || now < drop.orderOpenAt || now > drop.orderCloseAt) {
     throw new OrderError("Ordering for this drop is closed");
   }
-  if (drop.pickupSlots.length > 0 && !drop.pickupSlots.some((s) => s.id === input.pickupSlotId)) {
-    throw new OrderError("Please choose a pickup time");
+  let pickupTime: Date | null = null;
+  if (drop.pickupSlots.length > 0) {
+    const slot = drop.pickupSlots.find((s) => s.id === input.pickupSlotId);
+    if (!slot) throw new OrderError("Please choose a pickup day");
+    const times = pickupTimes(slot);
+    const chosen = times.length === 1 ? times[0] : times.find((t) => t.toISOString() === input.pickupTime);
+    if (!chosen) throw new OrderError("Please choose a pickup time");
+    if (slot.maxPerTime !== null) {
+      const taken = (await pickupTimeCounts(db, [slot.id])).get(`${slot.id}|${chosen.toISOString()}`) ?? 0;
+      if (taken >= slot.maxPerTime) {
+        throw new OrderError("That pickup time just filled up — please choose another");
+      }
+    }
+    pickupTime = chosen;
   }
   if (drop.maxOrders) {
     const placed = await db.order.count({
@@ -123,7 +140,7 @@ async function priceOrder(
   }
 
   const requested = parseItems(input.items, "dropProductId");
-  return requested.map(({ id, quantity }) => {
+  const lines = requested.map(({ id, quantity }) => {
     const dp = drop.dropProducts.find((d) => d.id === id);
     if (!dp) throw new OrderError("An item in your cart is not part of this drop");
     if (dp.quantityLimit !== null) {
@@ -137,6 +154,7 @@ async function priceOrder(
       price: dp.priceOverride ?? dp.product.price,
     };
   });
+  return { lines, pickupTime };
 }
 
 export async function POST(req: Request) {
@@ -146,6 +164,7 @@ export async function POST(req: Request) {
     const {
       dropId,
       pickupSlotId,
+      pickupTime,
       items,
       notes,
       guestEmail,
@@ -159,13 +178,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
     }
 
-    const orderInput = { type, dropId, pickupSlotId, items };
-    const orderData = (lines: PricedLine[]) => {
+    const orderInput = { type, dropId, pickupSlotId, pickupTime, items };
+    const orderData = ({ lines, pickupTime }: { lines: PricedLine[]; pickupTime: Date | null }) => {
       const subtotal = lines.reduce((acc, l) => acc + l.quantity * l.price, 0);
       return {
         type,
         dropId: type === "DROP" ? dropId : null,
         pickupSlotId: type === "DROP" ? pickupSlotId || null : null,
+        pickupTime,
         userId: session?.user?.id || null,
         guestEmail: guestEmail || null,
         guestPhone: guestPhone || null,
@@ -193,8 +213,7 @@ export async function POST(req: Request) {
       }
 
       // Stock is checked now but only counted once the payment succeeds (webhook).
-      const lines = await priceOrder(prisma, orderInput);
-      const base = orderData(lines);
+      const base = orderData(await priceOrder(prisma, orderInput));
       const paymentIntent = await stripe.paymentIntents.create({
         amount: base.total,
         currency: "usd",
@@ -230,13 +249,13 @@ export async function POST(req: Request) {
     // both pass the stock check.
     const { order, lines } = await prisma.$transaction(
       async (tx) => {
-        const lines = await priceOrder(tx, orderInput);
+        const priced = await priceOrder(tx, orderInput);
         const order = await tx.order.create({
-          data: { ...orderData(lines), status: "AWAITING_CONFIRM" },
+          data: { ...orderData(priced), status: "AWAITING_CONFIRM" },
           include,
         });
-        if (countsStock(order.status)) await adjustStock(tx, lines, 1);
-        return { order, lines };
+        if (countsStock(order.status)) await adjustStock(tx, priced.lines, 1);
+        return { order, lines: priced.lines };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
     );
@@ -252,6 +271,8 @@ export async function POST(req: Request) {
       customerEmail: order.guestEmail || session?.user?.email || null,
       customerPhone: order.guestPhone,
       pickupSlot: order.pickupSlot?.label,
+      pickupTime: formatPickup(order.pickupTime),
+      pickupLocation: order.pickupSlot?.location ?? null,
       notes: order.notes,
       manualPaymentRef: order.manualPaymentRef,
       items: lines.map((l) => ({ name: l.name, quantity: l.quantity, price: l.price })),

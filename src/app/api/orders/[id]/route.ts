@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { fireNotification } from "@/lib/notifications";
 import { adjustStock, countsStock } from "@/lib/stock";
+import { formatPickup } from "@/lib/pickup";
 
 export async function GET(
   _req: Request,
@@ -79,6 +80,8 @@ export async function PUT(
       customerEmail: order.guestEmail || order.user?.email,
       customerPhone: order.guestPhone || order.user?.phone,
       pickupSlot: order.pickupSlot?.label,
+      pickupTime: formatPickup(order.pickupTime),
+      pickupLocation: order.pickupSlot?.location ?? null,
     });
   } else if (statusChanged && (status === "CANCELLED" || status === "REFUNDED")) {
     await fireNotification("order.cancelled", {
