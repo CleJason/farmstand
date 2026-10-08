@@ -36,6 +36,9 @@ export const SITE_DEFAULTS = {
   // Legal pages (/privacy, /terms). Empty = the built-in starter text.
   SITE_PRIVACY: "",
   SITE_TERMS: "",
+  // Set automatically when the legal text is saved (yyyy-mm-dd), shown as "Last updated"
+  SITE_PRIVACY_UPDATED: "",
+  SITE_TERMS_UPDATED: "",
 };
 
 export type SiteKey = keyof typeof SITE_DEFAULTS;

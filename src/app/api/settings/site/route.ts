@@ -20,12 +20,23 @@ export async function PUT(req: Request) {
   }
 
   const body = await req.json();
+  const current = await getSiteSettings();
   const updates: { key: string; value: string }[] = [];
   for (const key of SITE_KEYS) {
     if (typeof body[key] !== "string") continue;
+    if (key === "SITE_PRIVACY_UPDATED" || key === "SITE_TERMS_UPDATED") continue; // set below
     const max = key === "SITE_PRIVACY" || key === "SITE_TERMS" ? 20000 : MAX_LENGTH;
     const value = body[key].trim().slice(0, max);
     updates.push({ key, value });
+  }
+
+  // "Last updated" on the legal pages follows actual edits to their text
+  const today = new Date().toISOString().slice(0, 10);
+  for (const key of ["SITE_PRIVACY", "SITE_TERMS"] as const) {
+    const next = updates.find((u) => u.key === key)?.value;
+    if (next !== undefined && next !== current[key]) {
+      updates.push({ key: `${key}_UPDATED`, value: next ? today : "" });
+    }
   }
 
   const color = updates.find((u) => u.key === "SITE_BRAND_COLOR")?.value;

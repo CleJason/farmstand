@@ -75,7 +75,7 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
         multiline: true,
         rows: 10,
         starter: defaultPrivacy,
-        hint: "Leave empty to use the built-in starter, filled in with your business name and contact info. Use “## ” for headings and “- ” for bullet points. Not legal advice; adjust it to fit your business.",
+        hint: "Leave empty to use the built-in starter, filled in with your business name and contact info. Use “## ” for headings and “- ” for bullet points. The “Last updated” date on the page changes automatically when you save edits.",
       },
       {
         key: "SITE_TERMS",
@@ -217,6 +217,25 @@ export default function SiteSettingsForm() {
       {GROUPS.map((group) => (
         <div key={group.title} className="space-y-3">
           <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wider">{group.title}</h3>
+          {group.title.startsWith("Legal") && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 space-y-1">
+              <p className="font-semibold">⚠️ Review these for your own business before going live.</p>
+              <p>
+                The starter Privacy Policy and Terms are general templates, not legal advice. Check that they match how
+                you collect information, take payments, handle refunds and pickups, and the laws where you operate. Edit
+                anything that doesn&apos;t fit, or paste in your own.
+                {(!values.SITE_PRIVACY || !values.SITE_TERMS) && (
+                  <>
+                    {" "}
+                    <strong>
+                      You&apos;re currently using the starter{" "}
+                      {!values.SITE_PRIVACY && !values.SITE_TERMS ? "Privacy Policy and Terms" : !values.SITE_PRIVACY ? "Privacy Policy" : "Terms"}.
+                    </strong>
+                  </>
+                )}
+              </p>
+            </div>
+          )}
           {group.fields.map((f) => (
             <label key={f.key} className="block">
               <span className="block text-xs font-medium text-stone-700 mb-1">{f.label}</span>

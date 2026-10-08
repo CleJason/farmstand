@@ -64,6 +64,12 @@ farmstand/
 
 ---
 
+## Privacy Policy & Terms — review yours
+
+The site includes `/privacy` and `/terms` pages, linked at the bottom of every page, with **starter templates** filled in with your business name and contact details. They are general templates, **not legal advice** and not written for your specific business. Before going live, review and edit them in **Admin → Site → Legal pages** so they match how you collect information, take payments, handle refunds and pickups, and the laws where you operate — or paste in your own.
+
+---
+
 ## Admin App (Android APK & iPhone)
 
 The admin panel installs as a phone app — no app store or developer account. It needs the site on a public **https** domain (see Cloudflare Tunnel below).

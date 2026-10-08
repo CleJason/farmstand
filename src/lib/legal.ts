@@ -12,37 +12,51 @@ function contact(site: SiteSettings) {
 
 export function defaultPrivacy(site: SiteSettings) {
   const name = site.SITE_NAME;
-  return `${name} ("we", "us") runs this website to take orders for pickup. This policy explains what we collect and how we use it.
+  return `This Privacy Policy explains how ${name} ("we", "us") collects, uses, maintains and discloses information collected from users ("you") of this website. It applies to this website and all products and services offered by ${name}.
 
-## What we collect
-- Your name, email address and phone number when you place an order, sign in, or buy a gift card.
-- What you ordered, your pickup time, any notes you add, and discount or gift card codes you use.
-- Basic technical information your browser sends (like your IP address) and a sign-in cookie if you sign in.
+## Information we collect
+We collect personal information when you place an order, buy or use a gift card, sign in, or contact us. This may include:
+- Your name, email address and phone number
+- What you ordered, your pickup day and time, and any notes you add
+- Discount or gift card codes you use
+- Payment confirmation details (card payments are handled by our payment processor; we never see or store your full card number)
+- Information related to questions or support requests you send us
+- Basic technical information your browser sends, such as your IP address, and a sign-in cookie if you sign in
 
-## How we use it
-- To take, prepare and confirm your order and arrange pickup.
-- To send order confirmations, pickup reminders and updates by email or text message.
-- To answer your questions and keep records of our sales.
+## How we use your information
+- To process and fulfill your orders and arrange pickup
+- To send order confirmations, pickup reminders and updates by email or text message
+- To respond to your questions and requests
+- To keep records of our sales for our business and tax purposes
+- To keep this website secure and working properly
+- To comply with legal and regulatory obligations
 
-We do not sell your personal information, and we don't use it for advertising.
+## Emails and text messages
+We use your email address to send information about your order and to reply to your questions. If you give us your phone number, we may text you about your order (confirmations and pickup reminders). Message and data rates may apply; reply STOP at any time to stop texts. If you choose to join a mailing list, you can unsubscribe at any time using the link in our emails or by contacting us.
 
-## Text messages
-If you give us your phone number, we may text you about your order (confirmations and pickup reminders). Message and data rates may apply. Reply STOP to opt out at any time, or contact us.
+## Sharing your information
+We do not sell, trade or rent your personal information to anyone. We share it only with trusted service providers that help us run our business, such as our payment processors (Stripe, Venmo, PayPal) and the email and text message services we use to contact you, and only as needed for them to do that work. We may also disclose information if required by law or to protect our rights, property or customers.
 
 ## Payments
-Card payments are handled by Stripe, and Venmo and PayPal payments by those companies. We never see or store your full card number. Their own privacy policies apply to the information you give them.
+Card payments are processed by Stripe, and Venmo and PayPal payments by those companies. Their own privacy policies apply to the information you give them.
 
-## Who we share it with
-Only the services that help us run the shop, such as our payment processors and the email and text message services we use to contact you, and only as needed to do that. We may also share information if the law requires it.
+## Third-party websites
+This website may link to other websites, such as our social media pages or payment providers. Those websites have their own privacy policies, and we are not responsible for their content or practices.
 
-## How long we keep it
-We keep order records for as long as we need them for our business and tax records. You can ask us to delete your account and contact details at any time; we keep the order amounts for our records without your contact information.
+## How long we keep information
+We keep order records for as long as we need them for our business and tax records. You can ask us to delete your account and contact details at any time; we keep order amounts for our records without your contact information.
 
 ## Your choices
 You can ask to see, correct or delete the personal information we have about you by contacting us at ${contact(site)}.
 
-## Changes
-We may update this policy. The latest version is always on this page.`;
+## Changes to this policy
+We may update this Privacy Policy at any time. Changes will be posted on this page with an updated date at the top. We encourage you to check this page periodically.
+
+## Your acceptance of this policy
+By using this website, you agree to this Privacy Policy. If you do not agree, please do not use the website. Continuing to use the website after changes are posted means you accept those changes.
+
+## Contact us
+If you have any questions about this Privacy Policy, please contact us at ${contact(site)}.`;
 }
 
 export function defaultTerms(site: SiteSettings) {
