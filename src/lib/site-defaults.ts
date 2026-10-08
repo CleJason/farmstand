@@ -27,6 +27,9 @@ export const SITE_DEFAULTS = {
   SITE_NEXTDOOR: "",
   SITE_WEBSITE: "",
   SITE_LOGO_URL: "",
+  // Wide banner photo at the top of the home page, and which part of it shows
+  SITE_COVER_URL: "",
+  SITE_COVER_POSITION: "",
   // Where the logo / business name appear ("true" | "false")
   SITE_LOGO_IN_HEADER: "true",
   SITE_NAME_IN_HEADER: "true",

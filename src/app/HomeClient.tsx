@@ -37,6 +37,7 @@ export default function HomeClient() {
   const site = useSite();
   const [drops, setDrops] = useState<Drop[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rating, setRating] = useState<{ average: number; count: number } | null>(null);
 
   useEffect(() => {
     async function fetchDrops() {
@@ -54,6 +55,16 @@ export default function HomeClient() {
       }
     }
     fetchDrops();
+    // Average star rating shown under the shop name
+    fetch("/api/reviews")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((reviews: { rating: number; visible?: boolean }[]) => {
+        const shown = Array.isArray(reviews) ? reviews.filter((r) => r.visible !== false) : [];
+        if (shown.length) {
+          setRating({ average: shown.reduce((s, r) => s + r.rating, 0) / shown.length, count: shown.length });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   return (
@@ -64,13 +75,42 @@ export default function HomeClient() {
       <header className="relative overflow-hidden border-b border-amber-100 bg-gradient-to-b from-amber-50 via-[#FFFDF9] to-white">
         <div aria-hidden className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-amber-200/40 blur-3xl" />
         <div aria-hidden className="pointer-events-none absolute -bottom-32 -right-16 h-80 w-80 rounded-full bg-amber-300/25 blur-3xl" />
-        <div className="relative max-w-5xl mx-auto px-4 py-16 md:py-24 text-center">
+        <div
+          className={`relative max-w-5xl mx-auto px-4 text-center ${
+            site.SITE_COVER_URL ? "pt-6 pb-14 md:pt-8 md:pb-20" : "py-16 md:py-24"
+          }`}
+        >
+          {site.SITE_COVER_URL && (
+            <div className="relative w-full aspect-[16/9] sm:aspect-[21/8] rounded-3xl overflow-hidden shadow-xl shadow-amber-900/10 ring-1 ring-black/5 mb-10">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={site.SITE_COVER_URL}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+                style={{ objectPosition: site.SITE_COVER_POSITION || undefined }}
+              />
+            </div>
+          )}
           <p className="inline-block text-amber-700 bg-white/70 border border-amber-200 text-xs font-semibold tracking-wider uppercase rounded-full px-3.5 py-1 mb-5 shadow-sm">
             {site.SITE_TAGLINE}
           </p>
           <h1 className="text-4xl md:text-6xl font-bold text-stone-900 tracking-tight leading-tight">
             {site.SITE_HEADLINE}
           </h1>
+          {rating && (
+            <a
+              href="#reviews"
+              className="mt-3 inline-flex items-center gap-1.5 text-sm text-stone-600 hover:text-stone-900"
+            >
+              <span className="font-semibold text-stone-900">{rating.average.toFixed(1)}</span>
+              <span className="text-amber-500" aria-hidden>
+                ★
+              </span>
+              <span className="underline-offset-2 hover:underline">
+                ({rating.count} {rating.count === 1 ? "review" : "reviews"})
+              </span>
+            </a>
+          )}
           <div aria-hidden className="mx-auto mt-4 h-1 w-16 rounded-full bg-amber-500/80" />
           <p className="mt-5 text-stone-600 text-base md:text-lg max-w-xl mx-auto leading-relaxed whitespace-pre-line">
             {site.SITE_INTRO}

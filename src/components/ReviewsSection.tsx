@@ -43,7 +43,7 @@ export default function ReviewsSection() {
   const average = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
 
   return (
-    <section className="bg-gradient-to-b from-white to-amber-50/60 border-t border-amber-100">
+    <section id="reviews" className="scroll-mt-20 bg-gradient-to-b from-white to-amber-50/60 border-t border-amber-100">
       <div className="max-w-5xl mx-auto px-4 py-12">
         <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
           <div>

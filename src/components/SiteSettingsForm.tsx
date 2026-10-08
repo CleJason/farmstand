@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ImageUpload from "@/components/ImageUpload";
+import ImagePositioner from "@/components/ImagePositioner";
 import { SITE_DEFAULTS, isHexColor, isOn, type SiteKey, type SiteSettings } from "@/lib/site-defaults";
 import { defaultPrivacy, defaultTerms } from "@/lib/legal";
 
@@ -171,6 +172,37 @@ export default function SiteSettingsForm() {
       }}
       className="space-y-6"
     >
+      <div className="space-y-2">
+        <span className="block text-xs font-medium text-stone-700">Cover photo (wide banner at the top of your home page)</span>
+        <ImageUpload
+          key={values.SITE_COVER_URL || "no-cover"}
+          currentUrl={values.SITE_COVER_URL || null}
+          onUpload={(url) => save({ ...values, SITE_COVER_URL: url, SITE_COVER_POSITION: "" })}
+          accept="image/png,image/jpeg,image/webp"
+          hint="A wide (landscape) photo works best · JPG, PNG or WebP"
+        />
+        {values.SITE_COVER_URL && (
+          <>
+            <ImagePositioner
+              url={values.SITE_COVER_URL}
+              position={values.SITE_COVER_POSITION || null}
+              onChange={(pos) => set("SITE_COVER_POSITION", pos)}
+              shape="cover"
+            />
+            <div className="flex items-center justify-between text-[11px] text-stone-500">
+              <span>Drag to choose what shows, then Save. Phones show a slightly taller crop.</span>
+              <button
+                type="button"
+                onClick={() => save({ ...values, SITE_COVER_URL: "", SITE_COVER_POSITION: "" })}
+                className="underline shrink-0"
+              >
+                Remove cover
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
           <span className="block text-xs font-medium text-stone-700 mb-1">Logo</span>

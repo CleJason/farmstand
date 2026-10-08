@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { cleanPosition } from "@/lib/image-position";
 import { getSiteSettings, isHexColor, publicSite, SITE_KEYS, TOGGLE_KEYS, type SiteKey } from "@/lib/site";
 
 const MAX_LENGTH = 2000;
@@ -46,10 +47,14 @@ export async function PUT(req: Request) {
   for (const u of updates) {
     if (TOGGLE_KEYS.includes(u.key as SiteKey)) u.value = u.value === "true" ? "true" : "false";
   }
-  const logo = updates.find((u) => u.key === "SITE_LOGO_URL")?.value;
-  if (logo && !/^\/uploads\/[\w.-]+$/.test(logo)) {
-    return NextResponse.json({ error: "Invalid logo" }, { status: 400 });
+  for (const key of ["SITE_LOGO_URL", "SITE_COVER_URL"]) {
+    const url = updates.find((u) => u.key === key)?.value;
+    if (url && !/^\/uploads\/[\w.-]+$/.test(url)) {
+      return NextResponse.json({ error: "Invalid image" }, { status: 400 });
+    }
   }
+  const coverPos = updates.find((u) => u.key === "SITE_COVER_POSITION");
+  if (coverPos) coverPos.value = cleanPosition(coverPos.value) ?? "";
 
   await prisma.$transaction(
     updates.map((u) =>

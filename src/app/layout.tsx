@@ -19,14 +19,32 @@ function brandColor(value: string) {
 export async function generateMetadata(): Promise<Metadata> {
   // Read at request time so changes in admin show without a rebuild
   await connection();
-  const [site, faviconSetting] = await Promise.all([getSiteSettings(), getSetting("FAVICON_URL")]);
+  const [site, faviconSetting, appUrl] = await Promise.all([
+    getSiteSettings(),
+    getSetting("FAVICON_URL"),
+    getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || ""),
+  ]);
   const favicon = faviconSetting || "/icon.png";
+  let metadataBase: URL | undefined;
+  try {
+    metadataBase = appUrl ? new URL(appUrl) : undefined;
+  } catch {}
 
   const tabName = isOn(site.SITE_NAME_IN_TAB) ? site.SITE_NAME : site.SITE_TAGLINE;
+  // Link previews when the site is shared (Facebook, Messages…): cover photo, else logo
+  const previewImage = site.SITE_COVER_URL || site.SITE_LOGO_URL;
   return {
+    metadataBase,
     title: { default: tabName, template: isOn(site.SITE_NAME_IN_TAB) ? `%s · ${site.SITE_NAME}` : "%s" },
     description: site.SITE_TAGLINE,
     icons: { icon: favicon },
+    openGraph: {
+      title: site.SITE_NAME,
+      description: site.SITE_TAGLINE,
+      siteName: site.SITE_NAME,
+      type: "website",
+      ...(previewImage && metadataBase ? { images: [previewImage] } : {}),
+    },
   };
 }
 

@@ -11,10 +11,13 @@ export default function ImagePositioner({
   url,
   position,
   onChange,
+  shape = "square",
 }: {
   url: string;
   position: string | null;
   onChange: (position: string) => void;
+  /** "cover" = the wide home page banner */
+  shape?: "square" | "cover";
 }) {
   const frame = useRef<HTMLDivElement>(null);
   const drag = useRef<{ startX: number; startY: number; x: number; y: number } | null>(null);
@@ -27,10 +30,10 @@ export default function ImagePositioner({
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (!drag.current || !frame.current) return;
-    const size = frame.current.clientWidth;
+    const { clientWidth: w, clientHeight: h } = frame.current;
     // Dragging the photo right reveals more of its left side, so the position moves the other way
-    const dx = ((e.clientX - drag.current.startX) / size) * 100 * 1.5;
-    const dy = ((e.clientY - drag.current.startY) / size) * 100 * 1.5;
+    const dx = ((e.clientX - drag.current.startX) / w) * 100 * 1.5;
+    const dy = ((e.clientY - drag.current.startY) / h) * 100 * 1.5;
     onChange(formatPosition(drag.current.x - dx, drag.current.y - dy));
   };
 
@@ -46,7 +49,9 @@ export default function ImagePositioner({
         onPointerMove={onPointerMove}
         onPointerUp={end}
         onPointerCancel={end}
-        className="relative w-48 aspect-square rounded-xl overflow-hidden border border-stone-200 bg-stone-100 cursor-grab active:cursor-grabbing touch-none select-none mx-auto"
+        className={`relative ${
+          shape === "cover" ? "w-full aspect-[16/9] sm:aspect-[21/8]" : "w-48 aspect-square"
+        } rounded-xl overflow-hidden border border-stone-200 bg-stone-100 cursor-grab active:cursor-grabbing touch-none select-none mx-auto`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
