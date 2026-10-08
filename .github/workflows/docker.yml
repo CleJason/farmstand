@@ -184,6 +184,37 @@ jobs:
           c=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:3000/api/orders/$oid")
           echo "GET full order while signed out -> $c"; [ "$c" = "401" ] || exit 1
 
+      - name: Discounts, reviews, admin sign-in check
+        env:
+          PGURL: postgresql://farmstand:smoketest@localhost:5432/farmstand
+        run: |
+          psql "$PGURL" -v ON_ERROR_STOP=1 <<SQL
+          INSERT INTO "DiscountCode" (id, code, type, value, "maxUses", "updatedAt") VALUES ('dc1', 'TEST10', 'PERCENT', 10, 1, now());
+          INSERT INTO "Review" (id, name, rating, body, "updatedAt") VALUES ('r1', 'Shown', 5, 'Great', now());
+          INSERT INTO "Review" (id, name, rating, body, visible, "updatedAt") VALUES ('r2', 'Hidden', 3, 'Meh', false, now());
+          SQL
+          second=$(curl -s http://localhost:3000/api/drops/d1 | jq -r '.pickupSlots[0].times[1].time')
+          third=$(curl -s http://localhost:3000/api/drops/d1 | jq -r '.pickupSlots[0].times[2].time')
+          order() {
+            curl -s -o /tmp/o.json -w '%{http_code}' -X POST http://localhost:3000/api/orders -H 'Content-Type: application/json' \
+              -d "{\"type\":\"DROP\",\"dropId\":\"d1\",\"pickupSlotId\":\"s1\",\"pickupTime\":\"$1\",\"discountCode\":\"$2\",\"paymentMethod\":\"VENMO\",\"guestEmail\":\"d@example.com\",\"items\":[{\"dropProductId\":\"dp1\",\"quantity\":1}]}"
+          }
+          c=$(order "$second" "test10"); echo "order with TEST10 -> $c $(cat /tmp/o.json)"; [ "$c" = "200" ] || exit 1
+          [ "$(jq -r .total /tmp/o.json)" = "450" ] || { echo "Expected 10% off 500 = 450"; exit 1; }
+          uses=$(psql "$PGURL" -tAc "SELECT uses FROM \"DiscountCode\" WHERE id = 'dc1'"); echo "TEST10 uses: $uses"; [ "$uses" = "1" ] || exit 1
+          c=$(order "$third" "TEST10"); echo "second use of 1-use code -> $c $(cat /tmp/o.json)"; [ "$c" = "400" ] || exit 1
+          chk=$(curl -s -X POST http://localhost:3000/api/discounts/check -H 'Content-Type: application/json' -d '{"code":"NOPE","type":"DROP","subtotal":1000}')
+          echo "check bogus code: $chk"; echo "$chk" | grep -q '"valid":false' || exit 1
+          c=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/discounts); echo "list codes signed out -> $c"; [ "$c" = "401" ] || exit 1
+
+          n=$(curl -s http://localhost:3000/api/reviews | jq length); echo "public reviews: $n"; [ "$n" = "1" ] || exit 1
+
+          a=$(curl -s -X POST http://localhost:3000/api/login/admin-check -H 'Content-Type: application/json' -d '{"email":"Owner@Example.com"}')
+          b=$(curl -s -X POST http://localhost:3000/api/login/admin-check -H 'Content-Type: application/json' -d '{"email":"someone@example.com"}')
+          echo "admin-check owner: $a, other: $b"
+          echo "$a" | grep -q '"admin":true' || exit 1
+          echo "$b" | grep -q '"admin":false' || exit 1
+
       - name: Container logs
         if: always()
         run: docker logs farmstand || true

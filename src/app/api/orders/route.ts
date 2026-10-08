@@ -6,6 +6,7 @@ import { fireNotification } from "@/lib/notifications";
 import { getStripe } from "@/lib/stripe";
 import { getSetting } from "@/lib/settings";
 import { adjustStock, countsStock } from "@/lib/stock";
+import { adjustDiscountUse, DiscountError, evaluateDiscount, normalizeCode } from "@/lib/discounts";
 import { formatPickup, hideAddress, isPaidStatus, pickupTimeCounts, pickupTimes } from "@/lib/pickup";
 
 export async function GET(req: Request) {
@@ -186,8 +187,28 @@ export async function POST(req: Request) {
     }
 
     const orderInput = { type, dropId, pickupSlotId, pickupTime, items };
-    const orderData = ({ lines, pickupTime }: { lines: PricedLine[]; pickupTime: Date | null }) => {
-      const subtotal = lines.reduce((acc, l) => acc + l.quantity * l.price, 0);
+
+    // Real prices + stock/pickup checks, then the discount code (if any)
+    const price = async (db: Prisma.TransactionClient) => {
+      const priced = await priceOrder(db, orderInput);
+      const subtotal = priced.lines.reduce((acc, l) => acc + l.quantity * l.price, 0);
+      let discountCode: string | null = null;
+      let discount = 0;
+      if (normalizeCode(data.discountCode)) {
+        const result = await evaluateDiscount(db, data.discountCode, type, subtotal);
+        discountCode = result.code.code;
+        discount = result.amount;
+      }
+      return { ...priced, subtotal, discountCode, discount };
+    };
+
+    const orderData = ({
+      lines,
+      pickupTime,
+      subtotal,
+      discountCode,
+      discount,
+    }: Awaited<ReturnType<typeof price>>) => {
       return {
         type,
         dropId: type === "DROP" ? dropId : null,
@@ -198,7 +219,9 @@ export async function POST(req: Request) {
         guestPhone: guestPhone || null,
         paymentMethod,
         subtotal,
-        total: subtotal,
+        discountCode,
+        discount,
+        total: subtotal - discount,
         notes: notes || null,
         manualPaymentRef: manualPaymentRef || null,
         items: {
@@ -220,7 +243,13 @@ export async function POST(req: Request) {
       }
 
       // Stock is checked now but only counted once the payment succeeds (webhook).
-      const base = orderData(await priceOrder(prisma, orderInput));
+      const base = orderData(await price(prisma));
+      if (base.total < 50) {
+        return NextResponse.json(
+          { error: "Card payments need a total of at least $0.50 — please choose another payment method" },
+          { status: 400 }
+        );
+      }
       const paymentIntent = await stripe.paymentIntents.create({
         amount: base.total,
         currency: "usd",
@@ -256,12 +285,15 @@ export async function POST(req: Request) {
     // both pass the stock check.
     const { order, lines } = await prisma.$transaction(
       async (tx) => {
-        const priced = await priceOrder(tx, orderInput);
+        const priced = await price(tx);
         const order = await tx.order.create({
           data: { ...orderData(priced), status: "AWAITING_CONFIRM" },
           include,
         });
-        if (countsStock(order.status)) await adjustStock(tx, priced.lines, 1);
+        if (countsStock(order.status)) {
+          await adjustStock(tx, priced.lines, 1);
+          await adjustDiscountUse(tx, order.discountCode, 1);
+        }
         return { order, lines: priced.lines };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
@@ -273,6 +305,8 @@ export async function POST(req: Request) {
       orderId: order.id,
       type: order.type,
       total: order.total,
+      discountCode: order.discountCode,
+      discount: order.discount,
       paymentMethod: order.paymentMethod,
       customerName: session?.user?.name || null,
       customerEmail: order.guestEmail || session?.user?.email || null,
@@ -295,7 +329,7 @@ export async function POST(req: Request) {
       status: order.status,
     });
   } catch (err: any) {
-    if (err instanceof OrderError) {
+    if (err instanceof OrderError || err instanceof DiscountError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2034") {

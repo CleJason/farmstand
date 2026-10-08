@@ -7,6 +7,7 @@ import Link from "next/link";
 import { formatDate, formatPrice } from "@/lib/utils";
 import CheckoutModal from "@/components/CheckoutModal";
 import { useSite } from "@/components/SiteProvider";
+import DiscountInput, { type AppliedDiscount } from "@/components/DiscountInput";
 
 interface DropDetails {
   id: string;
@@ -47,6 +48,7 @@ export default function DropDetailPage() {
   const [cart, setCart] = useState<{ [dropProductId: string]: number }>({});
   const [selectedSlotId, setSelectedSlotId] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
+  const [discount, setDiscount] = useState<AppliedDiscount>(null);
   const [notes, setNotes] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -168,6 +170,7 @@ export default function DropDetailPage() {
           dropId: drop!.id,
           pickupSlotId: selectedSlotId,
           pickupTime: selectedTime,
+          discountCode: discount?.code ?? null,
           items,
           paymentMethod,
           notes,
@@ -468,7 +471,7 @@ export default function DropDetailPage() {
 
             <div>
               <label className="block text-xs font-bold text-[#2D1E18] mb-1">
-                Special Notes / Slicing Requests
+                Special Notes / Requests
               </label>
               <input
                 type="text"
@@ -477,6 +480,11 @@ export default function DropDetailPage() {
                 onChange={(e) => setNotes(e.target.value)}
                 className="w-full text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-600"
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[#2D1E18] mb-1">Discount Code</label>
+              <DiscountInput type="DROP" subtotal={cartTotal} onChange={setDiscount} />
             </div>
 
             <div>
@@ -538,7 +546,10 @@ export default function DropDetailPage() {
                 {totalItemsCount} {totalItemsCount === 1 ? "item" : "items"} selected
               </div>
               <div className="text-xl font-black text-[#2D1E18]">
-                {formatPrice(cartTotal)}
+                {discount && (
+                  <span className="text-sm font-medium text-stone-400 line-through mr-2">{formatPrice(cartTotal)}</span>
+                )}
+                {formatPrice(cartTotal - (discount?.discount ?? 0))}
               </div>
             </div>
             <button

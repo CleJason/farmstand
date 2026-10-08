@@ -7,6 +7,7 @@ import { formatDate, formatPrice } from "@/lib/utils";
 import { useSite } from "@/components/SiteProvider";
 import { StoreHeader } from "@/components/StoreChrome";
 import SocialLinks from "@/components/SocialLinks";
+import ReviewsSection from "@/components/ReviewsSection";
 
 interface Drop {
   id: string;
@@ -246,6 +247,7 @@ export default function HomeClient() {
         )}
       </main>
 
+      <ReviewsSection />
     </div>
   );
 }

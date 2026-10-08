@@ -10,6 +10,7 @@ function LoginForm() {
   const site = useSite();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  const forAdmin = callbackUrl.startsWith("/admin");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -20,6 +21,17 @@ function LoginForm() {
     setLoading(true);
     setError(null);
     try {
+      if (forAdmin) {
+        const check = await fetch("/api/login/admin-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        }).then((r) => r.json());
+        if (!check.admin) {
+          setError("That email isn't an admin for this site.");
+          return;
+        }
+      }
       const res = await signIn("nodemailer", {
         email,
         callbackUrl,
@@ -39,10 +51,11 @@ function LoginForm() {
       <div className="bg-white rounded-2xl border border-stone-200 p-8 shadow-sm">
         <div className="text-center mb-6">
           <h1 className="text-xl font-bold text-stone-900">
-            Welcome back
+            {forAdmin ? "Admin sign in" : "Welcome back"}
           </h1>
           <p className="text-sm text-stone-500 mt-1">
             Sign in to {site.SITE_NAME}
+            {forAdmin && " admin"}
           </p>
         </div>
 
@@ -92,7 +105,9 @@ function LoginForm() {
               </button>
             </form>
             <p className="text-xs text-stone-400 mt-4 text-center">
-              No password needed. New customers are registered automatically.
+              {forAdmin
+                ? "Only the shop's admin emails can sign in here."
+                : "No password needed. New customers are registered automatically."}
             </p>
           </>
         )}

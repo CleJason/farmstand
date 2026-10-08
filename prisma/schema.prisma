@@ -171,7 +171,9 @@ model Order {
   status          String   @default("PENDING")
   paymentMethod   String   @default("STRIPE")
   subtotal        Int           // cents
-  total           Int           // cents (same for now, extend for discounts)
+  discountCode    String?       // code applied at checkout, if any
+  discount        Int      @default(0) // cents taken off the subtotal
+  total           Int           // cents (subtotal - discount)
   notes           String?
   // Guest info (farmstand — no login required)
   guestEmail      String?
@@ -221,6 +223,38 @@ model Payment {
   updatedAt             DateTime      @updatedAt
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────
+// Discount codes & reviews
+// ─────────────────────────────────────────────
+
+model DiscountCode {
+  id          String    @id @default(cuid())
+  code        String    @unique  // stored uppercase
+  type        String              // PERCENT | AMOUNT
+  value       Int                 // percent (1-100) or cents off
+  appliesTo   String    @default("ALL") // ALL | DROP | FARMSTAND
+  minSubtotal Int?                // cents; null = no minimum
+  maxUses     Int?                // null = unlimited
+  uses        Int       @default(0) // counted like stock: placed/paid orders only
+  expiresAt   DateTime?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Added by the owner (e.g. copied from another platform); shown on the home page
+model Review {
+  id         String   @id @default(cuid())
+  name       String
+  rating     Int      // 1-5
+  body       String
+  source     String?  // e.g. "Hotplate"
+  reviewDate DateTime @default(now())
+  visible    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 // ─────────────────────────────────────────────

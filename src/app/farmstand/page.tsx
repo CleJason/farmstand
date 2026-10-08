@@ -5,6 +5,7 @@ import Image from "next/image";
 import { formatPrice } from "@/lib/utils";
 import CheckoutModal from "@/components/CheckoutModal";
 import { useSite } from "@/components/SiteProvider";
+import DiscountInput, { type AppliedDiscount } from "@/components/DiscountInput";
 
 interface FarmstandItem {
   id: string;
@@ -19,6 +20,7 @@ interface FarmstandItem {
 
 export default function FarmstandKioskPage() {
   const site = useSite();
+  const [discount, setDiscount] = useState<AppliedDiscount>(null);
   const [items, setItems] = useState<FarmstandItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<{ [id: string]: number }>({});
@@ -114,6 +116,7 @@ export default function FarmstandKioskPage() {
         body: JSON.stringify({
           type: "FARMSTAND",
           items: orderItems,
+          discountCode: discount?.code ?? null,
           paymentMethod,
           guestEmail: guestEmail || null,
           guestPhone: guestPhone || null,
@@ -338,6 +341,8 @@ export default function FarmstandKioskPage() {
               />
             </div>
 
+            <DiscountInput type="FARMSTAND" subtotal={cartTotal} onChange={setDiscount} />
+
             {/* Action Button */}
             <button
               onClick={handleCheckout}
@@ -347,7 +352,7 @@ export default function FarmstandKioskPage() {
               <span>
                 Pay for {totalItemsCount} {totalItemsCount === 1 ? "item" : "items"}
               </span>
-              <span>{formatPrice(cartTotal)} →</span>
+              <span>{formatPrice(cartTotal - (discount?.discount ?? 0))} →</span>
             </button>
           </div>
         </div>

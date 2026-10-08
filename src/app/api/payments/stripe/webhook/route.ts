@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { fireNotification } from "@/lib/notifications";
 import { getSetting } from "@/lib/settings";
 import { adjustStock, countsStock } from "@/lib/stock";
+import { adjustDiscountUse } from "@/lib/discounts";
 import { formatPickup, pickupAddressFor } from "@/lib/pickup";
 import { getSiteSettings } from "@/lib/site";
 
@@ -53,7 +54,10 @@ export async function POST(req: Request) {
           where: { id: order.id, status: order.status },
           data: { status: "PAID" },
         });
-        if (count === 1) await adjustStock(tx, order.items, 1);
+        if (count === 1) {
+          await adjustStock(tx, order.items, 1);
+          await adjustDiscountUse(tx, order.discountCode, 1);
+        }
         return count === 1;
       });
       if (!marked) return NextResponse.json({ received: true });

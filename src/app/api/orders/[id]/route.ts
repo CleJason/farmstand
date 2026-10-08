@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { fireNotification } from "@/lib/notifications";
 import { adjustStock, countsStock } from "@/lib/stock";
+import { adjustDiscountUse } from "@/lib/discounts";
 import { formatPickup, pickupAddressFor } from "@/lib/pickup";
 import { getSiteSettings } from "@/lib/site";
 
@@ -74,7 +75,10 @@ export async function PUT(
     // Count stock when the order enters a counted status, release it when it leaves
     const before = countsStock(existing.status);
     const after = countsStock(updated.status);
-    if (before !== after) await adjustStock(tx, existing.items, after ? 1 : -1);
+    if (before !== after) {
+      await adjustStock(tx, existing.items, after ? 1 : -1);
+      await adjustDiscountUse(tx, existing.discountCode, after ? 1 : -1);
+    }
 
     return updated;
   });

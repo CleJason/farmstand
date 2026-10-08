@@ -9,6 +9,8 @@ interface Order {
   status: string;
   paymentMethod: string;
   total: number;
+  discount: number;
+  discountCode: string | null;
   notes: string | null;
   guestEmail: string | null;
   guestPhone: string | null;
@@ -230,6 +232,11 @@ export default function AdminDashboardPage() {
                     <span className="font-bold text-stone-900">
                       {formatPrice(order.total)}
                     </span>
+                    {order.discountCode && (
+                      <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        {order.discountCode} −{formatPrice(order.discount)}
+                      </span>
+                    )}
                     <span
                       className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${status.classes}`}
                     >
