@@ -27,6 +27,7 @@ interface Drop {
       name: string;
       price: number;
       imageUrl: string | null;
+      imagePosition: string | null;
     };
   }[];
 }
@@ -207,6 +208,7 @@ export default function HomeClient() {
                                   alt={dp.product.name}
                                   fill
                                   className="object-cover"
+                                  style={{ objectPosition: dp.product.imagePosition || undefined }}
                                 />
                               </div>
                             ) : (

@@ -78,6 +78,7 @@ model Product {
   description String?
   price       Int      // stored in cents
   imageUrl    String?
+  imagePosition String? // which part of the photo shows in the square, e.g. "50% 30%"
   category    String?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -148,6 +149,7 @@ model FarmstandItem {
   description       String?
   price             Int      // cents
   imageUrl          String?
+  imagePosition     String?  // e.g. "50% 30%"
   available         Boolean  @default(false) // admin toggles on when extras go out
   quantityAvailable Int      @default(0)     // set each time extras go out
   quantitySold      Int      @default(0)

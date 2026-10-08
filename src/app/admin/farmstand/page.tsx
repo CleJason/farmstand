@@ -6,6 +6,7 @@ import { formatPrice } from "@/lib/utils";
 import ImageUpload from "@/components/ImageUpload";
 import FarmstandQrCode from "@/components/FarmstandQrCode";
 import { useSite } from "@/components/SiteProvider";
+import ImagePositioner from "@/components/ImagePositioner";
 
 interface FarmstandItem {
   id: string;
@@ -13,6 +14,7 @@ interface FarmstandItem {
   description: string | null;
   price: number;
   imageUrl: string | null;
+  imagePosition: string | null;
   available: boolean;
   quantityAvailable: number;
   quantitySold: number;
@@ -29,6 +31,7 @@ export default function AdminFarmstandPage() {
   const [description, setDescription] = useState("");
   const [priceDollars, setPriceDollars] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [imagePosition, setImagePosition] = useState<string | null>(null);
   const [quantityAvailable, setQuantityAvailable] = useState("5");
 
   const loadItems = async () => {
@@ -54,6 +57,7 @@ export default function AdminFarmstandPage() {
     setDescription("");
     setPriceDollars("");
     setImageUrl("");
+    setImagePosition(null);
     setQuantityAvailable("5");
     setShowAddModal(true);
   };
@@ -64,6 +68,7 @@ export default function AdminFarmstandPage() {
     setDescription(item.description ?? "");
     setPriceDollars((item.price / 100).toFixed(2));
     setImageUrl(item.imageUrl ?? "");
+    setImagePosition(item.imagePosition);
     setQuantityAvailable(String(item.quantityAvailable));
     setShowAddModal(true);
   };
@@ -75,6 +80,7 @@ export default function AdminFarmstandPage() {
       description: description || null,
       price: Math.round(Number(priceDollars) * 100),
       imageUrl: imageUrl || null,
+      imagePosition: imageUrl ? imagePosition : null,
       quantityAvailable: Number(quantityAvailable),
     };
     try {
@@ -166,17 +172,18 @@ export default function AdminFarmstandPage() {
                 }`}
               >
                 {item.imageUrl ? (
-                  <div className="relative w-full h-36 bg-stone-100">
+                  <div className="relative w-full aspect-square bg-stone-100">
                     <Image
                       src={item.imageUrl}
                       alt={item.name}
                       fill
                       className="object-cover"
+                      style={{ objectPosition: item.imagePosition || undefined }}
                     />
                   </div>
                 ) : (
-                  <div className="w-full h-36 bg-stone-50 flex items-center justify-center">
-                    <span className="text-3xl">🥖</span>
+                  <div className="w-full aspect-square bg-stone-50 flex items-center justify-center">
+                    <span className="text-3xl">🛍️</span>
                   </div>
                 )}
 
@@ -305,8 +312,14 @@ export default function AdminFarmstandPage() {
               <ImageUpload
                 key={editingId ?? "new"}
                 currentUrl={imageUrl || null}
-                onUpload={(url) => setImageUrl(url)}
+                onUpload={(url) => {
+                  setImageUrl(url);
+                  setImagePosition(null);
+                }}
               />
+              {imageUrl && (
+                <ImagePositioner url={imageUrl} position={imagePosition} onChange={setImagePosition} />
+              )}
 
               <div>
                 <label className="block text-xs font-medium text-stone-600 mb-1">

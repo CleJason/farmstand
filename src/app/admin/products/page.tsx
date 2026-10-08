@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { formatPrice } from "@/lib/utils";
 import ImageUpload from "@/components/ImageUpload";
+import ImagePositioner from "@/components/ImagePositioner";
 
 interface Product {
   id: string;
@@ -11,6 +12,7 @@ interface Product {
   description: string | null;
   price: number;
   imageUrl: string | null;
+  imagePosition: string | null;
   category: string | null;
   active: boolean;
 }
@@ -26,6 +28,7 @@ export default function AdminProductsPage() {
   const [priceDollars, setPriceDollars] = useState("");
   const [category, setCategory] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [imagePosition, setImagePosition] = useState<string | null>(null);
 
   const loadProducts = async () => {
     try {
@@ -51,6 +54,7 @@ export default function AdminProductsPage() {
     setPriceDollars("");
     setCategory("");
     setImageUrl("");
+    setImagePosition(null);
     setShowModal(true);
   };
 
@@ -61,6 +65,7 @@ export default function AdminProductsPage() {
     setPriceDollars((product.price / 100).toFixed(2));
     setCategory(product.category ?? "");
     setImageUrl(product.imageUrl ?? "");
+    setImagePosition(product.imagePosition);
     setShowModal(true);
   };
 
@@ -72,6 +77,7 @@ export default function AdminProductsPage() {
       price: Math.round(Number(priceDollars) * 100),
       category: category || null,
       imageUrl: imageUrl || null,
+      imagePosition: imageUrl ? imagePosition : null,
     };
     try {
       const res = editingId
@@ -145,16 +151,17 @@ export default function AdminProductsPage() {
               }`}
             >
               {product.imageUrl ? (
-                <div className="relative w-full h-40 bg-stone-100">
+                <div className="relative w-full aspect-square bg-stone-100">
                   <Image
                     src={product.imageUrl}
                     alt={product.name}
                     fill
                     className="object-cover"
+                    style={{ objectPosition: product.imagePosition || undefined }}
                   />
                 </div>
               ) : (
-                <div className="w-full h-40 bg-stone-50 flex items-center justify-center">
+                <div className="w-full aspect-square bg-stone-50 flex items-center justify-center">
                   <span className="text-3xl">🛍️</span>
                 </div>
               )}
@@ -219,8 +226,14 @@ export default function AdminProductsPage() {
               <ImageUpload
                 key={editingId ?? "new"}
                 currentUrl={imageUrl || null}
-                onUpload={(url) => setImageUrl(url)}
+                onUpload={(url) => {
+                  setImageUrl(url);
+                  setImagePosition(null);
+                }}
               />
+              {imageUrl && (
+                <ImagePositioner url={imageUrl} position={imagePosition} onChange={setImagePosition} />
+              )}
 
               <div>
                 <label className="block text-xs font-medium text-stone-600 mb-1">

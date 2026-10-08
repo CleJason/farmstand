@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { cleanPosition } from "@/lib/image-position";
 
 export async function GET() {
   const items = await prisma.farmstandItem.findMany({
@@ -28,6 +29,7 @@ export async function POST(req: Request) {
       description: description || null,
       price: Math.round(Number(price)),
       imageUrl: imageUrl || null,
+      imagePosition: cleanPosition(data.imagePosition) ?? null,
       available: available !== undefined ? Boolean(available) : true,
       quantityAvailable: quantityAvailable ? Number(quantityAvailable) : 0,
       quantitySold: 0,

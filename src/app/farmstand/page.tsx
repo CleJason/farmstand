@@ -14,6 +14,7 @@ interface FarmstandItem {
   description: string | null;
   price: number;
   imageUrl: string | null;
+  imagePosition: string | null;
   available: boolean;
   quantityAvailable: number;
   quantitySold: number;
@@ -226,6 +227,7 @@ export default function FarmstandKioskPage() {
                       alt={item.name}
                       fill
                       className="object-cover"
+                      style={{ objectPosition: item.imagePosition || undefined }}
                     />
                   </div>
                 ) : (

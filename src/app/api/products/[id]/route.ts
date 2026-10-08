@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { cleanPosition } from "@/lib/image-position";
 
 export async function PUT(
   req: Request,
@@ -22,6 +23,7 @@ export async function PUT(
       description: description || null,
       price: price !== undefined ? Math.round(Number(price)) : undefined,
       imageUrl: imageUrl !== undefined ? imageUrl : undefined,
+      imagePosition: cleanPosition(data.imagePosition),
       category: category !== undefined ? category : undefined,
       active: active !== undefined ? Boolean(active) : undefined,
     },
