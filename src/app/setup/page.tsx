@@ -121,7 +121,8 @@ export default function SetupPage() {
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-1">Admin Account</h2>
             <p className="text-gray-500 text-sm mb-6">
-              You&apos;ll receive a magic-link login email here.
+              Use the admin email set as <span className="font-mono">ADMIN_EMAIL</span> in your container
+              settings — other emails can&apos;t become admin. Sign-in links are sent there.
             </p>
             <div className="space-y-4">
               <div>

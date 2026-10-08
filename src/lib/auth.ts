@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Nodemailer from "next-auth/providers/nodemailer";
 import { prisma } from "@/lib/prisma";
+import { isAdminEmail } from "@/lib/admin-emails";
 
 // SQLite has no enums; User.role is a String column holding one of these.
 export type Role = "ADMIN" | "CUSTOMER";
@@ -71,7 +72,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth(async () => {
             where: { id: user.id },
             select: { role: true },
           });
-          session.user.role = (dbUser?.role as Role) ?? "CUSTOMER";
+          let role = (dbUser?.role as Role) ?? "CUSTOMER";
+          // Emails listed in ADMIN_EMAIL (container settings) are always admins
+          if (role !== "ADMIN" && isAdminEmail(session.user.email)) {
+            await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
+            role = "ADMIN";
+          }
+          session.user.role = role;
         }
         return session;
       },

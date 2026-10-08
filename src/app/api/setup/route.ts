@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAppConfigured } from "@/lib/auth-helpers";
 import { normalizeHandle } from "@/lib/settings";
-import { writeFile, readFile } from "fs/promises";
-import path from "path";
+import { getAdminEmails, isAdminEmail } from "@/lib/admin-emails";
 
 export async function POST(req: Request) {
   // Only allow setup once
@@ -32,13 +31,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
   }
 
+  // Only the email(s) the server owner put in ADMIN_EMAIL can become admin
+  if (getAdminEmails().length === 0) {
+    return NextResponse.json(
+      {
+        error:
+          "No admin email is set on the server. Add ADMIN_EMAIL to the container settings, restart it, then try again.",
+      },
+      { status: 403 }
+    );
+  }
+  if (!isAdminEmail(adminEmail)) {
+    return NextResponse.json(
+      { error: "That isn't the admin email for this site. Use the email set as ADMIN_EMAIL in the container settings." },
+      { status: 403 }
+    );
+  }
+  const email = String(adminEmail).trim().toLowerCase();
+
   try {
     // 1. Create admin user
     await prisma.user.upsert({
-      where: { email: adminEmail },
+      where: { email },
       update: { role: "ADMIN", name: adminName },
       create: {
-        email: adminEmail,
+        email,
         name: adminName,
         role: "ADMIN",
       },
@@ -47,7 +64,6 @@ export async function POST(req: Request) {
     // 2. Save settings to DB (runtime-accessible config)
     const settings = [
       { key: "APP_URL", value: appUrl },
-      { key: "ADMIN_EMAIL", value: adminEmail },
       ...(businessName?.trim()
         ? [
             { key: "SITE_NAME", value: businessName.trim() },

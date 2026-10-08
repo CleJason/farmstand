@@ -55,7 +55,7 @@ farmstand/
    ```bash
    cp .env.example .env
    ```
-2. Fill in the database password and `AUTH_SECRET` in `.env` (email, payments and notifications can be set later in Admin → Settings).
+2. Fill in the database password, `AUTH_SECRET` and `ADMIN_EMAIL` (your email — only it can become admin) in `.env` (email, payments and notifications can be set later in Admin → Settings).
 3. Launch the container stack:
    ```bash
    docker compose up -d
