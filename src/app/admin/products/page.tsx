@@ -19,6 +19,7 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -43,31 +44,52 @@ export default function AdminProductsPage() {
     loadProducts();
   }, []);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const openNew = () => {
+    setEditingId(null);
+    setName("");
+    setDescription("");
+    setPriceDollars("");
+    setCategory("");
+    setImageUrl("");
+    setShowModal(true);
+  };
+
+  const openEdit = (product: Product) => {
+    setEditingId(product.id);
+    setName(product.name);
+    setDescription(product.description ?? "");
+    setPriceDollars((product.price / 100).toFixed(2));
+    setCategory(product.category ?? "");
+    setImageUrl(product.imageUrl ?? "");
+    setShowModal(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    const body = {
+      name,
+      description: description || null,
+      price: Math.round(Number(priceDollars) * 100),
+      category: category || null,
+      imageUrl: imageUrl || null,
+    };
     try {
-      const res = await fetch("/api/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          description: description || null,
-          price: Math.round(Number(priceDollars) * 100),
-          category: category || null,
-          imageUrl: imageUrl || null,
-          active: true,
-        }),
-      });
-      if (res.ok) {
-        setName("");
-        setDescription("");
-        setPriceDollars("");
-        setImageUrl("");
-        setShowModal(false);
-        loadProducts();
-      }
+      const res = editingId
+        ? await fetch(`/api/products/${editingId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          })
+        : await fetch("/api/products", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...body, active: true }),
+          });
+      if (!res.ok) throw new Error();
+      setShowModal(false);
+      loadProducts();
     } catch {
-      alert("Failed to create product");
+      alert(editingId ? "Failed to save changes" : "Failed to create product");
     }
   };
 
@@ -94,7 +116,7 @@ export default function AdminProductsPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={openNew}
           className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5"
         >
           <span className="text-base leading-none">+</span>
@@ -133,7 +155,7 @@ export default function AdminProductsPage() {
                 </div>
               ) : (
                 <div className="w-full h-40 bg-stone-50 flex items-center justify-center">
-                  <span className="text-3xl">🍞</span>
+                  <span className="text-3xl">🛍️</span>
                 </div>
               )}
               <div className="p-4">
@@ -157,7 +179,13 @@ export default function AdminProductsPage() {
                     {product.description}
                   </p>
                 )}
-                <div className="mt-3 pt-3 border-t border-stone-100">
+                <div className="mt-3 pt-3 border-t border-stone-100 flex items-center justify-between">
+                  <button
+                    onClick={() => openEdit(product)}
+                    className="text-xs font-medium px-2.5 py-1 rounded-md bg-stone-100 text-stone-700 hover:bg-stone-200 transition-colors"
+                  >
+                    Edit
+                  </button>
                   <button
                     onClick={() => toggleActive(product)}
                     className={`text-xs font-medium px-2.5 py-1 rounded-md transition-colors ${
@@ -180,10 +208,16 @@ export default function AdminProductsPage() {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
             <h2 className="text-lg font-bold text-stone-900 mb-4">
-              New Product
+              {editingId ? "Edit Product" : "New Product"}
             </h2>
-            <form onSubmit={handleCreate} className="space-y-4">
+            {editingId && (
+              <p className="text-xs text-stone-500 -mt-2 mb-4">
+                A new price applies to future orders. Drops with their own price for this product keep it.
+              </p>
+            )}
+            <form onSubmit={handleSave} className="space-y-4">
               <ImageUpload
+                key={editingId ?? "new"}
                 currentUrl={imageUrl || null}
                 onUpload={(url) => setImageUrl(url)}
               />
@@ -222,7 +256,8 @@ export default function AdminProductsPage() {
                   </label>
                   <input
                     type="number"
-                    step="0.5"
+                    step="0.01"
+                    min="0"
                     required
                     placeholder="12.00"
                     value={priceDollars}

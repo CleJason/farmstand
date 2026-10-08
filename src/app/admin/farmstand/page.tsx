@@ -21,6 +21,7 @@ export default function AdminFarmstandPage() {
   const [items, setItems] = useState<FarmstandItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -45,31 +46,52 @@ export default function AdminFarmstandPage() {
     loadItems();
   }, []);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const openNew = () => {
+    setEditingId(null);
+    setName("");
+    setDescription("");
+    setPriceDollars("");
+    setImageUrl("");
+    setQuantityAvailable("5");
+    setShowAddModal(true);
+  };
+
+  const openEdit = (item: FarmstandItem) => {
+    setEditingId(item.id);
+    setName(item.name);
+    setDescription(item.description ?? "");
+    setPriceDollars((item.price / 100).toFixed(2));
+    setImageUrl(item.imageUrl ?? "");
+    setQuantityAvailable(String(item.quantityAvailable));
+    setShowAddModal(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    const body = {
+      name,
+      description: description || null,
+      price: Math.round(Number(priceDollars) * 100),
+      imageUrl: imageUrl || null,
+      quantityAvailable: Number(quantityAvailable),
+    };
     try {
-      const res = await fetch("/api/farmstand", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          description,
-          price: Math.round(Number(priceDollars) * 100),
-          imageUrl: imageUrl || null,
-          available: true,
-          quantityAvailable: Number(quantityAvailable),
-        }),
-      });
-      if (res.ok) {
-        setName("");
-        setDescription("");
-        setPriceDollars("");
-        setImageUrl("");
-        setShowAddModal(false);
-        loadItems();
-      }
+      const res = editingId
+        ? await fetch(`/api/farmstand/${editingId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          })
+        : await fetch("/api/farmstand", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...body, available: true }),
+          });
+      if (!res.ok) throw new Error();
+      setShowAddModal(false);
+      loadItems();
     } catch {
-      alert("Failed to create item");
+      alert(editingId ? "Failed to save changes" : "Failed to create item");
     }
   };
 
@@ -108,7 +130,7 @@ export default function AdminFarmstandPage() {
         <div className="flex items-center gap-2">
           <FarmstandQrCode />
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={openNew}
             className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5"
           >
             <span className="text-base leading-none">+</span>
@@ -239,6 +261,12 @@ export default function AdminFarmstandPage() {
                   {/* Actions */}
                   <div className="flex items-center gap-2 pt-1">
                     <button
+                      onClick={() => openEdit(item)}
+                      className="text-xs font-medium py-2 px-3 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
                       onClick={() =>
                         updateItem(item.id, { available: !item.available })
                       }
@@ -269,10 +297,11 @@ export default function AdminFarmstandPage() {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
             <h2 className="text-lg font-bold text-stone-900 mb-4">
-              Add Farmstand Item
+              {editingId ? "Edit Farmstand Item" : "Add Farmstand Item"}
             </h2>
-            <form onSubmit={handleCreate} className="space-y-4">
+            <form onSubmit={handleSave} className="space-y-4">
               <ImageUpload
+                key={editingId ?? "new"}
                 currentUrl={imageUrl || null}
                 onUpload={(url) => setImageUrl(url)}
               />
@@ -311,7 +340,8 @@ export default function AdminFarmstandPage() {
                   </label>
                   <input
                     type="number"
-                    step="0.5"
+                    step="0.01"
+                    min="0"
                     required
                     placeholder="10.00"
                     value={priceDollars}
@@ -321,7 +351,7 @@ export default function AdminFarmstandPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-stone-600 mb-1">
-                    Initial Stock
+                    {editingId ? "Stock put out" : "Initial Stock"}
                   </label>
                   <input
                     type="number"
