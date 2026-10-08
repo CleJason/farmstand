@@ -4,6 +4,8 @@ import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { useSite, useViewer } from "@/components/SiteProvider";
 import { isOn } from "@/lib/site-defaults";
+import { Gift } from "lucide-react";
+import ShareButton from "@/components/ShareButton";
 
 /** Top-left brand: logo and/or name, per the owner's header checkboxes. */
 export function ShopBrand({ className = "" }: { className?: string }) {
@@ -60,21 +62,24 @@ function AccountLinks() {
   );
 }
 
+const pill =
+  "inline-flex items-center gap-1.5 text-sm font-medium text-stone-700 border border-stone-200 bg-white hover:bg-stone-50 rounded-lg px-2.5 sm:px-3 py-1.5 transition-colors";
+
 export function StoreHeader() {
   return (
     <nav className="border-b border-stone-100 bg-white/80 backdrop-blur-sm sticky top-0 z-30">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
         <ShopBrand className="text-lg" />
-        <div className="flex items-center gap-4">
-          <Link
-            href="/gift"
-            className="hidden sm:inline text-sm text-stone-500 hover:text-stone-900 font-medium transition-colors"
-          >
-            Gift Cards
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Icon-only on phones, icon + label on wider screens */}
+          <Link href="/gift" aria-label="Gift Card" className={pill}>
+            <Gift size={15} aria-hidden />
+            <span className="hidden sm:inline">Gift Card</span>
           </Link>
+          <ShareButton className={`${pill} [&>span]:hidden sm:[&>span]:inline`} />
           <Link
             href="/farmstand"
-            className="text-sm text-stone-500 hover:text-stone-900 font-medium transition-colors"
+            className="hidden md:inline text-sm text-stone-500 hover:text-stone-900 font-medium transition-colors"
           >
             Farmstand
           </Link>
