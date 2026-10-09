@@ -102,6 +102,12 @@
               "name": "itemsHtml",
               "value": "={{ ($json.body?.items || []).map(i => i.quantity + \" × \" + i.name).join(\"<br>\") }}",
               "type": "string"
+            },
+            {
+              "id": "c10",
+              "name": "firstName",
+              "value": "={{ String($json.body?.customerName ?? \"\").trim().split(/\\s+/)[0] || \"\" }}",
+              "type": "string"
             }
           ]
         }
@@ -171,7 +177,7 @@
         "toEmail": "={{ $json.email }}",
         "subject": "={{ $json.shop }}: order #{{ $json.orderNo }} confirmed",
         "emailFormat": "html",
-        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1c1917\"><h2 style=\"margin-bottom:4px\">Thank you for your order!</h2><p style=\"color:#57534e\">Order <b>#{{ $json.orderNo }}</b> · Total <b>{{ $json.total }}</b></p>{{ $json.itemsHtml ? \"<p style=\\\"line-height:1.6\\\">\" + $json.itemsHtml + \"</p>\" : \"\" }}{{ $json.isPickup ? \"<div style=\\\"background:#fafaf8;border:1px solid #e7e5e4;border-radius:12px;padding:14px;margin:16px 0\\\"><b>Pickup</b><br>\" + ($json.pickupWhen || \"\") + ($json.pickupAddress ? \"<br>\" + $json.pickupAddress.replace(/\\n/g, \"<br>\") : \"\") + \"</div>\" : \"<p>Enjoy!</p>\" }}<p style=\"color:#78716c;font-size:13px\">Questions? Just reply to this email.<br>— {{ $json.shop }}</p></div>",
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1c1917\"><h2 style=\"margin-bottom:4px\">Thank you for your order{{ $json.firstName ? \", \" + $json.firstName : \"\" }}!</h2><p style=\"color:#57534e\">Order <b>#{{ $json.orderNo }}</b> · Total <b>{{ $json.total }}</b></p>{{ $json.itemsHtml ? \"<p style=\\\"line-height:1.6\\\">\" + $json.itemsHtml + \"</p>\" : \"\" }}{{ $json.isPickup ? \"<div style=\\\"background:#fafaf8;border:1px solid #e7e5e4;border-radius:12px;padding:14px;margin:16px 0\\\"><b>Pickup</b><br>\" + ($json.pickupWhen || \"\") + ($json.pickupAddress ? \"<br>\" + $json.pickupAddress.replace(/\\n/g, \"<br>\") : \"\") + \"</div>\" : \"<p>Enjoy!</p>\" }}<p style=\"color:#78716c;font-size:13px\">Questions? Just reply to this email.<br>— {{ $json.shop }}</p></div>",
         "options": {
           "appendAttribution": false
         }
@@ -262,7 +268,7 @@
         "operation": "send",
         "fromEmail": "Your Shop <hello@example.com>",
         "toEmail": "={{ $json.body?.ownerEmail }}",
-        "subject": "=New {{ $json.body?.paymentMethod === \"PAYPAL\" ? \"PayPal\" : $json.body?.paymentMethod === \"VENMO\" ? \"Venmo\" : \"\" }} order #{{ String($json.body?.orderId ?? \"\").slice(-6).toUpperCase() }} – check for {{ \"$\" + (Number($json.body?.total ?? 0) / 100).toFixed(2) }}",
+        "subject": "=New {{ $json.body?.paymentMethod === \"PAYPAL\" ? \"PayPal\" : $json.body?.paymentMethod === \"VENMO\" ? \"Venmo\" : \"\" }} order #{{ String($json.body?.orderId ?? \"\").slice(-6).toUpperCase() }}{{ $json.body?.customerName ? \" from \" + $json.body.customerName : \"\" }} – check for {{ \"$\" + (Number($json.body?.total ?? 0) / 100).toFixed(2) }}",
         "emailFormat": "html",
         "html": "=<div style=\"font-family:Arial,sans-serif;max-width:520px;color:#1c1917\"><h3>New {{ $json.body?.type === \"GIFT\" ? \"gift card\" : \"order\" }} waiting for payment</h3><p><b>{{ \"$\" + (Number($json.body?.total ?? 0) / 100).toFixed(2) }}</b> via {{ $json.body?.paymentMethod }}</p><p>{{ $json.body?.customerName || \"\" }}<br>{{ $json.body?.customerEmail || \"\" }}<br>{{ $json.body?.customerPhone || \"\" }}</p><p>{{ ($json.body?.items || []).map(i => i.quantity + \" × \" + i.name).join(\"<br>\") }}</p>{{ $json.body?.pickupTime ? \"<p>Pickup: \" + $json.body.pickupTime + \"</p>\" : \"\" }}{{ $json.body?.notes ? \"<p>Notes: \" + $json.body.notes + \"</p>\" : \"\" }}<p>When the money arrives, mark it <b>Paid</b>: <a href=\"{{ $json.body?.adminUrl }}\">{{ $json.body?.adminUrl }}</a></p></div>",
         "options": {
@@ -334,7 +340,7 @@
         "toEmail": "={{ $json.body?.customerEmail }}",
         "subject": "={{ $json.body?.businessName || \"Your order\" }}: order #{{ String($json.body?.orderId ?? \"\").slice(-6).toUpperCase() }} {{ $json.body?.status === \"REFUNDED\" ? \"refunded\" : \"cancelled\" }}",
         "emailFormat": "html",
-        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:520px;color:#1c1917\"><p>Your order <b>#{{ String($json.body?.orderId ?? \"\").slice(-6).toUpperCase() }}</b> ({{ \"$\" + (Number($json.body?.total ?? 0) / 100).toFixed(2) }}) has been {{ $json.body?.status === \"REFUNDED\" ? \"refunded\" : \"cancelled\" }}.</p><p style=\"color:#78716c;font-size:13px\">If you have questions, just reply to this email.<br>— {{ $json.body?.businessName || \"\" }}</p></div>",
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:520px;color:#1c1917\"><p>{{ $json.body?.customerName ? \"Hi \" + String($json.body.customerName).trim().split(/\\s+/)[0] + \",\" : \"Hi,\" }}</p><p>Your order <b>#{{ String($json.body?.orderId ?? \"\").slice(-6).toUpperCase() }}</b> ({{ \"$\" + (Number($json.body?.total ?? 0) / 100).toFixed(2) }}) has been {{ $json.body?.status === \"REFUNDED\" ? \"refunded\" : \"cancelled\" }}.</p><p style=\"color:#78716c;font-size:13px\">If you have questions, just reply to this email.<br>— {{ $json.body?.businessName || \"\" }}</p></div>",
         "options": {
           "appendAttribution": false
         }
