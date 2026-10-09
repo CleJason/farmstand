@@ -8,6 +8,7 @@ import { useSite } from "@/components/SiteProvider";
 import DiscountInput, { type AppliedDiscount } from "@/components/DiscountInput";
 import GiftCardInput, { type AppliedGift } from "@/components/GiftCardInput";
 import LegalFooter from "@/components/LegalFooter";
+import SpamHint from "@/components/SpamHint";
 import Link from "next/link";
 
 interface FarmstandItem {
@@ -170,7 +171,9 @@ export default function FarmstandKioskPage() {
           </h1>
           <p className="text-sm text-[#735D54] leading-relaxed">
             Your order was received. Enjoy!
+            {guestEmail && " A receipt is on its way to your email."}
           </p>
+          {guestEmail && <SpamHint />}
           <button
             onClick={() => {
               setCart({});

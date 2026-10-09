@@ -11,6 +11,7 @@ import DiscountInput, { type AppliedDiscount } from "@/components/DiscountInput"
 import GiftCardInput, { type AppliedGift } from "@/components/GiftCardInput";
 import LegalFooter from "@/components/LegalFooter";
 import BoxBuilder from "@/components/BoxBuilder";
+import SpamHint from "@/components/SpamHint";
 import { type BoxPick, describePicks, dropBoxOptions, isBox, picksKey } from "@/lib/box";
 
 interface DropDetails {
@@ -262,6 +263,7 @@ export default function DropDetailPage() {
               The exact pickup address will be sent with your confirmation once payment is confirmed.
             </p>
           )}
+          <SpamHint />
           <div className="pt-2">
             <Link
               href="/"

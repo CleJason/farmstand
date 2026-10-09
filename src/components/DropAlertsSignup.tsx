@@ -35,9 +35,13 @@ export default function DropAlertsSignup() {
         <h2 className="text-2xl md:text-3xl font-bold text-stone-900 tracking-tight">Never miss a drop</h2>
         <div aria-hidden className="mx-auto mt-2 h-1 w-12 rounded-full bg-amber-500/80" />
         {state === "done" ? (
-          <p className="mt-5 text-stone-700">
-            You&apos;re on the list! We&apos;ll email you when the next drop opens. 🎉
-          </p>
+          <div className="mt-5 space-y-2">
+            <p className="text-stone-700">You&apos;re on the list! We&apos;ll email you when the next drop opens. 🎉</p>
+            <p className="text-xs text-stone-500">
+              Alerts can land in spam or promotions at first. If you find one there, mark it &quot;Not spam&quot; so you
+              don&apos;t miss the next drop.
+            </p>
+          </div>
         ) : (
           <>
             <p className="mt-4 text-stone-600 text-sm">Get a heads-up as soon as ordering opens.</p>

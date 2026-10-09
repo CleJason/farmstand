@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useSite } from "@/components/SiteProvider";
 import { ShopBrand } from "@/components/StoreChrome";
 import LegalFooter from "@/components/LegalFooter";
+import SpamHint from "@/components/SpamHint";
 
 function LoginForm() {
   const site = useSite();
@@ -72,6 +73,7 @@ function LoginForm() {
                 <span className="font-medium text-stone-700">{email}</span>
               </p>
             </div>
+            <SpamHint />
             <p className="text-xs text-stone-400">
               The link expires in 24 hours.
             </p>

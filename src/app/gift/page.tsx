@@ -5,6 +5,7 @@ import Link from "next/link";
 import CheckoutModal from "@/components/CheckoutModal";
 import { StoreHeader } from "@/components/StoreChrome";
 import LegalFooter from "@/components/LegalFooter";
+import SpamHint from "@/components/SpamHint";
 import { useSite } from "@/components/SiteProvider";
 import { formatPrice } from "@/lib/utils";
 
@@ -90,6 +91,7 @@ export default function GiftCardPage() {
             The code will be emailed to {recipientEmail ? "the recipient" : "you"}
             {recipientEmail ? " and a receipt to you" : ""}.
           </p>
+          <SpamHint />
           <Link href="/" className="inline-block bg-amber-600 hover:bg-amber-700 text-white font-semibold px-6 py-2.5 rounded-full text-sm">
             Back to {site.SITE_NAME}
           </Link>

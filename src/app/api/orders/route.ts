@@ -400,6 +400,8 @@ export async function POST(req: Request) {
       giftCode: order.giftCode,
       giftAmount: order.giftAmount,
       paymentMethod: order.paymentMethod,
+      // Where the customer sends the money (for their "order received" email)
+      paymentHandle: await getSetting(order.paymentMethod === "PAYPAL" ? "PAYPAL_ME_USERNAME" : "VENMO_USERNAME"),
       customerName: session?.user?.name || null,
       customerEmail: order.guestEmail || session?.user?.email || null,
       customerPhone: order.guestPhone,

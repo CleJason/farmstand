@@ -19,7 +19,7 @@
     },
     {
       "id": "fc0552af-2d18-4a70-8dd1-bb337e1a5112",
-      "name": "Order Confirmed",
+      "name": "Drop Order Paid (card, or marked Paid)",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
@@ -233,7 +233,7 @@
     },
     {
       "id": "0a706da2-4d7d-4889-b920-79044aed6abc",
-      "name": "Venmo/PayPal Order To Confirm",
+      "name": "Venmo/PayPal Order Placed",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
@@ -594,10 +594,63 @@
           "appendAttribution": false
         }
       }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d04",
+      "name": "Customer Email On Order?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        272,
+        640
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body?.customerEmail ?? \"\" }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d05",
+      "name": "Email Customer: How To Pay",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        528,
+        640
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "operation": "send",
+        "fromEmail": "Your Shop <hello@example.com>",
+        "toEmail": "={{ $json.body?.customerEmail }}",
+        "subject": "={{ $json.body?.businessName || \"Your order\" }}: order #{{ String($json.body?.orderId ?? \"\").slice(-6).toUpperCase() }} received – one step left",
+        "emailFormat": "html",
+        "html": "={{ (() => { const b = $json.body || {}; const no = String(b.orderId || '').slice(-6).toUpperCase(); const total = '$' + (Number(b.total || 0) / 100).toFixed(2); const isPaypal = b.paymentMethod === 'PAYPAL'; const app = isPaypal ? 'PayPal' : 'Venmo'; const h = String(b.paymentHandle || '').replace(/^@/, ''); const link = !h ? '' : isPaypal ? 'https://paypal.me/' + h + '/' + (Number(b.total || 0) / 100).toFixed(2) : 'https://venmo.com/u/' + h; const items = (b.items || []).map(i => i.quantity + ' × ' + i.name).join('<br>'); return '<div style=\"font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1c1917\"><h2 style=\"margin-bottom:4px\">Thanks! We got your ' + (b.type === 'GIFT' ? 'gift card order' : 'order') + '</h2>' + '<p style=\"color:#57534e\">Order <b>#' + no + '</b> · Total <b>' + total + '</b></p>' + (items ? '<p style=\"line-height:1.6\">' + items + '</p>' : '') + (b.pickupTime ? '<p>Pickup: ' + b.pickupTime + '</p>' : '') + '<div style=\"background:#fafaf8;border:1px solid #e7e5e4;border-radius:12px;padding:14px;margin:16px 0\"><b>To finish, send ' + total + ' with ' + app + '</b>' + (h ? '<br>' + (isPaypal ? 'paypal.me/' : '@') + h : '') + '<br>Please put <b>#' + no + '</b> in the payment note.' + (link ? '<p style=\"margin:14px 0 0\"><a href=\"' + link + '\" style=\"background:#d97706;color:#ffffff;padding:10px 20px;border-radius:999px;text-decoration:none;font-weight:bold\">Pay with ' + app + '</a></p>' : '') + '</div>' + '<p>We\\'ll email your confirmation' + (b.type === 'DROP' ? ' with the exact pickup address' : '') + ' as soon as the payment comes in.</p><p style=\"color:#78716c;font-size:13px\">Questions? Just reply to this email.<br>— ' + (b.businessName || '') + '</p></div>'; })() }}",
+        "options": {
+          "appendAttribution": false
+        }
+      }
     }
   ],
   "connections": {
-    "Order Confirmed": {
+    "Drop Order Paid (card, or marked Paid)": {
       "main": [
         [
           {
@@ -657,11 +710,16 @@
         ]
       ]
     },
-    "Venmo/PayPal Order To Confirm": {
+    "Venmo/PayPal Order Placed": {
       "main": [
         [
           {
             "node": "Email Owner: Check Payment",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Customer Email On Order?",
             "type": "main",
             "index": 0
           }
@@ -755,6 +813,17 @@
         [
           {
             "node": "Email New Drop Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Email On Order?": {
+      "main": [
+        [
+          {
+            "node": "Email Customer: How To Pay",
             "type": "main",
             "index": 0
           }

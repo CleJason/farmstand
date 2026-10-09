@@ -82,6 +82,7 @@ export async function POST(req: Request) {
       type: "GIFT",
       total: amount,
       paymentMethod,
+      paymentHandle: await getSetting(paymentMethod === "PAYPAL" ? "PAYPAL_ME_USERNAME" : "VENMO_USERNAME"),
       customerEmail: purchaserEmail,
       notes: order.notes,
       ownerEmail: await getSetting("ADMIN_EMAIL"),
