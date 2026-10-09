@@ -230,6 +230,11 @@ export async function POST(req: Request) {
     } = data;
     const type = data.type === "FARMSTAND" ? "FARMSTAND" : "DROP";
     const paymentMethod = data.paymentMethod || "STRIPE";
+    // Who the order is for: required on pre-orders so the owner knows who's picking up
+    const guestName = String(data.guestName ?? "").trim().slice(0, 80) || session?.user?.name || null;
+    if (type === "DROP" && !guestName) {
+      return NextResponse.json({ error: "Please add your name" }, { status: 400 });
+    }
 
     if (!PAYMENT_METHODS.includes(paymentMethod)) {
       return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
@@ -275,6 +280,7 @@ export async function POST(req: Request) {
         pickupSlotId: type === "DROP" ? pickupSlotId || null : null,
         pickupTime,
         userId: session?.user?.id || null,
+        guestName,
         guestEmail: guestEmail || null,
         guestPhone: guestPhone || null,
         // Nothing left to pay once a gift card covers it all
@@ -372,6 +378,7 @@ export async function POST(req: Request) {
         total: order.total,
         giftCode: order.giftCode,
         giftAmount: order.giftAmount,
+        customerName: order.guestName,
         customerEmail: order.guestEmail || session?.user?.email || null,
         customerPhone: order.guestPhone,
         pickupSlot: order.pickupSlot?.label,
@@ -402,7 +409,7 @@ export async function POST(req: Request) {
       paymentMethod: order.paymentMethod,
       // Where the customer sends the money (for their "order received" email)
       paymentHandle: await getSetting(order.paymentMethod === "PAYPAL" ? "PAYPAL_ME_USERNAME" : "VENMO_USERNAME"),
-      customerName: session?.user?.name || null,
+      customerName: order.guestName,
       customerEmail: order.guestEmail || session?.user?.email || null,
       customerPhone: order.guestPhone,
       pickupSlot: order.pickupSlot?.label,

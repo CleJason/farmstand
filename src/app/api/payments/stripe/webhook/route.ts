@@ -74,6 +74,7 @@ export async function POST(req: Request) {
           status: "PAID",
           paymentMethod: "STRIPE",
           total: order.total,
+          customerName: order.guestName || order.user?.name || null,
           customerEmail: order.guestEmail || order.user?.email,
           customerPhone: order.guestPhone || order.user?.phone,
           pickupSlot: order.pickupSlot?.label,

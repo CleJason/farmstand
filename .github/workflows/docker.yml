@@ -159,9 +159,13 @@ jobs:
           order() {
             curl -s -o /tmp/order.json -w '%{http_code}' -X POST http://localhost:3000/api/orders \
               -H 'Content-Type: application/json' \
-              -d "{\"type\":\"DROP\",\"dropId\":\"d1\",\"pickupSlotId\":\"s1\",\"pickupTime\":\"$1\",\"paymentMethod\":\"VENMO\",\"guestEmail\":\"c@example.com\",\"items\":[{\"dropProductId\":\"dp1\",\"quantity\":1}]}"
+              -d "{\"type\":\"DROP\",\"dropId\":\"d1\",\"pickupSlotId\":\"s1\",\"pickupTime\":\"$1\",\"paymentMethod\":\"VENMO\",\"guestName\":\"Test Customer\",\"guestEmail\":\"c@example.com\",\"items\":[{\"dropProductId\":\"dp1\",\"quantity\":1}]}"
           }
+          c=$(curl -s -o /tmp/order.json -w '%{http_code}' -X POST http://localhost:3000/api/orders -H 'Content-Type: application/json' \
+            -d "{\"type\":\"DROP\",\"dropId\":\"d1\",\"pickupSlotId\":\"s1\",\"pickupTime\":\"$first\",\"paymentMethod\":\"VENMO\",\"guestEmail\":\"c@example.com\",\"items\":[{\"dropProductId\":\"dp1\",\"quantity\":1}]}")
+          echo "pre-order without a name -> $c $(cat /tmp/order.json)"; [ "$c" = "400" ] || exit 1
           c=$(order "$first"); echo "order at first time -> $c $(cat /tmp/order.json)"; [ "$c" = "200" ] || exit 1
+          n=$(psql "$PGURL" -tAc "SELECT \"guestName\" FROM \"Order\" WHERE id = '$(jq -r .orderId /tmp/order.json)'"); echo "saved name: $n"; [ "$n" = "Test Customer" ] || exit 1
           cp /tmp/order.json /tmp/order1.json
           full=$(curl -s http://localhost:3000/api/drops/d1 | jq -r '.pickupSlots[0].times[0].full')
           echo "first time full now: $full"; [ "$full" = "true" ] || exit 1
@@ -203,7 +207,7 @@ jobs:
           third=$(curl -s http://localhost:3000/api/drops/d1 | jq -r '.pickupSlots[0].times[2].time')
           order() {
             curl -s -o /tmp/o.json -w '%{http_code}' -X POST http://localhost:3000/api/orders -H 'Content-Type: application/json' \
-              -d "{\"type\":\"DROP\",\"dropId\":\"d1\",\"pickupSlotId\":\"s1\",\"pickupTime\":\"$1\",\"discountCode\":\"$2\",\"paymentMethod\":\"VENMO\",\"guestEmail\":\"d@example.com\",\"items\":[{\"dropProductId\":\"dp1\",\"quantity\":1}]}"
+              -d "{\"type\":\"DROP\",\"dropId\":\"d1\",\"pickupSlotId\":\"s1\",\"pickupTime\":\"$1\",\"discountCode\":\"$2\",\"paymentMethod\":\"VENMO\",\"guestName\":\"Test Customer\",\"guestEmail\":\"d@example.com\",\"items\":[{\"dropProductId\":\"dp1\",\"quantity\":1}]}"
           }
           c=$(order "$second" "test10"); echo "order with TEST10 -> $c $(cat /tmp/o.json)"; [ "$c" = "200" ] || exit 1
           [ "$(jq -r .total /tmp/o.json)" = "450" ] || { echo "Expected 10% off 500 = 450"; exit 1; }
@@ -237,7 +241,7 @@ jobs:
           # Partial: $5 drop item, $3 gift card -> $2 left to pay by Venmo, card drained
           third=$(curl -s http://localhost:3000/api/drops/d1 | jq -r '.pickupSlots[0].times[2].time')
           c=$(curl -s -o /tmp/g.json -w '%{http_code}' -X POST http://localhost:3000/api/orders -H 'Content-Type: application/json' \
-            -d "{\"type\":\"DROP\",\"dropId\":\"d1\",\"pickupSlotId\":\"s1\",\"pickupTime\":\"$third\",\"giftCode\":\"gift-test-0001\",\"paymentMethod\":\"VENMO\",\"guestEmail\":\"g@example.com\",\"items\":[{\"dropProductId\":\"dp1\",\"quantity\":1}]}")
+            -d "{\"type\":\"DROP\",\"dropId\":\"d1\",\"pickupSlotId\":\"s1\",\"pickupTime\":\"$third\",\"giftCode\":\"gift-test-0001\",\"paymentMethod\":\"VENMO\",\"guestName\":\"Test Customer\",\"guestEmail\":\"g@example.com\",\"items\":[{\"dropProductId\":\"dp1\",\"quantity\":1}]}")
           echo "drop order with \$3 gift card -> $c $(cat /tmp/g.json)"; [ "$c" = "200" ] || exit 1
           [ "$(jq -r .total /tmp/g.json)" = "200" ] || { echo "Expected 500 - 300 = 200"; exit 1; }
           echo "GIFT-TEST-0001 balance: $(bal g1)"; [ "$(bal g1)" = "0" ] || exit 1
@@ -279,7 +283,7 @@ jobs:
           SQL
           box() {
             curl -s -o /tmp/b.json -w '%{http_code}' -X POST http://localhost:3000/api/orders -H 'Content-Type: application/json' \
-              -d "{\"type\":\"DROP\",\"dropId\":\"d2\",\"paymentMethod\":\"VENMO\",\"guestEmail\":\"b@example.com\",\"items\":$1}"
+              -d "{\"type\":\"DROP\",\"dropId\":\"d2\",\"paymentMethod\":\"VENMO\",\"guestName\":\"Test Customer\",\"guestEmail\":\"b@example.com\",\"items\":$1}"
           }
           A='{"name":"Chocolate Chip","quantity":4}'; B='{"name":"Snickerdoodle","quantity":2}'
           c=$(box "[{\"dropProductId\":\"dp2\",\"quantity\":1,\"selections\":[{\"name\":\"Chocolate Chip\",\"quantity\":5}]}]")

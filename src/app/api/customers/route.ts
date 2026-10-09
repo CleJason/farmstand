@@ -49,6 +49,7 @@ export async function GET() {
         paymentMethod: true,
         total: true,
         userId: true,
+        guestName: true,
         guestEmail: true,
         guestPhone: true,
         user: { select: { role: true } },
@@ -93,7 +94,7 @@ export async function GET() {
       c = {
         key,
         kind: "guest",
-        name: null,
+        name: o.guestName, // newest order first, so their latest name
         email,
         phone: o.guestPhone,
         signedUpAt: null,
@@ -105,6 +106,7 @@ export async function GET() {
       customers.set(key, c);
     }
     if (!c.phone && o.guestPhone) c.phone = o.guestPhone;
+    if (!c.name && o.guestName) c.name = o.guestName;
 
     c.orders.push({
       id: o.id,
@@ -143,7 +145,7 @@ export async function DELETE(req: Request) {
   const value = rest.join(":");
   if (!value) return NextResponse.json({ error: "Missing customer" }, { status: 400 });
 
-  const anonymize = { guestEmail: null, guestPhone: null, notes: null };
+  const anonymize = { guestName: null, guestEmail: null, guestPhone: null, notes: null };
 
   if (kind === "user") {
     const user = await prisma.user.findUnique({ where: { id: value } });

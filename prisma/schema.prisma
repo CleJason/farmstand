@@ -186,6 +186,7 @@ model Order {
   total           Int           // cents left to pay (subtotal - discount - giftAmount)
   notes           String?
   // Guest info (farmstand — no login required)
+  guestName       String?
   guestEmail      String?
   guestPhone      String?
   // Stripe

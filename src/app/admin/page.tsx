@@ -16,6 +16,7 @@ interface Order {
   giftCode: string | null;
   giftAmount: number;
   notes: string | null;
+  guestName: string | null;
   guestEmail: string | null;
   guestPhone: string | null;
   manualPaymentRef: string | null;
@@ -49,6 +50,7 @@ export default function AdminDashboardPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>("ALL");
+  const [search, setSearch] = useState("");
   const [isUnauthorized, setIsUnauthorized] = useState(false);
 
   const loadOrders = async () => {
@@ -108,10 +110,15 @@ export default function AdminDashboardPage() {
   };
 
   const safeOrders = Array.isArray(orders) ? orders : [];
-  const filteredOrders = safeOrders.filter((o) => {
-    if (filterType === "ALL") return true;
-    return o.type === filterType;
-  });
+  // Search by name, email, phone (any format) or order number, e.g. from a customer's text
+  const q = search.trim().toLowerCase();
+  const qDigits = q.replace(/\D/g, "");
+  const matches = (o: Order) =>
+    !q ||
+    [o.guestName, o.user?.name, o.guestEmail, o.user?.email, o.id.slice(-6)].some((v) => v?.toLowerCase().includes(q)) ||
+    (qDigits.length >= 4 &&
+      [o.guestPhone, o.user?.phone].some((p) => p?.replace(/\D/g, "").includes(qDigits.slice(-10))));
+  const filteredOrders = safeOrders.filter((o) => (filterType === "ALL" || o.type === filterType) && matches(o));
 
   const totalRevenue = safeOrders
     .filter((o) => o.status === "PAID")
@@ -174,7 +181,15 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Filter Tabs */}
+      {/* Filter Tabs + search */}
+      <div className="flex flex-wrap items-center gap-3">
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search name, email, phone or order #"
+        className="w-full sm:w-72 border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+      />
       <div className="flex gap-1 bg-stone-100 p-1 rounded-lg w-fit">
         {[
           { key: "ALL", label: "All" },
@@ -194,6 +209,7 @@ export default function AdminDashboardPage() {
           </button>
         ))}
       </div>
+      </div>
 
       {/* Orders List */}
       {loading ? (
@@ -203,15 +219,19 @@ export default function AdminDashboardPage() {
         </div>
       ) : filteredOrders.length === 0 ? (
         <div className="bg-white rounded-xl p-10 border border-stone-200 text-center">
-          <p className="text-stone-500 font-medium">No orders yet</p>
-          <p className="text-xs text-stone-400 mt-1">
-            Orders will appear here as customers place them.
-          </p>
+          <p className="text-stone-500 font-medium">{q ? "No orders match your search" : "No orders yet"}</p>
+          {!q && (
+            <p className="text-xs text-stone-400 mt-1">
+              Orders will appear here as customers place them.
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
           {filteredOrders.map((order) => {
             const email = order.guestEmail || order.user?.email || "Guest";
+            const name = order.guestName || order.user?.name;
+            const phone = order.guestPhone || order.user?.phone;
             const status = statusConfig[order.status] || {
               label: order.status,
               classes: "bg-stone-100 text-stone-600",
@@ -269,8 +289,10 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
+                {name && <p className="text-sm font-semibold text-stone-900 -mt-1 mb-1">{name}</p>}
                 <div className="text-xs text-stone-500 mb-3">
                   <span>{email}</span>
+                  {phone && <span className="ml-3">📞 {phone}</span>}
                   {order.pickupSlot && (
                     <span className="ml-3">
                       📍{" "}

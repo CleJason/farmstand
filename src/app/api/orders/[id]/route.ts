@@ -119,6 +119,7 @@ export async function PUT(
       type: order.type,
       status: order.status,
       total: order.total,
+      customerName: order.guestName || order.user?.name || null,
       customerEmail: order.guestEmail || order.user?.email,
       customerPhone: order.guestPhone || order.user?.phone,
       pickupSlot: order.pickupSlot?.label,
@@ -137,6 +138,7 @@ export async function PUT(
       type: order.type,
       status: order.status,
       total: order.total,
+      customerName: order.guestName || order.user?.name || null,
       customerEmail: order.guestEmail || order.user?.email,
       customerPhone: order.guestPhone || order.user?.phone,
     });

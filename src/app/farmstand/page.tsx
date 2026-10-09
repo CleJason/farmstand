@@ -30,6 +30,7 @@ export default function FarmstandKioskPage() {
   const [items, setItems] = useState<FarmstandItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<{ [id: string]: number }>({});
+  const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"STRIPE" | "PAYPAL" | "VENMO">("STRIPE");
@@ -125,6 +126,7 @@ export default function FarmstandKioskPage() {
           discountCode: discount?.code ?? null,
           giftCode: gift?.code ?? null,
           paymentMethod,
+          guestName: guestName.trim() || null,
           guestEmail: guestEmail || null,
           guestPhone: guestPhone || null,
         }),
@@ -343,6 +345,15 @@ export default function FarmstandKioskPage() {
 
             {/* Optional contact info for receipts */}
             <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                autoComplete="name"
+                maxLength={80}
+                placeholder="Your name (optional)"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                className="col-span-2 w-full text-xs px-3 py-2 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-600"
+              />
               <input
                 type="email"
                 placeholder="Email for receipt (optional)"

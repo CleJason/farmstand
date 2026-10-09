@@ -52,6 +52,7 @@ export async function POST(req: Request) {
       type: "GIFT",
       userId: session?.user?.id || null,
       guestEmail: purchaserEmail,
+      guestName: clean(body.fromName, 80), // the buyer's name, as they signed the card
       paymentMethod,
       status: paymentMethod === "STRIPE" ? "PENDING" : "AWAITING_CONFIRM",
       subtotal: amount,
@@ -84,6 +85,7 @@ export async function POST(req: Request) {
       paymentMethod,
       paymentHandle: await getSetting(paymentMethod === "PAYPAL" ? "PAYPAL_ME_USERNAME" : "VENMO_USERNAME"),
       customerEmail: purchaserEmail,
+      customerName: clean(body.fromName, 80),
       notes: order.notes,
       ownerEmail: await getSetting("ADMIN_EMAIL"),
       adminUrl: `${appUrl}/admin`,

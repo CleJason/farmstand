@@ -64,6 +64,7 @@ export default function DropDetailPage() {
   const [discount, setDiscount] = useState<AppliedDiscount>(null);
   const [gift, setGift] = useState<AppliedGift>(null);
   const [notes, setNotes] = useState("");
+  const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"STRIPE" | "PAYPAL" | "VENMO">("STRIPE");
@@ -169,6 +170,10 @@ export default function DropDetailPage() {
       alert("Please choose a pickup day and time!");
       return;
     }
+    if (!guestName.trim()) {
+      alert("Please add your name so we know whose order it is!");
+      return;
+    }
     if (!guestEmail) {
       alert("Please provide an email for order pickup confirmation!");
       return;
@@ -194,6 +199,7 @@ export default function DropDetailPage() {
           items,
           paymentMethod,
           notes,
+          guestName: guestName.trim(),
           guestEmail,
           guestPhone: guestPhone || null,
         }),
@@ -524,6 +530,19 @@ export default function DropDetailPage() {
               3. Pickup &amp; Payment Details
             </h2>
             <div className="grid sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-[#2D1E18] mb-1">Your Name *</label>
+                <input
+                  type="text"
+                  required
+                  autoComplete="name"
+                  maxLength={80}
+                  placeholder="First and last name"
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  className="w-full text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-600"
+                />
+              </div>
               <div>
                 <label className="block text-xs font-bold text-[#2D1E18] mb-1">
                   Email Address * (for confirmation)
