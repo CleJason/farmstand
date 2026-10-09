@@ -165,6 +165,14 @@ export async function DELETE(
   }
 
   const { id } = await params;
+  // Orders are sales records: a drop with orders can't be deleted (close it instead)
+  const orders = await prisma.order.count({ where: { dropId: id } });
+  if (orders > 0) {
+    return NextResponse.json(
+      { error: `This drop has ${orders} ${orders === 1 ? "order" : "orders"}. Delete those first (cancel, then delete), or just close the drop.` },
+      { status: 400 }
+    );
+  }
   await prisma.drop.delete({ where: { id } });
   return NextResponse.json({ success: true });
 }

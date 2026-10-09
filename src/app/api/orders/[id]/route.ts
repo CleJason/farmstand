@@ -6,6 +6,7 @@ import { applyStatusChange } from "@/lib/order-effects";
 import { notifyGiftActivated } from "@/lib/gift-notify";
 import { formatPickup, pickupAddressFor } from "@/lib/pickup";
 import { getSiteSettings } from "@/lib/site";
+import { countsStock } from "@/lib/stock";
 
 export async function GET(
   _req: Request,
@@ -39,6 +40,35 @@ export async function GET(
   }
 
   return NextResponse.json(order);
+}
+
+/**
+ * Remove an order for good (e.g. a test order). Only orders that no longer
+ * count toward stock, discounts or gift cards can be deleted, so cancel a live
+ * order first; that releases its stock, then deleting changes nothing else.
+ */
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const order = await prisma.order.findUnique({ where: { id } });
+  if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  if (countsStock(order.status)) {
+    return NextResponse.json({ error: "Cancel the order first, then delete it" }, { status: 400 });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // A gift card this order was buying never became usable; remove it too
+    await tx.giftCertificate.deleteMany({ where: { orderId: id, status: { not: "ACTIVE" } } });
+    await tx.order.delete({ where: { id } });
+  });
+  return NextResponse.json({ success: true });
 }
 
 export async function PUT(

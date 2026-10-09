@@ -304,6 +304,13 @@ export default function AdminDropsPage() {
     }
   };
 
+  const deleteDrop = async (drop: Drop) => {
+    if (!confirm(`Delete "${drop.title}"? This can't be undone.`)) return;
+    const res = await fetch(`/api/drops/${drop.id}`, { method: "DELETE" });
+    if (res.ok) loadData();
+    else alert((await res.json().catch(() => ({}))).error || "Couldn't delete the drop");
+  };
+
   // Products shown in the form: active ones plus any already in the drop being edited
   const formProducts = products.filter((p) => p.active || productForm[p.id]?.included);
 
@@ -438,9 +445,14 @@ export default function AdminDropsPage() {
                       </button>
                     )}
                   </div>
-                  <Link href={`/drops/${drop.id}`} className="text-xs text-amber-700 font-semibold hover:underline">
-                    Customer view →
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => deleteDrop(drop)} className="text-xs text-stone-400 hover:text-red-600">
+                      Delete
+                    </button>
+                    <Link href={`/drops/${drop.id}`} className="text-xs text-amber-700 font-semibold hover:underline">
+                      Customer view →
+                    </Link>
+                  </div>
                 </div>
               </div>
             );

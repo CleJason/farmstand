@@ -100,6 +100,13 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const deleteOrder = async (orderId: string) => {
+    if (!confirm(`Delete order #${orderId.slice(-6).toUpperCase()} for good? It disappears from your sales records. This can't be undone.`)) return;
+    const res = await fetch(`/api/orders/${orderId}`, { method: "DELETE" });
+    if (res.ok) loadOrders();
+    else alert((await res.json().catch(() => ({}))).error || "Couldn't delete the order");
+  };
+
   const safeOrders = Array.isArray(orders) ? orders : [];
   const filteredOrders = safeOrders.filter((o) => {
     if (filterType === "ALL") return true;
@@ -332,12 +339,20 @@ export default function AdminDashboardPage() {
                       ✓ Picked Up
                     </button>
                   )}
-                  {order.status !== "CANCELLED" && order.status !== "PICKED_UP" && (
+                  {order.status !== "CANCELLED" && order.status !== "REFUNDED" && order.status !== "PICKED_UP" && (
                     <button
                       onClick={() => updateOrderStatus(order.id, "CANCELLED")}
                       className="text-stone-400 hover:text-red-600 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors ml-auto"
                     >
                       Cancel
+                    </button>
+                  )}
+                  {["CANCELLED", "REFUNDED", "PENDING"].includes(order.status) && (
+                    <button
+                      onClick={() => deleteOrder(order.id)}
+                      className="text-stone-400 hover:text-red-600 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors ml-auto"
+                    >
+                      Delete
                     </button>
                   )}
                 </div>
