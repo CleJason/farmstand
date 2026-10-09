@@ -299,6 +299,12 @@ jobs:
           sold=$(psql "$PGURL" -tAc "SELECT \"quantitySold\" FROM \"DropProduct\" WHERE id = 'dp2'"); echo "boxes sold: $sold"; [ "$sold" = "3" ] || exit 1
           c=$(box "[{\"dropProductId\":\"dp2\",\"quantity\":1,\"selections\":[{\"name\":\"Oatmeal\",\"quantity\":6}]}]")
           echo "fourth box when 3 available -> $c $(cat /tmp/b.json)"; [ "$c" = "400" ] || exit 1
+          # This drop only offers 2 of the 3 flavors
+          psql "$PGURL" -c "UPDATE \"DropProduct\" SET \"quantityLimit\" = 10, \"boxOptions\" = ARRAY['Chocolate Chip','Snickerdoodle'] WHERE id = 'dp2'"
+          c=$(box "[{\"dropProductId\":\"dp2\",\"quantity\":1,\"selections\":[{\"name\":\"Oatmeal\",\"quantity\":6}]}]")
+          echo "flavor not offered this drop -> $c $(cat /tmp/b.json)"; [ "$c" = "400" ] || exit 1
+          c=$(box "[{\"dropProductId\":\"dp2\",\"quantity\":1,\"selections\":[$A,$B]}]")
+          echo "flavors offered this drop -> $c $(cat /tmp/b.json)"; [ "$c" = "200" ] || exit 1
 
       - name: Container logs
         if: always()

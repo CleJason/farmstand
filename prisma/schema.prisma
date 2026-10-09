@@ -136,6 +136,7 @@ model DropProduct {
   priceOverride  Int?     // override master price for this drop (cents)
   quantityLimit  Int?     // how many offered this week (null = unlimited)
   quantitySold   Int      @default(0)
+  boxOptions     String[] @default([]) // mix & match box: choices offered this drop (empty = all of the product's)
   drop           Drop     @relation(fields: [dropId], references: [id], onDelete: Cascade)
   product        Product  @relation(fields: [productId], references: [id])
   orderItems     OrderItem[]

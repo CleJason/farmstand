@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { fireNotification } from "@/lib/notifications";
+import { fireNotification, itemsWithNames, notificationItems } from "@/lib/notifications";
 import { applyStatusChange } from "@/lib/order-effects";
 import { notifyGiftActivated } from "@/lib/gift-notify";
 import { formatPickup, pickupAddressFor } from "@/lib/pickup";
@@ -69,6 +69,7 @@ export async function PUT(
       include: {
         pickupSlot: true,
         user: true,
+        items: itemsWithNames,
       },
     });
 
@@ -92,6 +93,7 @@ export async function PUT(
       pickupSlot: order.pickupSlot?.label,
       pickupTime: formatPickup(order.pickupTime),
       pickupLocation: order.pickupSlot?.location ?? null,
+      items: notificationItems(order.items),
       // Paid now, so the customer gets the exact address
       pickupAddress: order.type === "DROP" ? pickupAddressFor(order.pickupSlot, await getSiteSettings()) : null,
     });

@@ -15,6 +15,15 @@ export function isBox(p: { boxSize: number | null; boxOptions?: string[] | null 
   return !!p.boxSize && p.boxSize > 0 && (p.boxOptions?.length ?? 0) > 0;
 }
 
+/**
+ * The choices offered in one drop: the drop's own picks from the product's
+ * list, or the whole list when the drop doesn't narrow it (or none still exist).
+ */
+export function dropBoxOptions(productOptions: string[], dropOptions: string[] | null | undefined): string[] {
+  const narrowed = productOptions.filter((o) => dropOptions?.includes(o));
+  return narrowed.length > 0 ? narrowed : productOptions;
+}
+
 /** Admin input: one option per line (or an array), trimmed and de-duplicated. */
 export function cleanBoxOptions(input: unknown): string[] {
   const raw = Array.isArray(input) ? input : typeof input === "string" ? input.split("\n") : [];

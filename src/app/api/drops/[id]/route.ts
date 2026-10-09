@@ -129,7 +129,7 @@ export async function PUT(
             }
             await tx.dropProduct.update({
               where: { id: old.id },
-              data: { quantityLimit: p.quantityLimit, priceOverride: p.priceOverride },
+              data: { quantityLimit: p.quantityLimit, priceOverride: p.priceOverride, boxOptions: p.boxOptions },
             });
           } else {
             await tx.dropProduct.create({ data: { ...p, dropId: id } });

@@ -9,7 +9,7 @@ import { DiscountError, evaluateDiscount, normalizeCode } from "@/lib/discounts"
 import { evaluateGift, GiftError, normalizeGiftCode } from "@/lib/gift";
 import { applyStatusChange } from "@/lib/order-effects";
 import { getSiteSettings } from "@/lib/site";
-import { type BoxPick, describePicks, isBox, picksKey, validatePicks } from "@/lib/box";
+import { type BoxPick, describePicks, dropBoxOptions, isBox, picksKey, validatePicks } from "@/lib/box";
 import {
   formatPickup,
   hideAddress,
@@ -187,7 +187,10 @@ async function priceOrder(
       let picks: BoxPick[] | null = null;
       if (isBox(dp.product)) {
         try {
-          picks = validatePicks(dp.product, selections);
+          picks = validatePicks(
+            { ...dp.product, boxOptions: dropBoxOptions(dp.product.boxOptions, dp.boxOptions) },
+            selections
+          );
         } catch (e) {
           throw new OrderError((e as Error).message);
         }
@@ -374,6 +377,7 @@ export async function POST(req: Request) {
         pickupSlot: order.pickupSlot?.label,
         pickupTime: formatPickup(order.pickupTime),
         pickupLocation: order.pickupSlot?.location ?? null,
+        items: lines.map((l) => ({ name: l.name, quantity: l.quantity, price: l.price })),
         pickupAddress: order.type === "DROP" ? pickupAddressFor(order.pickupSlot, await getSiteSettings()) : null,
       });
       return NextResponse.json({

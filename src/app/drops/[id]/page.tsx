@@ -11,7 +11,7 @@ import DiscountInput, { type AppliedDiscount } from "@/components/DiscountInput"
 import GiftCardInput, { type AppliedGift } from "@/components/GiftCardInput";
 import LegalFooter from "@/components/LegalFooter";
 import BoxBuilder from "@/components/BoxBuilder";
-import { type BoxPick, describePicks, isBox, picksKey } from "@/lib/box";
+import { type BoxPick, describePicks, dropBoxOptions, isBox, picksKey } from "@/lib/box";
 
 interface DropDetails {
   id: string;
@@ -32,6 +32,7 @@ interface DropDetails {
     quantityLimit: number | null;
     quantitySold: number;
     priceOverride: number | null;
+    boxOptions: string[];
     product: {
       id: string;
       name: string;
@@ -663,7 +664,7 @@ export default function DropDetailPage() {
           name={boxProduct.product.name}
           price={priceOf(boxProduct)}
           boxSize={boxProduct.product.boxSize!}
-          options={boxProduct.product.boxOptions}
+          options={dropBoxOptions(boxProduct.product.boxOptions, boxProduct.boxOptions)}
           onAdd={(picks) => {
             updateLine(boxProduct.id, 1, picks);
             setBuildingBoxFor(null);

@@ -1,5 +1,6 @@
 import { getSetting } from "@/lib/settings";
 import { getSiteSettings, isOn } from "@/lib/site";
+import { describePicks } from "@/lib/box";
 
 /**
  * Fire a notification event to n8n.
@@ -20,6 +21,28 @@ type NotificationEvent =
 async function businessName() {
   const site = await getSiteSettings();
   return isOn(site.SITE_NAME_IN_NOTIFICATIONS) ? site.SITE_NAME : "";
+}
+
+/** Prisma include for the order items that notificationItems() reads. */
+export const itemsWithNames = {
+  include: { dropProduct: { include: { product: true } }, farmstandItem: true },
+} as const;
+
+type NamedItem = {
+  quantity: number;
+  priceAtPurchase: number;
+  selections: unknown;
+  dropProduct?: { product: { name: string } } | null;
+  farmstandItem?: { name: string } | null;
+};
+
+/** Order contents for emails/texts, box picks included: "Cookie Box (4 Chocolate Chip, 2 Snickerdoodle)". */
+export function notificationItems(items: NamedItem[]) {
+  return items.map((i) => {
+    const name = i.dropProduct?.product.name ?? i.farmstandItem?.name ?? "Item";
+    const picks = describePicks(i.selections);
+    return { name: picks ? `${name} (${picks})` : name, quantity: i.quantity, price: i.priceAtPurchase };
+  });
 }
 
 export async function fireNotification(

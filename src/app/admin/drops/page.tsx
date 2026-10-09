@@ -32,7 +32,8 @@ interface Drop {
     quantityLimit: number | null;
     quantitySold: number;
     priceOverride: number | null;
-    product: { name: string; price: number };
+    boxOptions: string[];
+    product: { name: string; price: number; boxOptions: string[] };
   }[];
   orders: {
     id: string;
@@ -69,6 +70,8 @@ interface Product {
   name: string;
   price: number;
   active: boolean;
+  boxSize: number | null;
+  boxOptions: string[];
 }
 
 // Form state for one pickup window (all values as typed in local time)
@@ -83,7 +86,9 @@ type WindowForm = {
   maxPerTime: string;
 };
 
-type ProductForm = { included: boolean; limit: string; price: string };
+// boxOff: mix & match choices NOT offered this drop
+type ProductForm = { included: boolean; limit: string; price: string; boxOff: string[] };
+const emptyProductForm: ProductForm = { included: false, limit: "", price: "", boxOff: [] };
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const toDateInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -198,6 +203,9 @@ export default function AdminDropsPage() {
             included: true,
             limit: dp.quantityLimit !== null ? String(dp.quantityLimit) : "",
             price: dp.priceOverride !== null ? (dp.priceOverride / 100).toFixed(2) : "",
+            boxOff: dp.boxOptions?.length
+              ? dp.product.boxOptions.filter((o) => !dp.boxOptions.includes(o))
+              : [],
           },
         ])
       )
@@ -211,7 +219,7 @@ export default function AdminDropsPage() {
   const setProduct = (productId: string, patch: Partial<ProductForm>) =>
     setProductForm((pf) => ({
       ...pf,
-      [productId]: { ...(pf[productId] ?? { included: false, limit: "", price: "" }), ...patch },
+      [productId]: { ...(pf[productId] ?? emptyProductForm), ...patch },
     }));
 
   const handleSave = async (e: React.FormEvent) => {
@@ -233,14 +241,22 @@ export default function AdminDropsPage() {
       });
     const dropProducts = Object.entries(productForm)
       .filter(([, p]) => p.included)
-      .map(([productId, p]) => ({
-        productId,
-        quantityLimit: p.limit === "" ? null : Number(p.limit),
-        priceOverride: p.price === "" ? null : Math.round(Number(p.price) * 100),
-      }));
+      .map(([productId, p]) => {
+        const all = products.find((x) => x.id === productId)?.boxOptions ?? [];
+        const on = all.filter((o) => !p.boxOff.includes(o));
+        return {
+          productId,
+          quantityLimit: p.limit === "" ? null : Number(p.limit),
+          priceOverride: p.price === "" ? null : Math.round(Number(p.price) * 100),
+          // Only store a list when some choices are switched off
+          boxOptions: on.length < all.length ? on : [],
+          noChoices: all.length > 0 && on.length === 0,
+        };
+      });
 
     if (pickupSlots.length === 0) return alert("Add at least one pickup day and time.");
     if (dropProducts.length === 0) return alert("Choose at least one product for this drop.");
+    if (dropProducts.some((p) => p.noChoices)) return alert("A mix & match box needs at least one choice turned on.");
 
     setSaving(true);
     try {
@@ -535,7 +551,8 @@ export default function AdminDropsPage() {
                   <p className="text-xs text-stone-500">Add products on the Products page first.</p>
                 ) : (
                   formProducts.map((p) => {
-                    const f = productForm[p.id] ?? { included: false, limit: "", price: "" };
+                    const f = productForm[p.id] ?? emptyProductForm;
+                    const isBoxProduct = !!p.boxSize && p.boxOptions?.length > 0;
                     return (
                       <div key={p.id} className={`rounded-xl border p-3 text-xs ${f.included ? "border-amber-300 bg-amber-50/40" : "border-stone-200"}`}>
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -558,6 +575,34 @@ export default function AdminDropsPage() {
                               <span className="block text-[11px] text-stone-500 mb-0.5">Price for this drop ($)</span>
                               <input type="number" min="0" step="0.01" value={f.price} onChange={(e) => setProduct(p.id, { price: e.target.value })} placeholder={(p.price / 100).toFixed(2)} className={inputClass} />
                             </label>
+                          </div>
+                        )}
+                        {f.included && isBoxProduct && (
+                          <div className="mt-2">
+                            <span className="block text-[11px] text-stone-500 mb-1">
+                              Box of {p.boxSize}: choices this drop (how many available counts boxes)
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {p.boxOptions.map((o) => {
+                                const on = !f.boxOff.includes(o);
+                                return (
+                                  <button
+                                    type="button"
+                                    key={o}
+                                    onClick={() =>
+                                      setProduct(p.id, { boxOff: on ? [...f.boxOff, o] : f.boxOff.filter((x) => x !== o) })
+                                    }
+                                    className={`px-2 py-1 rounded-md border text-[11px] ${
+                                      on
+                                        ? "bg-amber-600 border-amber-600 text-white"
+                                        : "bg-white border-stone-200 text-stone-400 line-through"
+                                    }`}
+                                  >
+                                    {o}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
                         )}
                       </div>

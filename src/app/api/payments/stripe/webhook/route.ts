@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
-import { fireNotification } from "@/lib/notifications";
+import { fireNotification, itemsWithNames, notificationItems } from "@/lib/notifications";
 import { getSetting } from "@/lib/settings";
 import { countsStock } from "@/lib/stock";
 import { applyStatusChange } from "@/lib/order-effects";
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     const order = await prisma.order.findFirst({
       where: { stripePaymentIntentId: paymentIntent.id },
       include: {
-        items: true,
+        items: itemsWithNames,
         pickupSlot: true,
         user: true,
       },
@@ -79,6 +79,7 @@ export async function POST(req: Request) {
           pickupSlot: order.pickupSlot?.label,
           pickupTime: formatPickup(order.pickupTime),
           pickupLocation: order.pickupSlot?.location ?? null,
+          items: notificationItems(order.items),
           // Paid, so the customer gets the exact address
           pickupAddress: order.type === "DROP" ? pickupAddressFor(order.pickupSlot, await getSiteSettings()) : null,
         }

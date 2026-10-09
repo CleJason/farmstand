@@ -1,5 +1,7 @@
 /** Validation for the drop create/edit form payload (pickup windows and products). */
 
+import { cleanBoxOptions } from "@/lib/box";
+
 export class DropInputError extends Error {}
 
 export type SlotInput = {
@@ -17,6 +19,7 @@ export type ProductInput = {
   productId: string;
   quantityLimit: number | null;
   priceOverride: number | null; // cents
+  boxOptions: string[]; // mix & match choices offered this drop; empty = all
 };
 
 const optionalInt = (v: unknown, min: number) => {
@@ -64,6 +67,7 @@ export function parseProducts(raw: unknown): ProductInput[] {
       productId,
       quantityLimit: optionalInt(p?.quantityLimit, 0),
       priceOverride: optionalInt(p?.priceOverride, 0),
+      boxOptions: cleanBoxOptions(p?.boxOptions),
     };
   });
 }
