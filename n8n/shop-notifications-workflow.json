@@ -11,7 +11,7 @@
         -60
       ],
       "parameters": {
-        "content": "## Shop notifications\nThe shop app POSTs to **<n8n>/webhook/<event>** with an `x-webhook-secret` header. Requests without the right secret are ignored.\n\n**Before activating:**\n1. On each of the 6 webhook nodes, replace `CHANGE_ME` (Options → Only Run If) with your own long random secret.\n2. Pick your SMTP credential on each Send Email node and set the **From** address.\n3. In the shop: Admin → Settings → Notifications, set the n8n URL (ending in /webhook) and the same secret.\n4. SMS is **disabled** until SMS Gate is set up: add its address + login, then enable the SMS node.",
+        "content": "## Shop notifications\nThe shop app POSTs to **<n8n>/webhook/<event>** with an `x-webhook-secret` header. Requests without the right secret are ignored.\n\n**Before activating:**\n1. On each of the 8 webhook nodes, replace `CHANGE_ME` (Options → Only Run If) with your own long random secret.\n2. Pick your SMTP credential on each Send Email node and set the **From** address.\n3. In the shop: Admin → Settings → Notifications, set the n8n URL (ending in /webhook) and the same secret.\n4. SMS is **disabled** until SMS Gate is set up: add its address + login, then enable the SMS node.",
         "color": 4,
         "width": 380,
         "height": 400
@@ -647,6 +647,86 @@
           "appendAttribution": false
         }
       }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d06",
+      "name": "Review Requested",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        1536
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "review.requested",
+        "responseMode": "onReceived",
+        "options": {
+          "onlyRunIf": "={{ $json.headers['x-webhook-secret'] === 'CHANGE_ME' }}"
+        }
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d07",
+      "name": "Email Customer: Leave A Review",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        272,
+        1536
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "operation": "send",
+        "fromEmail": "Your Shop <hello@example.com>",
+        "toEmail": "={{ $json.body?.customerEmail }}",
+        "subject": "={{ $json.body?.rewardPercent > 0 ? 'Get ' + $json.body.rewardPercent + '% off: how was your ' + ($json.body?.businessName || '') + ' order?' : 'How was your ' + ($json.body?.businessName || '') + ' order?' }}",
+        "emailFormat": "html",
+        "html": "={{ (() => { const b = $json.body || {}; const shop = b.businessName || 'us'; const products = (b.products || []).join(', '); return '<div style=\"font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1c1917;text-align:center\"><h2 style=\"margin-bottom:4px\">How was everything?</h2>' + (products ? '<p style=\"color:#57534e\">' + products + '</p>' : '') + '<p>We hope you loved it! A quick review helps ' + shop + ' more than you know.</p>' + (b.rewardPercent > 0 ? '<p style=\"background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px\">🎁 Leave your first review and get <b>' + b.rewardPercent + '% off</b> your next order.</p>' : '') + '<p style=\"margin:24px 0\"><a href=\"' + b.reviewUrl + '\" style=\"background:#d97706;color:#ffffff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:bold\">Leave a review</a></p>' + '<p style=\"color:#a8a29e;font-size:12px\">It only takes a minute. — ' + (b.businessName || '') + '</p></div>'; })() }}",
+        "options": {
+          "appendAttribution": false
+        }
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d08",
+      "name": "First Review Thank-You",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        1760
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "review.thanks",
+        "responseMode": "onReceived",
+        "options": {
+          "onlyRunIf": "={{ $json.headers['x-webhook-secret'] === 'CHANGE_ME' }}"
+        }
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d09",
+      "name": "Email Customer: Thank-You Code",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        272,
+        1760
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "operation": "send",
+        "fromEmail": "Your Shop <hello@example.com>",
+        "toEmail": "={{ $json.body?.customerEmail }}",
+        "subject": "=Thank you! Here's {{ $json.body?.percent }}% off your next order",
+        "emailFormat": "html",
+        "html": "={{ (() => { const b = $json.body || {}; return '<div style=\"font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1c1917;text-align:center\"><h2>Thank you' + (b.customerName ? ', ' + b.customerName : '') + '! 💛</h2>' + '<p>Your review means a lot to ' + (b.businessName || 'us') + '. Here\\'s <b>' + b.percent + '% off</b> your next order:</p>' + '<div style=\"font-size:22px;font-weight:bold;letter-spacing:2px;border:2px dashed #d6d3d1;border-radius:12px;padding:16px;margin:20px 0\">' + b.code + '</div>' + '<p>Enter it in the <b>Discount Code</b> box at checkout. It works once.</p>' + (b.shopUrl ? '<p><a href=\"' + b.shopUrl + '\">' + b.shopUrl + '</a></p>' : '') + '</div>'; })() }}",
+        "options": {
+          "appendAttribution": false
+        }
+      }
     }
   ],
   "connections": {
@@ -824,6 +904,28 @@
         [
           {
             "node": "Email Customer: How To Pay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review Requested": {
+      "main": [
+        [
+          {
+            "node": "Email Customer: Leave A Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "First Review Thank-You": {
+      "main": [
+        [
+          {
+            "node": "Email Customer: Thank-You Code",
             "type": "main",
             "index": 0
           }
