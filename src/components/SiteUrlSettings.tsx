@@ -60,8 +60,8 @@ export default function SiteUrlSettings() {
         </p>
       )}
       <p className="text-xs text-stone-500">
-        Used for links in emails (gift cards, drop alerts, order emails), share previews and the Stripe webhook. Sign-in
-        links use the container&apos;s Public URL setting (NEXTAUTH_URL); set that to the same address.
+        Used for sign-in links, links in emails (gift cards, drop alerts, order emails), share previews and the Stripe
+        webhook. Sign in to admin through this address too.
       </p>
       {message && <p className="text-xs text-stone-600">{message}</p>}
     </form>

@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+﻿import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Nodemailer from "next-auth/providers/nodemailer";
 import { prisma } from "@/lib/prisma";
@@ -42,9 +42,25 @@ export async function getSmtpSettings(): Promise<Record<(typeof SMTP_KEYS)[numbe
   return values;
 }
 
+/**
+ * Sign-in links follow the Website address from Admin → Settings, so a
+ * container still set up with a home-network NEXTAUTH_URL (e.g. from first
+ * testing) doesn't email links nobody outside the house can open. Auth.js
+ * reads AUTH_URL on every request, after this config is built.
+ */
+async function applyWebsiteAddress() {
+  try {
+    const row = await prisma.setting.findUnique({ where: { key: "APP_URL" } });
+    const url = row?.value ? new URL(row.value) : null;
+    if (url && (url.protocol === "https:" || url.protocol === "http:")) process.env.AUTH_URL = url.origin;
+  } catch {
+    // DB not ready or not a URL: keep the env setting
+  }
+}
+
 // Config is built per request so SMTP changes in admin apply without a restart
 export const { handlers, signIn, signOut, auth } = NextAuth(async () => {
-  const smtp = await getSmtpSettings();
+  const [smtp] = await Promise.all([getSmtpSettings(), applyWebsiteAddress()]);
   const port = Number(smtp.EMAIL_SERVER_PORT) || 465;
 
   return {
