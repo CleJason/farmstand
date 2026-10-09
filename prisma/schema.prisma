@@ -193,6 +193,9 @@ model Order {
   stripeClientSecret    String?
   // PayPal/Venmo manual reference
   manualPaymentRef      String?
+  // "How was it?" email after pickup (not every order: see lib/review-requests)
+  reviewToken     String?  @unique
+  reviewRequestedAt DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -282,6 +285,10 @@ model Review {
   source     String?  // e.g. "Hotplate"
   products   String?  // products it's about, comma-separated, e.g. "Mini Cinnamon Rolls, The Sunday Roll"
   reply      String?  // the owner's public reply
+  // Left by a customer through the emailed review link (owner-added reviews have none)
+  email      String?  // stored lowercase; never shown publicly
+  orderId    String?  @unique // one review per order
+  rewardCode String?  // thank-you discount code sent for their first review
   reviewDate DateTime @default(now())
   visible    Boolean  @default(true)
   createdAt  DateTime @default(now())

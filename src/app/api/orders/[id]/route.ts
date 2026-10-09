@@ -7,6 +7,7 @@ import { notifyGiftActivated } from "@/lib/gift-notify";
 import { formatPickup, pickupAddressFor } from "@/lib/pickup";
 import { getSiteSettings } from "@/lib/site";
 import { countsStock } from "@/lib/stock";
+import { maybeRequestReview } from "@/lib/review-requests";
 
 export async function GET(
   _req: Request,
@@ -127,6 +128,9 @@ export async function PUT(
       // Paid now, so the customer gets the exact address
       pickupAddress: order.type === "DROP" ? pickupAddressFor(order.pickupSlot, await getSiteSettings()) : null,
     });
+  } else if (statusChanged && status === "PICKED_UP") {
+    // "How was it?" email, if this customer is due one
+    await maybeRequestReview(order.id);
   } else if (statusChanged && (status === "CANCELLED" || status === "REFUNDED")) {
     await fireNotification("order.cancelled", {
       orderId: order.id,

@@ -9,7 +9,9 @@ export async function GET() {
     where: admin ? {} : { visible: true },
     orderBy: { reviewDate: "desc" },
   });
-  return NextResponse.json(reviews);
+  if (admin) return NextResponse.json(reviews);
+  // The reviewer's email, order and reward code are for the owner only
+  return NextResponse.json(reviews.map(({ email: _e, orderId: _o, rewardCode: _r, ...pub }) => pub));
 }
 
 export async function POST(req: Request) {

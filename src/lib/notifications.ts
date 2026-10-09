@@ -15,7 +15,9 @@ type NotificationEvent =
   | "order.failed"
   | "drop.announced"
   | "drop.reminder"
-  | "farmstand.purchased";
+  | "farmstand.purchased"
+  | "review.requested"
+  | "review.thanks";
 
 /** Business name for emails/texts, or "" if the owner turned that off in Admin → Site. */
 async function businessName() {

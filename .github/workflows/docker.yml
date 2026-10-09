@@ -322,6 +322,38 @@ jobs:
           curl -s "http://localhost:3000/unsubscribe?token=$token" | grep -q "Stop drop alerts" || { echo "unsubscribe page missing"; exit 1; }
           n=$(psql "$PGURL" -tAc "SELECT count(*) FROM \"Subscriber\""); echo "after opening link: $n"; [ "$n" = "1" ] || exit 1
 
+      - name: Customer reviews
+        env:
+          PGURL: postgresql://farmstand:smoketest@localhost:5432/farmstand
+        run: |
+          # Two picked-up orders from the same customer, each with a review link
+          psql "$PGURL" -v ON_ERROR_STOP=1 <<SQL
+          INSERT INTO "Order" (id, type, "dropId", status, subtotal, total, "guestEmail", "reviewToken", "updatedAt")
+            VALUES ('ro1', 'DROP', 'd1', 'PICKED_UP', 500, 500, 'Reviewer@Example.com', 'tok-one', now()),
+                   ('ro2', 'DROP', 'd1', 'PICKED_UP', 500, 500, 'reviewer@example.com', 'tok-two', now());
+          INSERT INTO "OrderItem" (id, "orderId", "dropProductId", quantity, "priceAtPurchase") VALUES ('roi1', 'ro1', 'dp1', 1, 500);
+          SQL
+          rev() { curl -s -o /tmp/r.json -w '%{http_code}' -X POST http://localhost:3000/api/reviews/submit -H 'Content-Type: application/json' -d "$1"; }
+          c=$(curl -s -o /tmp/page.html -w '%{http_code}' "http://localhost:3000/review?token=tok-one"); echo "review page -> $c"
+          grep -q "first review" /tmp/page.html || { echo "first-review offer missing"; exit 1; }
+          c=$(rev '{"token":"nope","rating":5,"body":"Yum","name":"Sam"}'); echo "bad token -> $c"; [ "$c" = "400" ] || exit 1
+          c=$(rev '{"token":"tok-one","rating":5,"body":"So good","name":"Sam","products":["Test Item","Not On Order"]}')
+          echo "first review -> $c $(cat /tmp/r.json)"; [ "$c" = "200" ] || exit 1
+          code=$(jq -r .code /tmp/r.json); echo "$code" | grep -q '^THANKS-' || { echo "no reward code"; exit 1; }
+          dc=$(psql "$PGURL" -tAc "SELECT type || ' ' || value || ' ' || \"maxUses\" FROM \"DiscountCode\" WHERE code = '$code'")
+          echo "reward code: $dc"; [ "$dc" = "PERCENT 10 1" ] || exit 1
+          tags=$(psql "$PGURL" -tAc "SELECT products || ' ' || visible FROM \"Review\" WHERE \"orderId\" = 'ro1'")
+          echo "tags/visible: $tags"; [ "$tags" = "Test Item f" ] || exit 1
+          c=$(rev '{"token":"tok-one","rating":4,"body":"Again","name":"Sam"}'); echo "same order twice -> $c"; [ "$c" = "400" ] || exit 1
+          c=$(rev '{"token":"tok-two","rating":5,"body":"Still good","name":"Sam"}'); echo "second review -> $c $(cat /tmp/r.json)"; [ "$c" = "200" ] || exit 1
+          [ "$(jq -r .code /tmp/r.json)" = "null" ] || { echo "second review should not get a code"; exit 1; }
+          # Hidden until approved, and the public list never shows emails
+          curl -s http://localhost:3000/api/reviews | grep -q "So good" && { echo "unapproved review is public"; exit 1; }
+          psql "$PGURL" -c "UPDATE \"Review\" SET visible = true WHERE \"orderId\" = 'ro1'"
+          pub=$(curl -s http://localhost:3000/api/reviews); echo "$pub" | grep -q "So good" || exit 1
+          echo "$pub" | grep -qi "reviewer@example.com" && { echo "email leaked"; exit 1; }
+          echo "reviews ok"
+
       - name: Container logs
         if: always()
         run: docker logs farmstand || true

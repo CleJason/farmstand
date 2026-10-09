@@ -14,6 +14,73 @@ interface Review {
   reply: string | null;
   reviewDate: string;
   visible: boolean;
+  email: string | null;
+  orderId: string | null;
+  rewardCode: string | null;
+}
+
+/** Ask-for-review frequency and the first-review thank-you discount. */
+function ReviewRequestSettings() {
+  const [days, setDays] = useState("30");
+  const [percent, setPercent] = useState("10");
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    fetch("/api/settings/reviews")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) {
+          setDays(String(d.days));
+          setPercent(String(d.percent));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch("/api/settings/reviews", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ days: Number(days), percent: Number(percent) }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setMsg(res.ok ? "Saved." : d.error || "Couldn't save");
+  };
+
+  return (
+    <form onSubmit={save} className="bg-white rounded-xl border border-stone-200 p-4 space-y-3 max-w-2xl">
+      <div>
+        <h2 className="text-sm font-semibold text-stone-900">Customer reviews</h2>
+        <p className="text-xs text-stone-500 mt-0.5">
+          When you mark an order Picked Up, the customer gets a &quot;How was everything?&quot; email with a review link.
+          New reviews stay hidden until you click Approve.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-end gap-3 text-sm">
+        <label className="block">
+          <span className="block text-xs text-stone-600 mb-1">Ask each customer at most once every</span>
+          <span className="flex items-center gap-2">
+            <input type="number" min="0" max="365" value={days} onChange={(e) => setDays(e.target.value)} className={`${inputClass} w-20`} />
+            days
+          </span>
+        </label>
+        <label className="block">
+          <span className="block text-xs text-stone-600 mb-1">First review earns</span>
+          <span className="flex items-center gap-2">
+            <input type="number" min="0" max="100" value={percent} onChange={(e) => setPercent(e.target.value)} className={`${inputClass} w-20`} />
+            % off (0 = none)
+          </span>
+        </label>
+        <button className="bg-stone-900 hover:bg-stone-800 text-white text-sm font-semibold px-4 py-2 rounded-lg">Save</button>
+        {msg && <span className="text-xs text-stone-500">{msg}</span>}
+      </div>
+      <p className="text-[11px] text-stone-400">
+        The code is single-use, made automatically and emailed to them. Codes you&apos;ve promised before can be added under
+        Discounts (set Max uses to 1).
+      </p>
+    </form>
+  );
 }
 
 type Form = {
@@ -128,6 +195,14 @@ export default function AdminReviewsPage() {
         </button>
       </div>
 
+      <ReviewRequestSettings />
+
+      {reviews.some((r) => r.orderId && !r.visible) && (
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          {reviews.filter((r) => r.orderId && !r.visible).length} new customer review(s) waiting for your approval.
+        </p>
+      )}
+
       {loading ? (
         <div className="text-center py-16">
           <div className="inline-block w-5 h-5 border-2 border-stone-300 border-t-amber-600 rounded-full animate-spin" />
@@ -143,20 +218,34 @@ export default function AdminReviewsPage() {
             <div key={r.id} className={`space-y-2 ${!r.visible ? "opacity-60" : ""}`}>
               {/* Same card customers see on the home page */}
               <ReviewCard review={r} />
-              <div className="flex items-center gap-2 px-1">
+              <div className="flex flex-wrap items-center gap-2 px-1">
+                {r.orderId && !r.visible && (
+                  <span className="text-[11px] font-semibold text-white bg-amber-600 rounded-full px-2 py-0.5">New</span>
+                )}
                 {r.source && <span className="text-[11px] text-stone-400">From {r.source}</span>}
+                {r.email && <span className="text-[11px] text-stone-400">{r.email}</span>}
+                {r.rewardCode && <span className="text-[11px] text-stone-400">· got code {r.rewardCode}</span>}
                 {!r.reply && <span className="text-[11px] text-amber-700">No reply yet</span>}
               </div>
               <div className="flex items-center gap-2 px-1">
                 <button onClick={() => openEdit(r)} className="text-xs font-medium px-2.5 py-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700">
                   {r.reply ? "Edit" : "Edit / Reply"}
                 </button>
-                <button
-                  onClick={() => toggle(r)}
-                  className={`text-xs font-medium px-2.5 py-1 rounded-md ${r.visible ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500"}`}
-                >
-                  {r.visible ? "Shown" : "Hidden"}
-                </button>
+                {r.orderId && !r.visible ? (
+                  <button
+                    onClick={() => toggle(r)}
+                    className="text-xs font-semibold px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    ✓ Approve
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => toggle(r)}
+                    className={`text-xs font-medium px-2.5 py-1 rounded-md ${r.visible ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500"}`}
+                  >
+                    {r.visible ? "Shown" : "Hidden"}
+                  </button>
+                )}
                 <button onClick={() => remove(r)} className="ml-auto text-xs text-stone-400 hover:text-red-600">
                   Delete
                 </button>
