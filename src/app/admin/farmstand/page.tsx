@@ -20,6 +20,17 @@ interface FarmstandItem {
   quantitySold: number;
 }
 
+// A product from the catalog, used to fill in a new stand item
+interface CatalogProduct {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  imageUrl: string | null;
+  imagePosition: string | null;
+  active: boolean;
+}
+
 export default function AdminFarmstandPage() {
   const site = useSite();
   const [items, setItems] = useState<FarmstandItem[]>([]);
@@ -33,6 +44,7 @@ export default function AdminFarmstandPage() {
   const [imageUrl, setImageUrl] = useState("");
   const [imagePosition, setImagePosition] = useState<string | null>(null);
   const [quantityAvailable, setQuantityAvailable] = useState("5");
+  const [catalog, setCatalog] = useState<CatalogProduct[]>([]);
 
   const loadItems = async () => {
     try {
@@ -60,6 +72,20 @@ export default function AdminFarmstandPage() {
     setImagePosition(null);
     setQuantityAvailable("5");
     setShowAddModal(true);
+    fetch("/api/products")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setCatalog(Array.isArray(d) ? d.filter((p: CatalogProduct) => p.active) : []))
+      .catch(() => {});
+  };
+
+  const fillFromProduct = (productId: string) => {
+    const p = catalog.find((c) => c.id === productId);
+    if (!p) return;
+    setName(p.name);
+    setDescription(p.description ?? "");
+    setPriceDollars((p.price / 100).toFixed(2));
+    setImageUrl(p.imageUrl ?? "");
+    setImagePosition(p.imagePosition);
   };
 
   const openEdit = (item: FarmstandItem) => {
@@ -304,13 +330,35 @@ export default function AdminFarmstandPage() {
       {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-stone-900 mb-4">
               {editingId ? "Edit Item" : `Add ${site.SITE_FARMSTAND_HEADING} Item`}
             </h2>
             <form onSubmit={handleSave} className="space-y-4">
+              {!editingId && catalog.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-stone-600 mb-1">
+                    Start from a product (optional)
+                  </label>
+                  <select
+                    defaultValue=""
+                    onChange={(e) => fillFromProduct(e.target.value)}
+                    className="w-full text-sm px-3 py-2 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
+                  >
+                    <option value="" disabled>
+                      Choose from your products…
+                    </option>
+                    {catalog.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} · {formatPrice(p.price)}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-stone-400 mt-1">Copies the photo, name and price. You can still change them.</p>
+                </div>
+              )}
               <ImageUpload
-                key={editingId ?? "new"}
+                key={`${editingId ?? "new"}-${imageUrl}`}
                 currentUrl={imageUrl || null}
                 onUpload={(url) => {
                   setImageUrl(url);
@@ -391,7 +439,7 @@ export default function AdminFarmstandPage() {
                   type="submit"
                   className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 rounded-lg text-sm transition-colors"
                 >
-                  Add Item
+                  {editingId ? "Save" : "Add Item"}
                 </button>
               </div>
             </form>
