@@ -27,8 +27,8 @@ export function ShopBrand({ className = "" }: { className?: string }) {
           alt=""
           className={
             showName
-              ? "h-11 w-11 sm:h-12 sm:w-12 rounded-lg object-contain"
-              : "h-12 sm:h-14 max-w-[180px] sm:max-w-[240px] object-contain"
+              ? "h-16 w-16 sm:h-24 sm:w-24 rounded-lg object-contain"
+              : "h-20 sm:h-28 max-w-[200px] sm:max-w-[480px] object-contain"
           }
         />
       )}
@@ -73,7 +73,7 @@ export function StoreHeader() {
   const site = useSite();
   return (
     <nav className="border-b border-stone-100 bg-white/85 backdrop-blur-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] sticky top-0 z-30">
-      <div className="max-w-5xl mx-auto px-4 h-16 sm:h-[72px] flex items-center justify-between gap-2">
+      <div className="max-w-5xl mx-auto px-4 min-h-16 sm:min-h-[72px] py-2 flex items-center justify-between gap-2">
         <ShopBrand className="text-lg" />
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Icon-only on phones, icon + label on wider screens */}
