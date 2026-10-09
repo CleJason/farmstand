@@ -265,6 +265,41 @@ jobs:
           echo "check unpaid card: $chk"; echo "$chk" | grep -q '"valid":false' || exit 1
           c=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/gift-cards); echo "list gift cards signed out -> $c"; [ "$c" = "401" ] || exit 1
 
+      - name: Mix & match boxes
+        env:
+          PGURL: postgresql://farmstand:smoketest@localhost:5432/farmstand
+        run: |
+          # A 6-cookie box from 3 flavors, 3 boxes available, in a drop without pickup windows
+          psql "$PGURL" -v ON_ERROR_STOP=1 <<SQL
+          INSERT INTO "Product" (id, name, price, "boxSize", "boxOptions", "updatedAt")
+            VALUES ('p2', 'Cookie Box', 1800, 6, ARRAY['Chocolate Chip','Snickerdoodle','Oatmeal'], now());
+          INSERT INTO "Drop" (id, title, "orderOpenAt", "orderCloseAt", status, "updatedAt")
+            VALUES ('d2', 'Box Drop', now() - interval '1 day', now() + interval '1 day', 'OPEN', now());
+          INSERT INTO "DropProduct" (id, "dropId", "productId", "quantityLimit") VALUES ('dp2', 'd2', 'p2', 3);
+          SQL
+          box() {
+            curl -s -o /tmp/b.json -w '%{http_code}' -X POST http://localhost:3000/api/orders -H 'Content-Type: application/json' \
+              -d "{\"type\":\"DROP\",\"dropId\":\"d2\",\"paymentMethod\":\"VENMO\",\"guestEmail\":\"b@example.com\",\"items\":$1}"
+          }
+          A='{"name":"Chocolate Chip","quantity":4}'; B='{"name":"Snickerdoodle","quantity":2}'
+          c=$(box "[{\"dropProductId\":\"dp2\",\"quantity\":1,\"selections\":[{\"name\":\"Chocolate Chip\",\"quantity\":5}]}]")
+          echo "box with 5 of 6 -> $c $(cat /tmp/b.json)"; [ "$c" = "400" ] || exit 1
+          c=$(box "[{\"dropProductId\":\"dp2\",\"quantity\":1,\"selections\":[{\"name\":\"Pizza\",\"quantity\":6}]}]")
+          echo "box with unknown flavor -> $c $(cat /tmp/b.json)"; [ "$c" = "400" ] || exit 1
+          c=$(box "[{\"dropProductId\":\"dp2\",\"quantity\":1}]")
+          echo "box without picks -> $c $(cat /tmp/b.json)"; [ "$c" = "400" ] || exit 1
+          # Two identical boxes (sent as separate lines) + one different = 3 boxes, 2 order lines
+          c=$(box "[{\"dropProductId\":\"dp2\",\"quantity\":1,\"selections\":[$A,$B]},{\"dropProductId\":\"dp2\",\"quantity\":1,\"selections\":[$B,$A]},{\"dropProductId\":\"dp2\",\"quantity\":1,\"selections\":[{\"name\":\"Oatmeal\",\"quantity\":6}]}]")
+          echo "three boxes -> $c $(cat /tmp/b.json)"; [ "$c" = "200" ] || exit 1
+          [ "$(jq -r .total /tmp/b.json)" = "5400" ] || { echo "Expected 3 x 1800"; exit 1; }
+          oid=$(jq -r .orderId /tmp/b.json)
+          lines=$(psql "$PGURL" -tAc "SELECT count(*) FROM \"OrderItem\" WHERE \"orderId\" = '$oid'"); echo "order lines: $lines"; [ "$lines" = "2" ] || exit 1
+          picks=$(psql "$PGURL" -tAc "SELECT selections::text FROM \"OrderItem\" WHERE \"orderId\" = '$oid' AND quantity = 2")
+          echo "saved picks: $picks"; echo "$picks" | grep -q '"Chocolate Chip"' || exit 1
+          sold=$(psql "$PGURL" -tAc "SELECT \"quantitySold\" FROM \"DropProduct\" WHERE id = 'dp2'"); echo "boxes sold: $sold"; [ "$sold" = "3" ] || exit 1
+          c=$(box "[{\"dropProductId\":\"dp2\",\"quantity\":1,\"selections\":[{\"name\":\"Oatmeal\",\"quantity\":6}]}]")
+          echo "fourth box when 3 available -> $c $(cat /tmp/b.json)"; [ "$c" = "400" ] || exit 1
+
       - name: Container logs
         if: always()
         run: docker logs farmstand || true

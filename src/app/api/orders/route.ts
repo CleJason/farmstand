@@ -9,6 +9,7 @@ import { DiscountError, evaluateDiscount, normalizeCode } from "@/lib/discounts"
 import { evaluateGift, GiftError, normalizeGiftCode } from "@/lib/gift";
 import { applyStatusChange } from "@/lib/order-effects";
 import { getSiteSettings } from "@/lib/site";
+import { type BoxPick, describePicks, isBox, picksKey, validatePicks } from "@/lib/box";
 import {
   formatPickup,
   hideAddress,
@@ -65,32 +66,49 @@ class OrderError extends Error {}
 
 const PAYMENT_METHODS = ["STRIPE", "PAYPAL", "VENMO"];
 
-type RequestedItem = { id: string; quantity: number };
+type RequestedItem = { id: string; quantity: number; selections: unknown };
 
 type PricedLine = {
   dropProductId: string | null;
   farmstandItemId: string | null;
-  name: string;
+  name: string; // includes the box picks, for notifications
   quantity: number;
   price: number; // cents, from the database
+  selections: BoxPick[] | null;
 };
 
-/** Merge duplicate lines and validate quantities. Client-sent prices are ignored. */
+/** Validate quantities. Client-sent prices are ignored. */
 function parseItems(items: unknown, key: "dropProductId" | "farmstandItemId"): RequestedItem[] {
   if (!Array.isArray(items) || items.length === 0) {
     throw new OrderError("No items provided");
   }
-  const merged = new Map<string, number>();
-  for (const it of items) {
+  return items.map((it) => {
     const id = it?.[key];
     const quantity = Number(it?.quantity);
     if (typeof id !== "string" || !id) throw new OrderError("Invalid item in order");
     if (!Number.isInteger(quantity) || quantity < 1) {
       throw new OrderError("Quantities must be whole numbers of at least 1");
     }
-    merged.set(id, (merged.get(id) ?? 0) + quantity);
+    return { id, quantity, selections: it?.selections };
+  });
+}
+
+/** Combine lines for the same item (and, for boxes, the same picks). */
+function mergeLines(lines: PricedLine[]): PricedLine[] {
+  const merged = new Map<string, PricedLine>();
+  for (const l of lines) {
+    const key = `${l.dropProductId ?? l.farmstandItemId}#${picksKey(l.selections)}`;
+    const prev = merged.get(key);
+    merged.set(key, prev ? { ...prev, quantity: prev.quantity + l.quantity } : l);
   }
-  return [...merged].map(([id, quantity]) => ({ id, quantity }));
+  return [...merged.values()];
+}
+
+/** Stock is per product, so add up every line (every box) of the same one. */
+function totalsById(lines: PricedLine[], key: "dropProductId" | "farmstandItemId") {
+  const totals = new Map<string, number>();
+  for (const l of lines) totals.set(l[key]!, (totals.get(l[key]!) ?? 0) + l.quantity);
+  return totals;
 }
 
 function checkStock(name: string, quantity: number, remaining: number) {
@@ -114,12 +132,17 @@ async function priceOrder(
     const stock = await db.farmstandItem.findMany({
       where: { id: { in: requested.map((r) => r.id) } },
     });
-    const lines = requested.map(({ id, quantity }) => {
-      const item = stock.find((s) => s.id === id);
-      if (!item || !item.available) throw new OrderError("An item in your cart is no longer available");
+    const lines = mergeLines(
+      requested.map(({ id, quantity }) => {
+        const item = stock.find((s) => s.id === id);
+        if (!item || !item.available) throw new OrderError("An item in your cart is no longer available");
+        return { dropProductId: null, farmstandItemId: id, name: item.name, quantity, price: item.price, selections: null };
+      })
+    );
+    for (const [id, quantity] of totalsById(lines, "farmstandItemId")) {
+      const item = stock.find((s) => s.id === id)!;
       checkStock(item.name, quantity, item.quantityAvailable - item.quantitySold);
-      return { dropProductId: null, farmstandItemId: id, name: item.name, quantity, price: item.price };
-    });
+    }
     return { lines, pickupTime: null };
   }
 
@@ -157,20 +180,34 @@ async function priceOrder(
   }
 
   const requested = parseItems(input.items, "dropProductId");
-  const lines = requested.map(({ id, quantity }) => {
-    const dp = drop.dropProducts.find((d) => d.id === id);
-    if (!dp) throw new OrderError("An item in your cart is not part of this drop");
+  const lines = mergeLines(
+    requested.map(({ id, quantity, selections }) => {
+      const dp = drop.dropProducts.find((d) => d.id === id);
+      if (!dp) throw new OrderError("An item in your cart is not part of this drop");
+      let picks: BoxPick[] | null = null;
+      if (isBox(dp.product)) {
+        try {
+          picks = validatePicks(dp.product, selections);
+        } catch (e) {
+          throw new OrderError((e as Error).message);
+        }
+      }
+      return {
+        dropProductId: id,
+        farmstandItemId: null,
+        name: picks ? `${dp.product.name} (${describePicks(picks)})` : dp.product.name,
+        quantity,
+        price: dp.priceOverride ?? dp.product.price,
+        selections: picks,
+      };
+    })
+  );
+  for (const [id, quantity] of totalsById(lines, "dropProductId")) {
+    const dp = drop.dropProducts.find((d) => d.id === id)!;
     if (dp.quantityLimit !== null) {
       checkStock(dp.product.name, quantity, dp.quantityLimit - dp.quantitySold);
     }
-    return {
-      dropProductId: id,
-      farmstandItemId: null,
-      name: dp.product.name,
-      quantity,
-      price: dp.priceOverride ?? dp.product.price,
-    };
-  });
+  }
   return { lines, pickupTime };
 }
 
@@ -253,6 +290,7 @@ export async function POST(req: Request) {
             farmstandItemId: l.farmstandItemId,
             quantity: l.quantity,
             priceAtPurchase: l.price,
+            selections: l.selections ? (l.selections as Prisma.InputJsonValue) : Prisma.DbNull,
           })),
         },
       };

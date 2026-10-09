@@ -15,6 +15,8 @@ interface Product {
   imagePosition: string | null;
   category: string | null;
   active: boolean;
+  boxSize: number | null;
+  boxOptions: string[];
 }
 
 export default function AdminProductsPage() {
@@ -29,6 +31,9 @@ export default function AdminProductsPage() {
   const [category, setCategory] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [imagePosition, setImagePosition] = useState<string | null>(null);
+  const [isBox, setIsBox] = useState(false);
+  const [boxSize, setBoxSize] = useState("");
+  const [boxOptions, setBoxOptions] = useState("");
 
   const loadProducts = async () => {
     try {
@@ -55,6 +60,9 @@ export default function AdminProductsPage() {
     setCategory("");
     setImageUrl("");
     setImagePosition(null);
+    setIsBox(false);
+    setBoxSize("");
+    setBoxOptions("");
     setShowModal(true);
   };
 
@@ -66,11 +74,26 @@ export default function AdminProductsPage() {
     setCategory(product.category ?? "");
     setImageUrl(product.imageUrl ?? "");
     setImagePosition(product.imagePosition);
+    setIsBox(!!product.boxSize);
+    setBoxSize(product.boxSize ? String(product.boxSize) : "");
+    setBoxOptions((product.boxOptions ?? []).join("\n"));
     setShowModal(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    const options = boxOptions.split("\n").map((o) => o.trim()).filter(Boolean);
+    if (isBox) {
+      const size = Number(boxSize);
+      if (!Number.isInteger(size) || size < 1 || size > 100) {
+        alert("Box size must be a whole number from 1 to 100");
+        return;
+      }
+      if (options.length === 0) {
+        alert("Add at least one option customers can choose for the box");
+        return;
+      }
+    }
     const body = {
       name,
       description: description || null,
@@ -78,6 +101,8 @@ export default function AdminProductsPage() {
       category: category || null,
       imageUrl: imageUrl || null,
       imagePosition: imageUrl ? imagePosition : null,
+      boxSize: isBox ? Number(boxSize) : null,
+      boxOptions: isBox ? options : [],
     };
     try {
       const res = editingId
@@ -186,6 +211,11 @@ export default function AdminProductsPage() {
                     {product.description}
                   </p>
                 )}
+                {product.boxSize && product.boxOptions?.length > 0 && (
+                  <p className="text-[11px] text-amber-700 mt-1.5">
+                    Box of {product.boxSize} · {product.boxOptions.length} choices
+                  </p>
+                )}
                 <div className="mt-3 pt-3 border-t border-stone-100 flex items-center justify-between">
                   <button
                     onClick={() => openEdit(product)}
@@ -213,7 +243,7 @@ export default function AdminProductsPage() {
       {/* Create Product Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-stone-900 mb-4">
               {editingId ? "Edit Product" : "New Product"}
             </h2>
@@ -290,6 +320,55 @@ export default function AdminProductsPage() {
                     className="w-full text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
                   />
                 </div>
+              </div>
+
+              <div className="rounded-lg border border-stone-200 p-3 space-y-3">
+                <label className="flex items-start gap-2 text-sm text-stone-800">
+                  <input
+                    type="checkbox"
+                    checked={isBox}
+                    onChange={(e) => setIsBox(e.target.checked)}
+                    className="mt-0.5 accent-amber-600"
+                  />
+                  <span>
+                    <span className="font-medium">Mix &amp; match box</span>
+                    <span className="block text-xs text-stone-500">
+                      Customers choose what goes in it, e.g. a 6-cookie box or a bread flight.
+                    </span>
+                  </span>
+                </label>
+                {isBox && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-stone-600 mb-1">Items per box *</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        step="1"
+                        placeholder="6"
+                        value={boxSize}
+                        onChange={(e) => setBoxSize(e.target.value)}
+                        className="w-28 text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-stone-600 mb-1">
+                        Choices (one per line) *
+                      </label>
+                      <textarea
+                        rows={4}
+                        placeholder={"Chocolate Chip\nSnickerdoodle\nOatmeal Raisin"}
+                        value={boxOptions}
+                        onChange={(e) => setBoxOptions(e.target.value)}
+                        className="w-full text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 resize-y"
+                      />
+                      <p className="text-[11px] text-stone-400 mt-1">
+                        Change these any week. The price above is for the whole box.
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="flex gap-2 pt-2">

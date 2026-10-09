@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { formatPrice } from "@/lib/utils";
 import { useSite } from "@/components/SiteProvider";
+import { describePicks } from "@/lib/box";
 
 interface Order {
   id: string;
@@ -27,6 +28,7 @@ interface Order {
     id: string;
     quantity: number;
     priceAtPurchase: number;
+    selections: unknown;
     dropProduct: { product: { name: string } } | null;
     farmstandItem: { name: string } | null;
   }[];
@@ -288,6 +290,9 @@ export default function AdminDashboardPage() {
                         {item.dropProduct?.product.name ||
                           item.farmstandItem?.name ||
                           "Item"}
+                        {describePicks(item.selections) && (
+                          <span className="block pl-4 text-stone-500">{describePicks(item.selections)}</span>
+                        )}
                       </span>
                       <span className="text-stone-500">
                         {formatPrice(item.priceAtPurchase * item.quantity)}

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDate, formatPrice } from "@/lib/utils";
+import { countsStock } from "@/lib/stock";
+import type { BoxPick } from "@/lib/box";
 
 interface PickupSlot {
   id: string;
@@ -32,7 +34,34 @@ interface Drop {
     priceOverride: number | null;
     product: { name: string; price: number };
   }[];
-  orders: { id: string; total: number; status: string }[];
+  orders: {
+    id: string;
+    total: number;
+    status: string;
+    items?: { dropProductId: string | null; quantity: number; selections: unknown }[];
+  }[];
+}
+
+/** For each mix & match box in the drop: how many of each choice to make. */
+function boxTally(drop: Drop) {
+  const tally = new Map<string, Map<string, number>>();
+  for (const order of drop.orders ?? []) {
+    if (!countsStock(order.status)) continue;
+    for (const item of order.items ?? []) {
+      if (!item.dropProductId || !Array.isArray(item.selections)) continue;
+      const counts = tally.get(item.dropProductId) ?? new Map<string, number>();
+      for (const pick of item.selections as BoxPick[]) {
+        counts.set(pick.name, (counts.get(pick.name) ?? 0) + pick.quantity * item.quantity);
+      }
+      tally.set(item.dropProductId, counts);
+    }
+  }
+  return drop.dropProducts
+    .filter((dp) => tally.has(dp.id))
+    .map((dp) => ({
+      name: dp.product.name,
+      picks: [...tally.get(dp.id)!].sort((a, b) => b[1] - a[1]),
+    }));
 }
 
 interface Product {
@@ -345,6 +374,19 @@ export default function AdminDropsPage() {
                       ))}
                     </div>
                   </div>
+
+                  {boxTally(drop).map((box) => (
+                    <div key={box.name} className="text-xs space-y-1">
+                      <div className="font-semibold text-stone-900">{box.name}: what to make</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {box.picks.map(([name, count]) => (
+                          <span key={name} className="bg-amber-50 border border-amber-200 text-amber-900 px-2 py-1 rounded-md text-[11px]">
+                            {count} × {name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 <div className="pt-3 mt-auto border-t border-stone-100 flex items-center justify-between gap-2">

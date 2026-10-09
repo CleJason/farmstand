@@ -81,6 +81,10 @@ model Product {
   imagePosition String? // which part of the photo shows in the square, e.g. "50% 30%"
   category    String?
   active      Boolean  @default(true)
+  // Mix & match box: the customer picks `boxSize` items from `boxOptions`
+  // (e.g. a 6-cookie box from 4 flavors). null = a normal product.
+  boxSize     Int?
+  boxOptions  String[] @default([])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -205,6 +209,7 @@ model OrderItem {
   farmstandItemId   String?
   quantity          Int
   priceAtPurchase   Int      // cents — snapshot at time of order
+  selections        Json?    // mix & match box picks: [{ name, quantity }] per box
   createdAt         DateTime @default(now())
 
   order         Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)

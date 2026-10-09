@@ -10,6 +10,8 @@ import { useSite } from "@/components/SiteProvider";
 import DiscountInput, { type AppliedDiscount } from "@/components/DiscountInput";
 import GiftCardInput, { type AppliedGift } from "@/components/GiftCardInput";
 import LegalFooter from "@/components/LegalFooter";
+import BoxBuilder from "@/components/BoxBuilder";
+import { type BoxPick, describePicks, isBox, picksKey } from "@/lib/box";
 
 interface DropDetails {
   id: string;
@@ -37,9 +39,14 @@ interface DropDetails {
       price: number;
       imageUrl: string | null;
       imagePosition: string | null;
+      boxSize: number | null;
+      boxOptions: string[];
     };
   }[];
 }
+
+// One cart line: a product, or one filled mix & match box (same picks share a line)
+type CartLine = { key: string; dropProductId: string; quantity: number; selections?: BoxPick[] };
 
 export default function DropDetailPage() {
   const site = useSite();
@@ -48,7 +55,8 @@ export default function DropDetailPage() {
 
   const [drop, setDrop] = useState<DropDetails | null>(null);
   const [loading, setLoading] = useState(true);
-  const [cart, setCart] = useState<{ [dropProductId: string]: number }>({});
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [buildingBoxFor, setBuildingBoxFor] = useState<string | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [discount, setDiscount] = useState<AppliedDiscount>(null);
@@ -118,32 +126,41 @@ export default function DropDetailPage() {
 
   const selectedSlot = drop?.pickupSlots.find((s) => s.id === selectedSlotId);
 
-  const updateQty = (dropProductId: string, delta: number) => {
+  // How many of a product are in the cart, across all of its boxes
+  const qtyInCart = (dropProductId: string) =>
+    cart.filter((l) => l.dropProductId === dropProductId).reduce((a, l) => a + l.quantity, 0);
+
+  const canAdd = (dropProductId: string) => {
+    const dp = drop?.dropProducts.find((p) => p.id === dropProductId);
+    return !dp || dp.quantityLimit === null || qtyInCart(dropProductId) < dp.quantityLimit - dp.quantitySold;
+  };
+
+  /** Change a cart line by delta; creates it when adding a new product/box. */
+  const updateLine = (dropProductId: string, delta: number, selections?: BoxPick[]) => {
+    const key = `${dropProductId}#${picksKey(selections)}`;
+    if (delta > 0 && !canAdd(dropProductId)) return;
     setCart((prev) => {
-      const cur = prev[dropProductId] || 0;
-      const next = Math.max(0, cur + delta);
-      const dp = drop?.dropProducts.find((p) => p.id === dropProductId);
-      if (dp && dp.quantityLimit !== null) {
-        const remaining = dp.quantityLimit - dp.quantitySold;
-        if (next > remaining) return prev;
+      const existing = prev.find((l) => l.key === key);
+      if (!existing) {
+        return delta > 0 ? [...prev, { key, dropProductId, quantity: delta, selections }] : prev;
       }
-      if (next === 0) {
-        const copy = { ...prev };
-        delete copy[dropProductId];
-        return copy;
-      }
-      return { ...prev, [dropProductId]: next };
+      const quantity = existing.quantity + delta;
+      return quantity <= 0
+        ? prev.filter((l) => l.key !== key)
+        : prev.map((l) => (l.key === key ? { ...l, quantity } : l));
     });
   };
 
-  const cartTotal = Object.entries(cart).reduce((sum, [dpId, qty]) => {
-    const dp = drop?.dropProducts.find((p) => p.id === dpId);
-    if (!dp) return sum;
-    const price = dp.priceOverride !== null ? dp.priceOverride : dp.product.price;
-    return sum + price * qty;
+  const priceOf = (dp: DropDetails["dropProducts"][number]) =>
+    dp.priceOverride !== null ? dp.priceOverride : dp.product.price;
+
+  const cartTotal = cart.reduce((sum, l) => {
+    const dp = drop?.dropProducts.find((p) => p.id === l.dropProductId);
+    return dp ? sum + priceOf(dp) * l.quantity : sum;
   }, 0);
 
-  const totalItemsCount = Object.values(cart).reduce((a, b) => a + b, 0);
+  const totalItemsCount = cart.reduce((a, l) => a + l.quantity, 0);
+  const boxProduct = drop?.dropProducts.find((p) => p.id === buildingBoxFor);
 
   const handleCheckout = async () => {
     if (drop!.pickupSlots.length > 0 && (!selectedSlotId || !selectedTime)) {
@@ -156,15 +173,11 @@ export default function DropDetailPage() {
     }
     setSubmitting(true);
     try {
-      const items = Object.entries(cart).map(([dpId, quantity]) => {
-        const dp = drop!.dropProducts.find((p) => p.id === dpId)!;
-        const price = dp.priceOverride !== null ? dp.priceOverride : dp.product.price;
-        return {
-          dropProductId: dp.id,
-          quantity,
-          price,
-        };
-      });
+      const items = cart.map((l) => ({
+        dropProductId: l.dropProductId,
+        quantity: l.quantity,
+        selections: l.selections ?? null,
+      }));
 
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -366,20 +379,22 @@ export default function DropDetailPage() {
           </h2>
           <div className="grid gap-4">
             {drop.dropProducts.map((dp) => {
-              const qty = cart[dp.id] || 0;
-              const price =
-                dp.priceOverride !== null ? dp.priceOverride : dp.product.price;
+              const qty = qtyInCart(dp.id);
+              const price = priceOf(dp);
               const remaining =
                 dp.quantityLimit !== null
                   ? dp.quantityLimit - dp.quantitySold
                   : null;
               const isSoldOut = remaining !== null && remaining <= 0;
+              const box = isBox(dp.product);
+              const boxLines = box ? cart.filter((l) => l.dropProductId === dp.id) : [];
 
               return (
                 <div
                   key={dp.id}
-                  className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm flex items-center gap-4 hover:border-[#E8DFD5] transition duration-150"
+                  className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm hover:border-[#E8DFD5] transition duration-150"
                 >
+                <div className="flex items-center gap-4">
                   {dp.product.imageUrl ? (
                     <div className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0 bg-[#FAF6F0]">
                       <Image
@@ -405,10 +420,15 @@ export default function DropDetailPage() {
                         {dp.product.description}
                       </p>
                     )}
-                    <div className="flex items-center gap-2 mt-1.5">
+                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
                       <span className="font-extrabold text-amber-600 text-sm">
                         {formatPrice(price)}
                       </span>
+                      {box && (
+                        <span className="text-[11px] font-semibold text-[#735D54]">
+                          Mix &amp; match {dp.product.boxSize}
+                        </span>
+                      )}
                       {remaining !== null && (
                         <span
                           className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
@@ -423,11 +443,20 @@ export default function DropDetailPage() {
                     </div>
                   </div>
 
-                  {/* Quantity Stepper */}
+                  {box ? (
+                    <button
+                      disabled={(remaining !== null && qty >= remaining) || isSoldOut}
+                      onClick={() => setBuildingBoxFor(dp.id)}
+                      className="shrink-0 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed transition shadow-xs"
+                    >
+                      {qty > 0 ? "+ Another box" : `Build a box`}
+                    </button>
+                  ) : (
+                  /* Quantity Stepper */
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       disabled={qty === 0 || isSoldOut}
-                      onClick={() => updateQty(dp.id, -1)}
+                      onClick={() => updateLine(dp.id, -1)}
                       className="w-8 h-8 rounded-lg border border-stone-200 font-bold text-[#2D1E18] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center hover:bg-stone-50 transition"
                     >
                       -
@@ -439,12 +468,46 @@ export default function DropDetailPage() {
                       disabled={
                         (remaining !== null && qty >= remaining) || isSoldOut
                       }
-                      onClick={() => updateQty(dp.id, 1)}
+                      onClick={() => updateLine(dp.id, 1)}
                       className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition shadow-xs"
                     >
                       +
                     </button>
                   </div>
+                  )}
+                </div>
+
+                {/* The boxes this customer has built */}
+                {boxLines.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {boxLines.map((l) => (
+                      <div
+                        key={l.key}
+                        className="flex items-center justify-between gap-3 bg-[#FAF6F0] border border-[#E8DFD5] rounded-xl px-3 py-2"
+                      >
+                        <p className="text-xs text-[#2D1E18] min-w-0">{describePicks(l.selections)}</p>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => updateLine(dp.id, -1, l.selections)}
+                            aria-label="One less of this box"
+                            className="w-7 h-7 rounded-md border border-stone-200 bg-white font-bold text-sm hover:bg-stone-50"
+                          >
+                            -
+                          </button>
+                          <span className="w-5 text-center font-bold text-xs">{l.quantity}</span>
+                          <button
+                            disabled={!canAdd(dp.id)}
+                            onClick={() => updateLine(dp.id, 1, l.selections)}
+                            aria-label="One more of this box"
+                            className="w-7 h-7 rounded-md bg-amber-600 text-white font-bold text-sm disabled:opacity-30"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 </div>
               );
             })}
@@ -593,6 +656,20 @@ export default function DropDetailPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {boxProduct && (
+        <BoxBuilder
+          name={boxProduct.product.name}
+          price={priceOf(boxProduct)}
+          boxSize={boxProduct.product.boxSize!}
+          options={boxProduct.product.boxOptions}
+          onAdd={(picks) => {
+            updateLine(boxProduct.id, 1, picks);
+            setBuildingBoxFor(null);
+          }}
+          onClose={() => setBuildingBoxFor(null)}
+        />
       )}
 
       {/* Checkout Modal */}

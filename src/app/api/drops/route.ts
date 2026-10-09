@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { DropInputError, parseProducts, parseSlots } from "@/lib/drop-input";
@@ -15,7 +16,13 @@ export async function GET() {
       },
       // Order counts/totals are for the admin dashboard only
       orders: isAdmin && {
-        select: { id: true, total: true, status: true },
+        select: {
+          id: true,
+          total: true,
+          status: true,
+          // for the mix & match box tally (what to bake)
+          items: { where: { selections: { not: Prisma.DbNull } }, select: { dropProductId: true, quantity: true, selections: true } },
+        },
       },
     },
     orderBy: { orderOpenAt: "desc" },
