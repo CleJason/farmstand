@@ -343,7 +343,7 @@ jobs:
           dc=$(psql "$PGURL" -tAc "SELECT type || ' ' || value || ' ' || \"maxUses\" FROM \"DiscountCode\" WHERE code = '$code'")
           echo "reward code: $dc"; [ "$dc" = "PERCENT 10 1" ] || exit 1
           tags=$(psql "$PGURL" -tAc "SELECT products || ' ' || visible FROM \"Review\" WHERE \"orderId\" = 'ro1'")
-          echo "tags/visible: $tags"; [ "$tags" = "Test Item f" ] || exit 1
+          echo "tags/visible: $tags"; [ "$tags" = "Test Item false" ] || exit 1
           c=$(rev '{"token":"tok-one","rating":4,"body":"Again","name":"Sam"}'); echo "same order twice -> $c"; [ "$c" = "400" ] || exit 1
           c=$(rev '{"token":"tok-two","rating":5,"body":"Still good","name":"Sam"}'); echo "second review -> $c $(cat /tmp/r.json)"; [ "$c" = "200" ] || exit 1
           [ "$(jq -r .code /tmp/r.json)" = "null" ] || { echo "second review should not get a code"; exit 1; }
