@@ -84,6 +84,7 @@ export async function PUT(
   } else if (statusChanged && status === "PAID" && order.type !== "GIFT") {
     await fireNotification("order.confirmed", {
       orderId: order.id,
+      type: order.type,
       status: order.status,
       total: order.total,
       customerEmail: order.guestEmail || order.user?.email,
@@ -97,8 +98,11 @@ export async function PUT(
   } else if (statusChanged && (status === "CANCELLED" || status === "REFUNDED")) {
     await fireNotification("order.cancelled", {
       orderId: order.id,
+      type: order.type,
       status: order.status,
       total: order.total,
+      customerEmail: order.guestEmail || order.user?.email,
+      customerPhone: order.guestPhone || order.user?.phone,
     });
   }
 
