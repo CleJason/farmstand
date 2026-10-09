@@ -17,7 +17,7 @@ A self-hosted replacement for Hotplate built for small makers, home bakers, farm
   - Venmo / PayPal orders enter an `Awaiting Confirmation` state in the Admin Dashboard with a one-click "Confirm Payment Received" button.
 - **Notifications via n8n, SMS Gate & SMTP**:
   - App dispatches webhook payloads on order creation, confirmation, and cancellation.
-  - Included importable n8n workflow sends automated texts to customer phones via an old Android phone running **SMS Gate** and emails via SMTP (e.g. Zoho or Gmail).
+  - Included importable n8n workflow emails order confirmations, cancellations and gift card codes via SMTP (e.g. Zoho or Gmail), and can text customers through an old Android phone running **SMS Gate**.
 - **First-Run Setup Wizard (`/setup`)**: Seamless onboarding for anyone pulling the repo from GitHub to set admin credentials and API keys without modifying code.
 - **No-code customization (Admin → Settings)**: business name, tagline, homepage and farmstand text, pickup/contact info, social links, logo, brand color, favicon, and payment/notification keys.
 - **Customers (Admin → Customers)**: everyone who signed up or ordered, with order history and CSV export.
@@ -40,7 +40,7 @@ farmstand/
 │   ├── components/           # Universal CheckoutModal (Stripe + Venmo + PayPal)
 │   └── lib/                  # Prisma client, Stripe SDK, notifications, settings
 ├── n8n/
-│   └── order-notifications-workflow.json  # n8n workflow for SMS Gate + SMTP email
+│   └── shop-notifications-workflow.json   # importable n8n workflow (SMTP email + SMS Gate)
 ├── unraid/
 │   └── farmstand-template.xml             # Unraid Community App template
 ├── docker-compose.yml        # Multi-container stack (Next.js app + Postgres 16)
@@ -100,6 +100,13 @@ Your logo, name and brand color are read from the live site when the APK is buil
 
 ## n8n & SMS Gate Automation
 
-1. Import `n8n/order-notifications-workflow.json` into your self-hosted n8n instance.
-2. In the n8n webhook node, ensure the webhook path matches `order.confirmed`.
-3. Update the SMS Gate IP address to point to your Android phone on your local network (e.g. `http://192.168.1.X:8080/v1/message`).
+`n8n/shop-notifications-workflow.json` emails customers when an order is paid or cancelled, emails gift card codes (plus a receipt to the buyer), and emails you when a Venmo/PayPal order needs checking. Texting through SMS Gate is included but turned off.
+
+1. In n8n: **Workflows → Import from File** and pick `n8n/shop-notifications-workflow.json`.
+2. Make up a long random secret (e.g. `openssl rand -hex 32`). On each of the 5 webhook nodes, open **Options → Only Run If** and replace `CHANGE_ME` with it.
+3. On each **Send Email** node, choose your SMTP credential (Gmail app password, Zoho, etc.) and set the **From** address.
+4. In the shop: **Admin → Settings → Notifications**, set the n8n URL to `https://your-n8n/webhook` and paste the same secret.
+5. Activate the workflow.
+6. (Optional) SMS: install SMS Gate on an Android phone, set its address on **Text Order Confirmation (SMS Gate)**, add its username/password as a Basic Auth credential, and enable the node.
+
+Events the app sends (each to `<n8n URL>/<event>`): `order.confirmed`, `farmstand.purchased`, `order.awaiting_payment`, `order.cancelled`, `gift.activated`.
