@@ -248,7 +248,7 @@ export default function DropDetailPage() {
             ✓
           </div>
           <h1 className="text-2xl font-black text-[#2D1E18]">
-            {pickupInfo?.paid ? "Pre-Order Confirmed!" : "Order Received!"}
+            Pre-Order Confirmed!
           </h1>
           <p className="text-[#735D54] text-sm leading-relaxed">
             Thank you! Your order and pickup time have been saved. We&apos;ll have it ready for you.
@@ -260,7 +260,7 @@ export default function DropDetailPage() {
             </div>
           ) : (
             <p className="text-sm text-[#2D1E18] bg-[#FAF6F0] rounded-xl p-3 leading-relaxed">
-              📧 Once we see your payment, we&apos;ll email your <b>confirmation with the exact pickup address</b>.
+              📧 The exact pickup address will be in your <b>confirmation email</b>.
             </p>
           )}
           <SpamHint />
