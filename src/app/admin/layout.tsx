@@ -37,6 +37,7 @@ export default async function AdminLayout({
     { href: "/admin/farmstand", label: site.SITE_FARMSTAND_HEADING, icon: "🏪" },
     { href: "/admin/products", label: "Products", icon: "📦" },
     { href: "/admin/customers", label: "Customers", icon: "👥" },
+    { href: "/admin/alerts", label: "Drop Alerts", icon: "📣" },
     { href: "/admin/discounts", label: "Discounts", icon: "🏷️" },
     { href: "/admin/gift-cards", label: "Gift Cards", icon: "🎁" },
     { href: "/admin/reviews", label: "Reviews", icon: "⭐" },

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { DropInputError, parseProducts, parseSlots } from "@/lib/drop-input";
 import { hideAddress } from "@/lib/pickup";
+import { announceDrop } from "@/lib/drop-alerts";
 
 export async function GET() {
   const session = await auth();
@@ -72,5 +73,7 @@ export async function POST(req: Request) {
     },
   });
 
+  // Published straight away: alert the subscribers
+  if (drop.status === "OPEN") await announceDrop(drop.id);
   return NextResponse.json(drop);
 }

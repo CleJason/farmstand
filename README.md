@@ -100,13 +100,13 @@ Your logo, name and brand color are read from the live site when the APK is buil
 
 ## n8n & SMS Gate Automation
 
-`n8n/shop-notifications-workflow.json` emails customers when an order is paid or cancelled, emails gift card codes (plus a receipt to the buyer), and emails you when a Venmo/PayPal order needs checking. Texting through SMS Gate is included but turned off.
+`n8n/shop-notifications-workflow.json` emails customers when an order is paid or cancelled, emails gift card codes (plus a receipt to the buyer), emails you when a Venmo/PayPal order needs checking, and emails everyone on the Drop Alerts list when a new drop opens. Texting through SMS Gate is included but turned off.
 
 1. In n8n: **Workflows → Import from File** and pick `n8n/shop-notifications-workflow.json`.
-2. Make up a long random secret (e.g. `openssl rand -hex 32`). On each of the 5 webhook nodes, open **Options → Only Run If** and replace `CHANGE_ME` with it.
+2. Make up a long random secret (e.g. `openssl rand -hex 32`). On each of the 6 webhook nodes, open **Options → Only Run If** and replace `CHANGE_ME` with it.
 3. On each **Send Email** node, choose your SMTP credential (Gmail app password, Zoho, etc.) and set the **From** address.
 4. In the shop: **Admin → Settings → Notifications**, set the n8n URL to `https://your-n8n/webhook` and paste the same secret.
 5. Activate the workflow.
 6. (Optional) SMS: install SMS Gate on an Android phone, set its address on **Text Order Confirmation (SMS Gate)**, add its username/password as a Basic Auth credential, and enable the node.
 
-Events the app sends (each to `<n8n URL>/<event>`): `order.confirmed`, `farmstand.purchased`, `order.awaiting_payment`, `order.cancelled`, `gift.activated`.
+Events the app sends (each to `<n8n URL>/<event>`): `order.confirmed`, `farmstand.purchased`, `order.awaiting_payment`, `order.cancelled`, `gift.activated`, `drop.announced` (sent once, when a drop first opens for orders, with everyone on the Drop Alerts list).

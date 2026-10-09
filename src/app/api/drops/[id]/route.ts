@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { DropInputError, parseProducts, parseSlots } from "@/lib/drop-input";
 import { hideAddress, pickupTimeCounts, timesWithAvailability } from "@/lib/pickup";
+import { announceDrop } from "@/lib/drop-alerts";
 
 export async function GET(
   _req: Request,
@@ -143,6 +144,8 @@ export async function PUT(
       });
     });
 
+    // First time it opens for orders: alert the subscribers (only ever once per drop)
+    if (drop?.status === "OPEN") await announceDrop(drop.id);
     return NextResponse.json(drop);
   } catch (err) {
     if (err instanceof DropInputError) {

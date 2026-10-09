@@ -306,6 +306,22 @@ jobs:
           c=$(box "[{\"dropProductId\":\"dp2\",\"quantity\":1,\"selections\":[$A,$B]}]")
           echo "flavors offered this drop -> $c $(cat /tmp/b.json)"; [ "$c" = "200" ] || exit 1
 
+      - name: Drop alert sign-ups
+        env:
+          PGURL: postgresql://farmstand:smoketest@localhost:5432/farmstand
+        run: |
+          sub() { curl -s -o /tmp/s.json -w '%{http_code}' -X POST http://localhost:3000/api/subscribe -H 'Content-Type: application/json' -d "$1"; }
+          c=$(sub '{"email":"Fan@Example.com"}'); echo "sign up -> $c"; [ "$c" = "200" ] || exit 1
+          c=$(sub '{"email":"fan@example.com","phone":"(555) 123-4567"}'); echo "same email again -> $c"; [ "$c" = "200" ] || exit 1
+          c=$(sub '{"email":"not-an-email"}'); echo "bad email -> $c"; [ "$c" = "400" ] || exit 1
+          n=$(psql "$PGURL" -tAc "SELECT count(*) FROM \"Subscriber\""); echo "subscribers: $n"; [ "$n" = "1" ] || exit 1
+          phone=$(psql "$PGURL" -tAc "SELECT phone FROM \"Subscriber\""); echo "phone saved: $phone"; [ "$phone" = "5551234567" ] || exit 1
+          c=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/subscribers); echo "list signed out -> $c"; [ "$c" = "401" ] || exit 1
+          # Just opening the unsubscribe link (as email scanners do) must not remove anyone
+          token=$(psql "$PGURL" -tAc "SELECT \"unsubscribeToken\" FROM \"Subscriber\"")
+          curl -s "http://localhost:3000/unsubscribe?token=$token" | grep -q "Stop drop alerts" || { echo "unsubscribe page missing"; exit 1; }
+          n=$(psql "$PGURL" -tAc "SELECT count(*) FROM \"Subscriber\""); echo "after opening link: $n"; [ "$n" = "1" ] || exit 1
+
       - name: Container logs
         if: always()
         run: docker logs farmstand || true

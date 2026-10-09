@@ -103,6 +103,7 @@ model Drop {
   orderCloseAt  DateTime   // cutoff (e.g. Wednesday 11:59pm)
   status        String     @default("DRAFT")
   maxOrders     Int?       // optional cap on total orders
+  announcedAt   DateTime?  // when the "new drop" alert went to subscribers (sent once)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -285,6 +286,15 @@ model Review {
   visible    Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+// People who signed up on the home page to hear about new drops
+model Subscriber {
+  id          String   @id @default(cuid())
+  email       String   @unique // stored lowercase
+  phone       String?          // optional, for text alerts
+  unsubscribeToken String @unique @default(cuid())
+  createdAt   DateTime @default(now())
 }
 
 // ─────────────────────────────────────────────

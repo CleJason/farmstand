@@ -9,6 +9,7 @@ import { StoreHeader } from "@/components/StoreChrome";
 import SocialLinks from "@/components/SocialLinks";
 import ReviewsSection from "@/components/ReviewsSection";
 import LegalFooter from "@/components/LegalFooter";
+import DropAlertsSignup from "@/components/DropAlertsSignup";
 
 interface Drop {
   id: string;
@@ -179,6 +180,9 @@ export default function HomeClient() {
             >
               Visit {site.SITE_FARMSTAND_HEADING} →
             </Link>
+            <a href="#alerts" className="block mt-3 text-sm font-semibold text-amber-700 hover:underline">
+              Get an alert when the next drop opens
+            </a>
           </div>
         ) : (
           <div className="space-y-6">
@@ -295,6 +299,7 @@ export default function HomeClient() {
       </main>
 
       <ReviewsSection />
+      <DropAlertsSignup />
       <LegalFooter />
     </div>
   );

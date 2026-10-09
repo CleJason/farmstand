@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDate, formatPrice } from "@/lib/utils";
 import { countsStock } from "@/lib/stock";
+import { useSite } from "@/components/SiteProvider";
 import type { BoxPick } from "@/lib/box";
 
 interface PickupSlot {
@@ -25,6 +26,7 @@ interface Drop {
   orderCloseAt: string;
   status: string;
   maxOrders: number | null;
+  announcedAt: string | null;
   pickupSlots: PickupSlot[];
   dropProducts: {
     id: string;
@@ -114,11 +116,12 @@ function timesInWindow(w: WindowForm) {
   return span < 0 ? 0 : Math.floor(span / step) + 1;
 }
 
-const emptyWindow = (): WindowForm => ({
+// New windows start with the pickup area from Admin → Site
+const emptyWindow = (area = ""): WindowForm => ({
   date: "",
   start: "16:00",
   end: "18:00",
-  location: "",
+  location: area,
   address: "",
   interval: "30",
   maxPerTime: "",
@@ -128,6 +131,7 @@ const inputClass =
   "w-full text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500";
 
 export default function AdminDropsPage() {
+  const site = useSite();
   const [drops, setDrops] = useState<Drop[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,7 +172,7 @@ export default function AdminDropsPage() {
     setOrderOpenAt("");
     setOrderCloseAt("");
     setMaxOrders("");
-    setWindows([emptyWindow()]);
+    setWindows([emptyWindow(site.SITE_PICKUP_AREA)]);
     setProductForm({});
     setShowModal(true);
   };
@@ -352,6 +356,11 @@ export default function AdminDropsPage() {
                     <span className="text-xs text-stone-500">
                       {totalOrders} {totalOrders === 1 ? "order" : "orders"}
                     </span>
+                    {drop.announcedAt && (
+                      <span className="text-xs text-stone-400" title="Subscribers were emailed when this drop opened">
+                        · 📣 alert sent
+                      </span>
+                    )}
                   </div>
 
                   <h3 className="text-lg font-bold text-stone-900">{drop.title}</h3>
@@ -475,7 +484,7 @@ export default function AdminDropsPage() {
                   <span className="text-xs font-semibold text-stone-900">When customers pick up</span>
                   <button
                     type="button"
-                    onClick={() => setWindows((ws) => [...ws, emptyWindow()])}
+                    onClick={() => setWindows((ws) => [...ws, emptyWindow(site.SITE_PICKUP_AREA)])}
                     className="text-xs font-medium text-amber-700 hover:underline"
                   >
                     + Add pickup day
