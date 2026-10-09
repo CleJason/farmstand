@@ -5,6 +5,7 @@ import ImageUpload from "@/components/ImageUpload";
 import PaymentSettings from "@/components/PaymentSettings";
 import AndroidAppSettings from "@/components/AndroidAppSettings";
 import EmailSettings from "@/components/EmailSettings";
+import SiteUrlSettings from "@/components/SiteUrlSettings";
 import Link from "next/link";
 
 export default function AdminSettingsPage() {
@@ -44,6 +45,14 @@ export default function AdminSettingsPage() {
           <Link href="/admin/site" className="text-amber-700 underline">Site</Link>.
         </p>
       </div>
+
+      <section className="bg-white rounded-xl border border-stone-200 p-5 max-w-xl space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-stone-900">Website address</h2>
+          <p className="text-xs text-stone-500 mt-0.5">The address customers use to reach your shop.</p>
+        </div>
+        <SiteUrlSettings />
+      </section>
 
       <section className="bg-white rounded-xl border border-stone-200 p-5 max-w-xl space-y-4">
         <div>
