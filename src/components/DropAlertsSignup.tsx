@@ -46,7 +46,8 @@ export default function DropAlertsSignup() {
           <>
             <p className="mt-4 text-stone-600 text-sm">Get a heads-up as soon as ordering opens.</p>
             <form onSubmit={submit} className="mt-5 space-y-2 text-left">
-              <div className="flex flex-col sm:flex-row gap-2">
+              {/* Email, then phone, then the button: stacked on phones, fields side by side on wider screens */}
+              <div className="grid sm:grid-cols-2 gap-2">
                 <input
                   type="email"
                   required
@@ -54,23 +55,23 @@ export default function DropAlertsSignup() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   aria-label="Email"
-                  className="flex-1 min-w-0 text-sm px-4 py-3 border border-stone-300 rounded-full bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                  className="min-w-0 text-sm px-4 py-3 border border-stone-300 rounded-full bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
                 />
-                <button
-                  disabled={state === "sending"}
-                  className="bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold px-6 py-3 rounded-full text-sm shadow-md shadow-amber-600/25"
-                >
-                  {state === "sending" ? "Signing up…" : "Notify me"}
-                </button>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Phone for texts (optional)"
+                  aria-label="Phone (optional)"
+                  className="min-w-0 text-sm px-4 py-3 border border-stone-300 rounded-full bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                />
               </div>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Phone for text alerts (optional)"
-                aria-label="Phone (optional)"
-                className="w-full text-sm px-4 py-3 border border-stone-300 rounded-full bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-              />
+              <button
+                disabled={state === "sending"}
+                className="w-full bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold px-6 py-3 rounded-full text-sm shadow-md shadow-amber-600/25"
+              >
+                {state === "sending" ? "Signing up…" : "Notify me"}
+              </button>
               {error && <p className="text-sm text-red-600 px-2">{error}</p>}
               <p className="text-[11px] text-stone-500 px-2 text-center">
                 Unsubscribe anytime from any alert. If you add a phone number, you agree to get texts about new drops; msg
