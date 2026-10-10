@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
 import { useSite } from "@/components/SiteProvider";
 import type { Customer } from "@/app/api/customers/route";
+import CustomerImport from "@/components/CustomerImport";
 
 const shortDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
@@ -20,7 +21,7 @@ function toCsv(rows: Customer[]): string {
       c.name,
       c.email,
       c.phone,
-      c.kind === "account" ? "Account" : "Guest",
+      c.kind === "account" ? "Account" : c.kind === "added" ? "Added" : "Guest",
       c.orderCount,
       (c.totalSpent / 100).toFixed(2),
       c.lastOrderAt?.slice(0, 10) ?? "",
@@ -101,13 +102,16 @@ export default function AdminCustomersPage() {
             Everyone who has signed up or placed an order.
           </p>
         </div>
-        <button
-          onClick={exportCsv}
-          disabled={filtered.length === 0}
-          className="bg-white hover:bg-stone-50 disabled:opacity-50 text-stone-700 border border-stone-300 font-semibold text-sm px-4 py-2 rounded-lg transition-colors"
-        >
-          Export CSV
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <CustomerImport onDone={load} />
+          <button
+            onClick={exportCsv}
+            disabled={filtered.length === 0}
+            className="bg-white hover:bg-stone-50 disabled:opacity-50 text-stone-700 border border-stone-300 font-semibold text-sm px-4 py-2 rounded-lg transition-colors"
+          >
+            Export CSV
+          </button>
+        </div>
       </div>
 
       <input
@@ -150,8 +154,10 @@ export default function AdminCustomersPage() {
                   <td className="px-4 py-3">
                     <div className="font-medium text-stone-900">{c.name || c.email || "Guest"}</div>
                     {c.name && c.email && <div className="text-xs text-stone-500">{c.email}</div>}
-                    {c.kind === "guest" && (
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-400">Guest</span>
+                    {c.kind !== "account" && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-400">
+                        {c.kind === "added" ? "Added by you" : "Guest"}
+                      </span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-stone-600 whitespace-nowrap">{c.phone || "—"}</td>
@@ -186,6 +192,8 @@ export default function AdminCustomersPage() {
                 <div>
                   {selected.kind === "account"
                     ? `Account since ${shortDate(selected.signedUpAt)}`
+                    : selected.kind === "added"
+                    ? `Added ${shortDate(selected.signedUpAt)}`
                     : "Guest checkout"}
                 </div>
               </div>

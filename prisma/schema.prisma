@@ -296,6 +296,18 @@ model Review {
   updatedAt  DateTime @updatedAt
 }
 
+// Customers added by the owner (by hand or imported from Hotplate etc.).
+// Shown in Admin → Customers, merged with orders by email or phone.
+model Contact {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String?  @unique // stored lowercase
+  phone     String?          // digits only, e.g. 5551234567
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+}
+
 // People who signed up on the home page to hear about new drops
 model Subscriber {
   id          String   @id @default(cuid())

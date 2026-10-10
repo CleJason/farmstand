@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { phoneKey } from "@/lib/phone";
 
 // Orders that represent a real purchase (not abandoned card checkouts or cancellations)
 const COUNTED = ["AWAITING_CONFIRM", "PAID", "READY", "PICKED_UP"];
@@ -16,7 +17,7 @@ export type CustomerOrder = {
 
 export type Customer = {
   key: string;
-  kind: "account" | "guest";
+  kind: "account" | "guest" | "added"; // added = entered/imported by the owner
   name: string | null;
   email: string | null;
   phone: string | null;
@@ -38,7 +39,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [users, orders] = await Promise.all([
+  const [users, orders, contacts] = await Promise.all([
     prisma.user.findMany({ where: { role: { not: "ADMIN" } } }),
     prisma.order.findMany({
       select: {
@@ -56,6 +57,7 @@ export async function GET() {
       },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.contact.findMany({ orderBy: { createdAt: "asc" } }),
   ]);
 
   const customers = new Map<string, Customer>();
@@ -82,7 +84,7 @@ export async function GET() {
     if (o.user?.role === "ADMIN") continue; // the owner's own test orders
 
     const email = o.guestEmail?.trim().toLowerCase() || null;
-    const phone = o.guestPhone?.replace(/[^\d+]/g, "") || null;
+    const phone = phoneKey(o.guestPhone) || null;
     let key: string | null = null;
     if (o.userId) key = `user:${o.userId}`;
     else if (email) key = accountByEmail.get(email) ?? `email:${email}`;
@@ -123,6 +125,40 @@ export async function GET() {
     c.lastOrderAt ??= o.createdAt.toISOString(); // orders are newest first
   }
 
+  // Customers the owner added or imported: merged into whoever matches by email or phone
+  const byPhone = new Map<string, string>();
+  for (const [key, c] of customers) {
+    const p = phoneKey(c.phone);
+    if (p) byPhone.set(p, key);
+  }
+  for (const ct of contacts) {
+    const key =
+      (ct.email && (accountByEmail.get(ct.email) ?? (customers.has(`email:${ct.email}`) ? `email:${ct.email}` : null))) ||
+      (ct.phone && byPhone.get(ct.phone)) ||
+      (ct.email ? `email:${ct.email}` : `phone:${ct.phone}`);
+    const c = customers.get(key);
+    if (c) {
+      c.name ??= ct.name;
+      c.email ??= ct.email;
+      c.phone ??= ct.phone;
+      c.signedUpAt ??= ct.createdAt.toISOString();
+    } else {
+      customers.set(key, {
+        key,
+        kind: "added",
+        name: ct.name,
+        email: ct.email,
+        phone: ct.phone,
+        signedUpAt: ct.createdAt.toISOString(),
+        orderCount: 0,
+        totalSpent: 0,
+        lastOrderAt: null,
+        orders: [],
+      });
+      if (ct.phone) byPhone.set(ct.phone, key);
+    }
+  }
+
   const list = [...customers.values()].sort((a, b) =>
     (b.lastOrderAt ?? b.signedUpAt ?? "").localeCompare(a.lastOrderAt ?? a.signedUpAt ?? "")
   );
@@ -159,20 +195,27 @@ export async function DELETE(req: Request) {
         data: { ...anonymize, userId: null },
       }),
       prisma.user.delete({ where: { id: user.id } }), // sessions/accounts cascade
+      prisma.contact.deleteMany({ where: { email: user.email.toLowerCase() } }),
     ]);
   } else if (kind === "email") {
-    await prisma.order.updateMany({
-      where: { userId: null, guestEmail: { equals: value, mode: "insensitive" } },
-      data: anonymize,
-    });
+    await prisma.$transaction([
+      prisma.order.updateMany({
+        where: { userId: null, guestEmail: { equals: value, mode: "insensitive" } },
+        data: anonymize,
+      }),
+      prisma.contact.deleteMany({ where: { email: value } }),
+    ]);
   } else if (kind === "phone") {
     // Phones were grouped by digits only, so match on that
     const orders = await prisma.order.findMany({
       where: { userId: null, guestEmail: null, guestPhone: { not: null } },
       select: { id: true, guestPhone: true },
     });
-    const ids = orders.filter((o) => o.guestPhone?.replace(/[^\d+]/g, "") === value).map((o) => o.id);
-    await prisma.order.updateMany({ where: { id: { in: ids } }, data: anonymize });
+    const ids = orders.filter((o) => phoneKey(o.guestPhone) === value).map((o) => o.id);
+    await prisma.$transaction([
+      prisma.order.updateMany({ where: { id: { in: ids } }, data: anonymize }),
+      prisma.contact.deleteMany({ where: { phone: value } }),
+    ]);
   } else {
     return NextResponse.json({ error: "Invalid customer" }, { status: 400 });
   }
