@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { phoneKey } from "@/lib/phone";
+import { cleanEmail } from "@/lib/drop-alerts";
 
 // Orders that represent a real purchase (not abandoned card checkouts or cancellations)
 const COUNTED = ["AWAITING_CONFIRM", "PAID", "READY", "PICKED_UP"];
@@ -138,9 +139,10 @@ export async function GET() {
       (ct.email ? `email:${ct.email}` : `phone:${ct.phone}`);
     const c = customers.get(key);
     if (c) {
-      c.name ??= ct.name;
+      // What the owner entered wins over what was typed at checkout
+      c.name = ct.name ?? c.name;
       c.email ??= ct.email;
-      c.phone ??= ct.phone;
+      c.phone = ct.phone ?? c.phone;
       c.signedUpAt ??= ct.createdAt.toISOString();
     } else {
       customers.set(key, {
@@ -163,6 +165,61 @@ export async function GET() {
     (b.lastOrderAt ?? b.signedUpAt ?? "").localeCompare(a.lastOrderAt ?? a.signedUpAt ?? "")
   );
   return NextResponse.json(list);
+}
+
+/**
+ * Edit a customer's name and phone (and add an email if they have none).
+ * Accounts are updated directly; anyone else gets an owner-entered record
+ * that overrides what was typed at checkout. Past orders keep what was
+ * entered then, but stay under the same customer (grouped by email).
+ */
+export async function PATCH(req: Request) {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const key = new URL(req.url).searchParams.get("key") ?? "";
+  const [kind, ...rest] = key.split(":");
+  const value = rest.join(":");
+  const data = await req.json().catch(() => ({}));
+  const name = String(data.name ?? "").trim().slice(0, 100) || null;
+  const phoneRaw = String(data.phone ?? "").trim();
+  const phone = phoneRaw ? phoneKey(phoneRaw) : "";
+  if (phoneRaw && !phone) return NextResponse.json({ error: "That phone number doesn't look right" }, { status: 400 });
+  const newEmail = data.email ? cleanEmail(data.email) : null;
+  if (data.email && !newEmail) return NextResponse.json({ error: "That email doesn't look right" }, { status: 400 });
+
+  if (kind === "user") {
+    const user = await prisma.user.findUnique({ where: { id: value } });
+    if (!user) return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    await prisma.user.update({ where: { id: user.id }, data: { name, phone: phone || null } });
+    // An owner-entered record would override these, so keep it in step
+    await prisma.contact.updateMany({ where: { email: user.email.toLowerCase() }, data: { name, phone: phone || null } });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (kind === "email") {
+    await prisma.contact.upsert({
+      where: { email: value },
+      update: { name, phone: phone || null },
+      create: { email: value, name, phone: phone || null },
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (kind === "phone") {
+    // Phone-only customer: can also be given an email from here on
+    const existing = await prisma.contact.findFirst({ where: { phone: value, email: null } });
+    if (newEmail && (await prisma.contact.findUnique({ where: { email: newEmail } }))) {
+      return NextResponse.json({ error: "Another customer already has that email" }, { status: 400 });
+    }
+    const fields = { name, phone: phone || value, email: newEmail };
+    if (existing) await prisma.contact.update({ where: { id: existing.id }, data: fields });
+    else await prisma.contact.create({ data: fields });
+    return NextResponse.json({ ok: true });
+  }
+
+  return NextResponse.json({ error: "Invalid customer" }, { status: 400 });
 }
 
 /**

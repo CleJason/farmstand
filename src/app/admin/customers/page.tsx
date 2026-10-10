@@ -39,6 +39,25 @@ export default function AdminCustomersPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Customer | null>(null);
+  const [edit, setEdit] = useState<{ name: string; phone: string; email: string } | null>(null);
+  const [editError, setEditError] = useState("");
+
+  const saveEdit = async () => {
+    if (!selected || !edit) return;
+    setEditError("");
+    const res = await fetch(`/api/customers?key=${encodeURIComponent(selected.key)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: edit.name, phone: edit.phone, email: selected.email ? undefined : edit.email || undefined }),
+    });
+    if (!res.ok) {
+      setEditError((await res.json().catch(() => ({}))).error || "Couldn't save");
+      return;
+    }
+    setSelected({ ...selected, name: edit.name || null, phone: edit.phone || null, email: selected.email ?? (edit.email || null) });
+    setEdit(null);
+    load();
+  };
 
   const load = () =>
     fetch("/api/customers")
@@ -148,7 +167,10 @@ export default function AdminCustomersPage() {
               {filtered.map((c) => (
                 <tr
                   key={c.key}
-                  onClick={() => setSelected(c)}
+                  onClick={() => {
+                    setSelected(c);
+                    setEdit(null);
+                  }}
                   className="hover:bg-stone-50 cursor-pointer"
                 >
                   <td className="px-4 py-3">
@@ -182,10 +204,62 @@ export default function AdminCustomersPage() {
             className="bg-white rounded-2xl p-6 max-w-lg w-full max-h-[85vh] overflow-y-auto space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
+            {edit ? (
+              <div className="space-y-2">
+                <h2 className="text-lg font-bold text-stone-900">Edit customer</h2>
+                <input
+                  value={edit.name}
+                  onChange={(e) => setEdit({ ...edit, name: e.target.value })}
+                  placeholder="Name"
+                  className="w-full text-sm px-3 py-2 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <input
+                  type="tel"
+                  value={edit.phone}
+                  onChange={(e) => setEdit({ ...edit, phone: e.target.value })}
+                  placeholder="Phone"
+                  className="w-full text-sm px-3 py-2 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                {selected.email ? (
+                  <p className="text-xs text-stone-500">
+                    Email: {selected.email}. Their orders are tracked by email, so a new phone number keeps everything
+                    together.
+                  </p>
+                ) : (
+                  <input
+                    type="email"
+                    value={edit.email}
+                    onChange={(e) => setEdit({ ...edit, email: e.target.value })}
+                    placeholder="Email (optional)"
+                    className="w-full text-sm px-3 py-2 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                )}
+                {editError && <p className="text-sm text-red-600">{editError}</p>}
+                <div className="flex gap-2">
+                  <button onClick={() => setEdit(null)} className="flex-1 border border-stone-300 text-stone-700 font-semibold text-sm py-2 rounded-lg">
+                    Cancel
+                  </button>
+                  <button onClick={saveEdit} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-sm py-2 rounded-lg">
+                    Save
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div>
+              <div className="flex items-start justify-between gap-3">
               <h2 className="text-lg font-bold text-stone-900">
                 {selected.name || selected.email || selected.phone || "Guest"}
               </h2>
+              <button
+                onClick={() => {
+                  setEditError("");
+                  setEdit({ name: selected.name ?? "", phone: selected.phone ?? "", email: "" });
+                }}
+                className="text-xs font-medium px-2.5 py-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700 shrink-0"
+              >
+                Edit
+              </button>
+              </div>
               <div className="text-sm text-stone-500 mt-1 space-y-0.5">
                 {selected.email && <div>{selected.email}</div>}
                 {selected.phone && <div>{selected.phone}</div>}
@@ -198,6 +272,7 @@ export default function AdminCustomersPage() {
                 </div>
               </div>
             </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-stone-50 rounded-lg p-3">
