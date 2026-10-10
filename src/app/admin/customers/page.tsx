@@ -48,13 +48,20 @@ export default function AdminCustomersPage() {
     const res = await fetch(`/api/customers?key=${encodeURIComponent(selected.key)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: edit.name, phone: edit.phone, email: selected.email ? undefined : edit.email || undefined }),
+      body: JSON.stringify({
+        name: edit.name,
+        phone: edit.phone,
+        email: edit.email,
+        contactId: selected.contactId,
+        currentPhone: selected.phone,
+      }),
     });
     if (!res.ok) {
       setEditError((await res.json().catch(() => ({}))).error || "Couldn't save");
       return;
     }
-    setSelected({ ...selected, name: edit.name || null, phone: edit.phone || null, email: selected.email ?? (edit.email || null) });
+    // Reload so the old email/number shows under "Previously"
+    setSelected(null);
     setEdit(null);
     load();
   };
@@ -80,7 +87,10 @@ export default function AdminCustomersPage() {
     ) {
       return;
     }
-    const res = await fetch(`/api/customers?key=${encodeURIComponent(c.key)}`, { method: "DELETE" });
+    const res = await fetch(
+      `/api/customers?key=${encodeURIComponent(c.key)}${c.contactId ? `&contactId=${encodeURIComponent(c.contactId)}` : ""}`,
+      { method: "DELETE" }
+    );
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       alert(data.error || "Couldn't delete customer");
@@ -97,8 +107,8 @@ export default function AdminCustomersPage() {
     return customers.filter(
       (c) =>
         c.name?.toLowerCase().includes(q) ||
-        c.email?.toLowerCase().includes(q) ||
-        (digits.length >= 3 && c.phone?.replace(/\D/g, "").includes(digits))
+        [c.email, ...c.previousEmails].some((e) => e?.toLowerCase().includes(q)) ||
+        (digits.length >= 3 && [c.phone, ...c.previousPhones].some((p) => p?.replace(/\D/g, "").includes(digits)))
     );
   }, [customers, query]);
 
@@ -220,20 +230,17 @@ export default function AdminCustomersPage() {
                   placeholder="Phone"
                   className="w-full text-sm px-3 py-2 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
-                {selected.email ? (
-                  <p className="text-xs text-stone-500">
-                    Email: {selected.email}. Their orders are tracked by email, so a new phone number keeps everything
-                    together.
-                  </p>
-                ) : (
-                  <input
-                    type="email"
-                    value={edit.email}
-                    onChange={(e) => setEdit({ ...edit, email: e.target.value })}
-                    placeholder="Email (optional)"
-                    className="w-full text-sm px-3 py-2 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                )}
+                <input
+                  type="email"
+                  value={edit.email}
+                  onChange={(e) => setEdit({ ...edit, email: e.target.value })}
+                  placeholder="Email"
+                  className="w-full text-sm px-3 py-2 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <p className="text-xs text-stone-500">
+                  Changing the email or phone keeps the old one on their profile, so their past and future orders stay
+                  together.{selected.kind === "account" && " They'll sign in with the new email from now on."}
+                </p>
                 {editError && <p className="text-sm text-red-600">{editError}</p>}
                 <div className="flex gap-2">
                   <button onClick={() => setEdit(null)} className="flex-1 border border-stone-300 text-stone-700 font-semibold text-sm py-2 rounded-lg">
@@ -253,7 +260,7 @@ export default function AdminCustomersPage() {
               <button
                 onClick={() => {
                   setEditError("");
-                  setEdit({ name: selected.name ?? "", phone: selected.phone ?? "", email: "" });
+                  setEdit({ name: selected.name ?? "", phone: selected.phone ?? "", email: selected.email ?? "" });
                 }}
                 className="text-xs font-medium px-2.5 py-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700 shrink-0"
               >
@@ -263,6 +270,11 @@ export default function AdminCustomersPage() {
               <div className="text-sm text-stone-500 mt-1 space-y-0.5">
                 {selected.email && <div>{selected.email}</div>}
                 {selected.phone && <div>{selected.phone}</div>}
+                {(selected.previousEmails.length > 0 || selected.previousPhones.length > 0) && (
+                  <div className="text-xs text-stone-400">
+                    Previously: {[...selected.previousEmails, ...selected.previousPhones].join(", ")}
+                  </div>
+                )}
                 <div>
                   {selected.kind === "account"
                     ? `Account since ${shortDate(selected.signedUpAt)}`

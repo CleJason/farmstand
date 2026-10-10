@@ -22,6 +22,9 @@ export type Customer = {
   name: string | null;
   email: string | null;
   phone: string | null;
+  previousEmails: string[];
+  previousPhones: string[];
+  contactId: string | null; // the owner-entered record for this customer, if any
   signedUpAt: string | null;
   orderCount: number;
   totalSpent: number; // cents, counted orders only
@@ -29,16 +32,36 @@ export type Customer = {
   orders: CustomerOrder[];
 };
 
+async function requireAdmin() {
+  const session = await auth();
+  return session?.user?.role === "ADMIN";
+}
+
+const blank = (key: string, kind: Customer["kind"]): Customer => ({
+  key,
+  kind,
+  name: null,
+  email: null,
+  phone: null,
+  previousEmails: [],
+  previousPhones: [],
+  contactId: null,
+  signedUpAt: null,
+  orderCount: 0,
+  totalSpent: 0,
+  lastOrderAt: null,
+  orders: [],
+});
+
 /**
- * Everyone who has signed up or ordered. Accounts are keyed by user id; guest
- * checkouts are grouped by email (or phone when there's no email). A guest
- * whose email matches an account is merged into that account.
+ * Everyone who has signed up, ordered, or been added by the owner. Accounts
+ * are keyed by user id; guest checkouts are grouped by email (or phone when
+ * there's no email). Owner-entered records (Contact) carry a customer's
+ * current details plus their old emails/numbers, and pull every order made
+ * with any of them into one customer.
  */
 export async function GET() {
-  const session = await auth();
-  if (session?.user?.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const [users, orders, contacts] = await Promise.all([
     prisma.user.findMany({ where: { role: { not: "ADMIN" } } }),
@@ -62,23 +85,24 @@ export async function GET() {
   ]);
 
   const customers = new Map<string, Customer>();
-  const accountByEmail = new Map<string, string>();
+  const byEmail = new Map<string, string>();
+  const byPhone = new Map<string, string>();
+  const index = (key: string, email: string | null | undefined, phone: string | null | undefined) => {
+    if (email && !byEmail.has(email)) byEmail.set(email, key);
+    const p = phoneKey(phone);
+    if (p && !byPhone.has(p)) byPhone.set(p, key);
+  };
 
   for (const u of users) {
     const key = `user:${u.id}`;
-    accountByEmail.set(u.email.toLowerCase(), key);
     customers.set(key, {
-      key,
-      kind: "account",
+      ...blank(key, "account"),
       name: u.name,
       email: u.email,
       phone: u.phone,
       signedUpAt: u.createdAt.toISOString(),
-      orderCount: 0,
-      totalSpent: 0,
-      lastOrderAt: null,
-      orders: [],
     });
+    index(key, u.email.toLowerCase(), u.phone);
   }
 
   for (const o of orders) {
@@ -88,28 +112,19 @@ export async function GET() {
     const phone = phoneKey(o.guestPhone) || null;
     let key: string | null = null;
     if (o.userId) key = `user:${o.userId}`;
-    else if (email) key = accountByEmail.get(email) ?? `email:${email}`;
-    else if (phone) key = `phone:${phone}`;
+    else if (email) key = byEmail.get(email) ?? `email:${email}`;
+    else if (phone) key = byPhone.get(phone) ?? `phone:${phone}`;
     if (!key) continue; // anonymous walk-up purchase with no contact info
 
     let c = customers.get(key);
     if (!c) {
-      c = {
-        key,
-        kind: "guest",
-        name: o.guestName, // newest order first, so their latest name
-        email,
-        phone: o.guestPhone,
-        signedUpAt: null,
-        orderCount: 0,
-        totalSpent: 0,
-        lastOrderAt: null,
-        orders: [],
-      };
+      // Newest order first, so these are their latest details
+      c = { ...blank(key, "guest"), name: o.guestName, email, phone: o.guestPhone };
       customers.set(key, c);
     }
     if (!c.phone && o.guestPhone) c.phone = o.guestPhone;
     if (!c.name && o.guestName) c.name = o.guestName;
+    index(key, email, o.guestPhone);
 
     c.orders.push({
       id: o.id,
@@ -123,42 +138,51 @@ export async function GET() {
       c.orderCount += 1;
       c.totalSpent += o.total;
     }
-    c.lastOrderAt ??= o.createdAt.toISOString(); // orders are newest first
+    c.lastOrderAt ??= o.createdAt.toISOString();
   }
 
-  // Customers the owner added or imported: merged into whoever matches by email or phone
-  const byPhone = new Map<string, string>();
-  for (const [key, c] of customers) {
-    const p = phoneKey(c.phone);
-    if (p) byPhone.set(p, key);
-  }
+  // Owner-entered records: join everyone matching any of their emails/numbers
   for (const ct of contacts) {
-    const key =
-      (ct.email && (accountByEmail.get(ct.email) ?? (customers.has(`email:${ct.email}`) ? `email:${ct.email}` : null))) ||
-      (ct.phone && byPhone.get(ct.phone)) ||
-      (ct.email ? `email:${ct.email}` : `phone:${ct.phone}`);
-    const c = customers.get(key);
-    if (c) {
-      // What the owner entered wins over what was typed at checkout
-      c.name = ct.name ?? c.name;
-      c.email ??= ct.email;
-      c.phone = ct.phone ?? c.phone;
-      c.signedUpAt ??= ct.createdAt.toISOString();
+    const emails = [ct.email, ...ct.otherEmails].filter(Boolean) as string[];
+    const phones = [ct.phone, ...ct.otherPhones].filter(Boolean) as string[];
+    const keys = [
+      ...new Set(
+        [...emails.map((e) => byEmail.get(e)), ...phones.map((p) => byPhone.get(p))].filter(
+          (k): k is string => !!k && customers.has(k)
+        )
+      ),
+    ];
+
+    let target: Customer;
+    if (keys.length === 0) {
+      target = { ...blank(`contact:${ct.id}`, "added"), signedUpAt: ct.createdAt.toISOString() };
+      customers.set(target.key, target);
     } else {
-      customers.set(key, {
-        key,
-        kind: "added",
-        name: ct.name,
-        email: ct.email,
-        phone: ct.phone,
-        signedUpAt: ct.createdAt.toISOString(),
-        orderCount: 0,
-        totalSpent: 0,
-        lastOrderAt: null,
-        orders: [],
-      });
-      if (ct.phone) byPhone.set(ct.phone, key);
+      // Keep an account if there is one; fold the rest into it
+      const main = keys.find((k) => k.startsWith("user:")) ?? keys[0];
+      target = customers.get(main)!;
+      for (const k of keys) {
+        if (k === main) continue;
+        const other = customers.get(k)!;
+        target.orders.push(...other.orders);
+        target.orderCount += other.orderCount;
+        target.totalSpent += other.totalSpent;
+        if ((other.lastOrderAt ?? "") > (target.lastOrderAt ?? "")) target.lastOrderAt = other.lastOrderAt;
+        target.name ??= other.name;
+        customers.delete(k);
+      }
+      target.orders.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      target.signedUpAt ??= ct.createdAt.toISOString();
     }
+    // What the owner entered wins over what was typed at checkout
+    target.contactId = ct.id;
+    target.name = ct.name ?? target.name;
+    target.email = ct.email ?? target.email;
+    target.phone = ct.phone ?? target.phone;
+    target.previousEmails = ct.otherEmails;
+    target.previousPhones = ct.otherPhones;
+    for (const e of emails) byEmail.set(e, target.key);
+    for (const p of phones) byPhone.set(p, target.key);
   }
 
   const list = [...customers.values()].sort((a, b) =>
@@ -167,115 +191,134 @@ export async function GET() {
   return NextResponse.json(list);
 }
 
+const uniq = (list: (string | null | undefined)[], except: (string | null)[]) =>
+  [...new Set(list.filter((v): v is string => !!v && !except.includes(v)))];
+
 /**
- * Edit a customer's name and phone (and add an email if they have none).
- * Accounts are updated directly; anyone else gets an owner-entered record
- * that overrides what was typed at checkout. Past orders keep what was
- * entered then, but stay under the same customer (grouped by email).
+ * Edit a customer's name, email and phone. When the email or number changes,
+ * the old one is kept on their profile, so orders placed with it (and any
+ * future ones) stay with this customer. Accounts also get the new details,
+ * including the email they sign in with.
  */
 export async function PATCH(req: Request) {
-  const session = await auth();
-  if (session?.user?.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const key = new URL(req.url).searchParams.get("key") ?? "";
   const [kind, ...rest] = key.split(":");
   const value = rest.join(":");
   const data = await req.json().catch(() => ({}));
+
   const name = String(data.name ?? "").trim().slice(0, 100) || null;
   const phoneRaw = String(data.phone ?? "").trim();
-  const phone = phoneRaw ? phoneKey(phoneRaw) : "";
-  if (phoneRaw && !phone) return NextResponse.json({ error: "That phone number doesn't look right" }, { status: 400 });
-  const newEmail = data.email ? cleanEmail(data.email) : null;
-  if (data.email && !newEmail) return NextResponse.json({ error: "That email doesn't look right" }, { status: 400 });
+  const newPhone = phoneRaw ? phoneKey(phoneRaw) : null;
+  if (phoneRaw && !newPhone) return NextResponse.json({ error: "That phone number doesn't look right" }, { status: 400 });
+  const emailRaw = String(data.email ?? "").trim();
+  const newEmail = emailRaw ? cleanEmail(emailRaw) : null;
+  if (emailRaw && !newEmail) return NextResponse.json({ error: "That email doesn't look right" }, { status: 400 });
 
-  if (kind === "user") {
-    const user = await prisma.user.findUnique({ where: { id: value } });
-    if (!user) return NextResponse.json({ error: "Customer not found" }, { status: 404 });
-    await prisma.user.update({ where: { id: user.id }, data: { name, phone: phone || null } });
-    // An owner-entered record would override these, so keep it in step
-    await prisma.contact.updateMany({ where: { email: user.email.toLowerCase() }, data: { name, phone: phone || null } });
-    return NextResponse.json({ ok: true });
-  }
+  let contact = data.contactId ? await prisma.contact.findUnique({ where: { id: String(data.contactId) } }) : null;
+  const user = kind === "user" ? await prisma.user.findUnique({ where: { id: value } }) : null;
+  if (kind === "user" && !user) return NextResponse.json({ error: "Customer not found" }, { status: 404 });
 
-  if (kind === "email") {
-    await prisma.contact.upsert({
-      where: { email: value },
-      update: { name, phone: phone || null },
-      create: { email: value, name, phone: phone || null },
-    });
-    return NextResponse.json({ ok: true });
-  }
+  // Their details before this edit
+  const oldEmail =
+    contact?.email ?? user?.email.toLowerCase() ?? (kind === "email" ? value : null) ?? null;
+  const oldPhone =
+    contact?.phone || phoneKey(String(data.currentPhone ?? "")) || (kind === "phone" ? value : null) || null;
+  const email = newEmail ?? oldEmail;
+  if (!email && !newPhone) return NextResponse.json({ error: "Keep an email or a phone number" }, { status: 400 });
 
-  if (kind === "phone") {
-    // Phone-only customer: can also be given an email from here on
-    const existing = await prisma.contact.findFirst({ where: { phone: value, email: null } });
-    if (newEmail && (await prisma.contact.findUnique({ where: { email: newEmail } }))) {
-      return NextResponse.json({ error: "Another customer already has that email" }, { status: 400 });
+  if (email && email !== oldEmail) {
+    const taken = await prisma.contact.findFirst({ where: { email, NOT: contact ? { id: contact.id } : undefined } });
+    const takenUser = await prisma.user.findUnique({ where: { email } });
+    if (taken || (takenUser && takenUser.id !== user?.id)) {
+      return NextResponse.json({ error: "Another customer already uses that email" }, { status: 400 });
     }
-    const fields = { name, phone: phone || value, email: newEmail };
-    if (existing) await prisma.contact.update({ where: { id: existing.id }, data: fields });
-    else await prisma.contact.create({ data: fields });
-    return NextResponse.json({ ok: true });
   }
 
-  return NextResponse.json({ error: "Invalid customer" }, { status: 400 });
+  const fields = {
+    name,
+    email,
+    phone: newPhone,
+    otherEmails: uniq([...(contact?.otherEmails ?? []), oldEmail], [email]),
+    otherPhones: uniq([...(contact?.otherPhones ?? []), oldPhone || null], [newPhone]),
+  };
+  contact = contact
+    ? await prisma.contact.update({ where: { id: contact.id }, data: fields })
+    : await prisma.contact.create({ data: fields });
+
+  if (user) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { name, phone: newPhone, ...(email && email !== user.email.toLowerCase() ? { email } : {}) },
+    });
+  }
+  return NextResponse.json({ ok: true, contactId: contact.id });
 }
 
 /**
- * Delete a customer: removes their account (if any) and their name, email and
- * phone from past orders. The orders themselves stay, so sales totals and
- * stock history are unchanged. ?key= is the customer's key from GET.
+ * Delete a customer: removes their account (if any), the owner-entered record,
+ * and their name, email and phone from past orders (including orders made with
+ * old emails/numbers on their profile). The orders themselves stay, so sales
+ * totals and stock history are unchanged. ?key= and ?contactId= come from GET.
  */
 export async function DELETE(req: Request) {
-  const session = await auth();
-  if (session?.user?.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const key = new URL(req.url).searchParams.get("key") ?? "";
+  const params = new URL(req.url).searchParams;
+  const key = params.get("key") ?? "";
   const [kind, ...rest] = key.split(":");
   const value = rest.join(":");
   if (!value) return NextResponse.json({ error: "Missing customer" }, { status: 400 });
 
-  const anonymize = { guestName: null, guestEmail: null, guestPhone: null, notes: null };
+  const contactId = params.get("contactId");
+  const contact = contactId ? await prisma.contact.findUnique({ where: { id: contactId } }) : null;
+  const emails = new Set<string>([contact?.email, ...(contact?.otherEmails ?? [])].filter(Boolean) as string[]);
+  const phones = new Set<string>([contact?.phone, ...(contact?.otherPhones ?? [])].filter(Boolean) as string[]);
 
+  let userId: string | null = null;
   if (kind === "user") {
     const user = await prisma.user.findUnique({ where: { id: value } });
     if (!user) return NextResponse.json({ error: "Customer not found" }, { status: 404 });
-    if (user.role === "ADMIN") {
-      return NextResponse.json({ error: "Admins can't be deleted here" }, { status: 400 });
-    }
-    await prisma.$transaction([
-      prisma.order.updateMany({
-        where: { OR: [{ userId: user.id }, { guestEmail: { equals: user.email, mode: "insensitive" } }] },
-        data: { ...anonymize, userId: null },
-      }),
-      prisma.user.delete({ where: { id: user.id } }), // sessions/accounts cascade
-      prisma.contact.deleteMany({ where: { email: user.email.toLowerCase() } }),
-    ]);
+    if (user.role === "ADMIN") return NextResponse.json({ error: "Admins can't be deleted here" }, { status: 400 });
+    userId = user.id;
+    emails.add(user.email.toLowerCase());
   } else if (kind === "email") {
-    await prisma.$transaction([
-      prisma.order.updateMany({
-        where: { userId: null, guestEmail: { equals: value, mode: "insensitive" } },
-        data: anonymize,
-      }),
-      prisma.contact.deleteMany({ where: { email: value } }),
-    ]);
+    emails.add(value);
   } else if (kind === "phone") {
-    // Phones were grouped by digits only, so match on that
-    const orders = await prisma.order.findMany({
-      where: { userId: null, guestEmail: null, guestPhone: { not: null } },
-      select: { id: true, guestPhone: true },
-    });
-    const ids = orders.filter((o) => phoneKey(o.guestPhone) === value).map((o) => o.id);
-    await prisma.$transaction([
-      prisma.order.updateMany({ where: { id: { in: ids } }, data: anonymize }),
-      prisma.contact.deleteMany({ where: { phone: value } }),
-    ]);
-  } else {
+    phones.add(value);
+  } else if (kind !== "contact") {
     return NextResponse.json({ error: "Invalid customer" }, { status: 400 });
   }
+
+  // Guest orders made with any of their emails, or (with no email) any of their numbers
+  const phoneOrders = phones.size
+    ? (
+        await prisma.order.findMany({
+          where: { userId: null, guestPhone: { not: null } },
+          select: { id: true, guestPhone: true },
+        })
+      )
+        .filter((o) => phones.has(phoneKey(o.guestPhone)))
+        .map((o) => o.id)
+    : [];
+  const anonymize = { guestName: null, guestEmail: null, guestPhone: null, notes: null };
+
+  await prisma.$transaction([
+    prisma.order.updateMany({
+      where: {
+        OR: [
+          ...(userId ? [{ userId }] : []),
+          ...[...emails].map((e) => ({ guestEmail: { equals: e, mode: "insensitive" as const } })),
+          { id: { in: phoneOrders } },
+        ],
+      },
+      data: { ...anonymize, userId: null },
+    }),
+    ...(userId ? [prisma.user.delete({ where: { id: userId } })] : []), // sessions/accounts cascade
+    prisma.contact.deleteMany({
+      where: { OR: [...(contact ? [{ id: contact.id }] : []), { email: { in: [...emails] } }] },
+    }),
+  ]);
 
   return NextResponse.json({ ok: true });
 }

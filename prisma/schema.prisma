@@ -303,6 +303,9 @@ model Contact {
   name      String?
   email     String?  @unique // stored lowercase
   phone     String?          // digits only, e.g. 5551234567
+  // Earlier emails/numbers, kept so orders placed with them stay with this customer
+  otherEmails String[] @default([])
+  otherPhones String[] @default([])
   createdAt DateTime @default(now())
 
   @@index([phone])

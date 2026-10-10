@@ -37,9 +37,10 @@ export async function POST(req: Request) {
     if (seen.has(dedupe)) continue;
     seen.add(dedupe);
 
+    // Match on current or earlier emails/numbers kept on their profile
     const existing = email
-      ? await prisma.contact.findUnique({ where: { email } })
-      : await prisma.contact.findFirst({ where: { phone: phone!, email: null } });
+      ? await prisma.contact.findFirst({ where: { OR: [{ email }, { otherEmails: { has: email } }] } })
+      : await prisma.contact.findFirst({ where: { OR: [{ phone: phone! }, { otherPhones: { has: phone! } }] } });
     if (existing) {
       const patch: { name?: string; phone?: string } = {};
       if (!existing.name && name) patch.name = name;
