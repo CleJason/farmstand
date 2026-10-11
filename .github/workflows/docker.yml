@@ -388,6 +388,7 @@ jobs:
           c=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/not-a-page); echo "GET /not-a-page -> $c"; [ "$c" = "404" ] || exit 1
           home=$(curl -s http://localhost:3000/)
           echo "$home" | grep -q "Order Here Now" || { echo "edited text not shown"; exit 1; }
+          echo "$home" | grep -o 'href="[^"]*"' | sort -u | head -n 30
           echo "$home" | grep -q 'href="/porch-pickup"' || { echo "links don't use the new address"; exit 1; }
 
       - name: Text STOP / START
