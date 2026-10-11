@@ -7,6 +7,7 @@ import { notifyGiftActivated } from "@/lib/gift-notify";
 import { formatPickup, pickupAddressFor } from "@/lib/pickup";
 import { getSiteSettings } from "@/lib/site";
 import { countsStock } from "@/lib/stock";
+import { getStripe } from "@/lib/stripe";
 import { maybeRequestReview } from "@/lib/review-requests";
 
 export async function GET(
@@ -83,18 +84,42 @@ export async function PUT(
 
   const { id } = await params;
   const data = await req.json();
-  const { status, manualPaymentRef } = data;
+  let status: string | undefined = data.status || undefined;
+  const { manualPaymentRef } = data;
 
   const existing = await prisma.order.findUnique({ where: { id }, include: { items: true } });
   if (!existing) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
+  // Cancelling or refunding a paid card order sends the money back through Stripe
+  // first; only if that works does the order change (and it's marked Refunded).
+  const paidByCard =
+    existing.paymentMethod === "STRIPE" && !!existing.stripePaymentIntentId && countsStock(existing.status) && existing.total > 0;
+  if (paidByCard && (status === "CANCELLED" || status === "REFUNDED")) {
+    const stripe = await getStripe();
+    if (!stripe) {
+      return NextResponse.json({ error: "Card payments aren't set up, so this can't be refunded automatically" }, { status: 400 });
+    }
+    try {
+      await stripe.refunds.create(
+        { payment_intent: existing.stripePaymentIntentId!, amount: existing.total },
+        { idempotencyKey: `refund-${existing.id}` }
+      );
+    } catch (err) {
+      const e = err as { code?: string; message?: string };
+      if (e.code !== "charge_already_refunded") {
+        return NextResponse.json({ error: `Stripe couldn't refund it: ${e.message ?? "unknown error"}` }, { status: 400 });
+      }
+    }
+    status = "REFUNDED";
+  }
+
   const { order, activatedGift } = await prisma.$transaction(async (tx) => {
     const updated = await tx.order.update({
       where: { id },
       data: {
-        status: status || undefined,
+        status,
         manualPaymentRef: manualPaymentRef !== undefined ? manualPaymentRef : undefined,
       },
       include: {

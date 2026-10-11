@@ -73,6 +73,9 @@ export async function POST(req: Request) {
           type: order.type,
           status: "PAID",
           paymentMethod: "STRIPE",
+          // So the owner hears about card orders too (they confirm themselves)
+          ownerEmail: await getSetting("ADMIN_EMAIL"),
+          adminUrl: `${await getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || "")}/admin`,
           total: order.total,
           customerName: order.guestName || order.user?.name || null,
           customerEmail: order.guestEmail || order.user?.email,

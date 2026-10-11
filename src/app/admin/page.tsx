@@ -97,6 +97,7 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({ status }),
       });
       if (res.ok) loadOrders();
+      else alert((await res.json().catch(() => ({}))).error || "Failed to update status");
     } catch {
       alert("Failed to update status");
     }
@@ -363,7 +364,13 @@ export default function AdminDashboardPage() {
                   )}
                   {order.status !== "CANCELLED" && order.status !== "REFUNDED" && order.status !== "PICKED_UP" && (
                     <button
-                      onClick={() => updateOrderStatus(order.id, "CANCELLED")}
+                      onClick={() => {
+                        const card = order.paymentMethod === "STRIPE" && ["PAID", "READY"].includes(order.status);
+                        const msg = card
+                          ? `Cancel order #${order.id.slice(-6).toUpperCase()}? ${formatPrice(order.total)} will be refunded to their card.`
+                          : `Cancel order #${order.id.slice(-6).toUpperCase()}?`;
+                        if (confirm(msg)) updateOrderStatus(order.id, "CANCELLED");
+                      }}
                       className="text-stone-400 hover:text-red-600 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors ml-auto"
                     >
                       Cancel
