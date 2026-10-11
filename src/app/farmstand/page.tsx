@@ -9,6 +9,7 @@ import DiscountInput, { type AppliedDiscount } from "@/components/DiscountInput"
 import GiftCardInput, { type AppliedGift } from "@/components/GiftCardInput";
 import LegalFooter from "@/components/LegalFooter";
 import SpamHint from "@/components/SpamHint";
+import { StoreHeader } from "@/components/StoreChrome";
 import Link from "next/link";
 
 interface FarmstandItem {
@@ -193,8 +194,10 @@ export default function FarmstandKioskPage() {
 
   return (
     <div className="min-h-screen bg-[#FAF6F0] text-[#2D1E18] pb-40">
+      {/* Site menu (logo home, gift card, sign in / admin) so this page isn't a dead end */}
+      <StoreHeader />
       {/* Header */}
-      <header className="bg-white border-b border-stone-200 sticky top-0 z-30 px-4 py-4 text-center shadow-xs">
+      <header className="bg-white border-b border-stone-200 px-4 py-4 text-center shadow-xs">
         <span className="text-xs font-bold text-amber-600 uppercase tracking-widest">
           {site.SITE_NAME}
         </span>

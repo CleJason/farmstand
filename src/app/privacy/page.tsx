@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getSiteSettings } from "@/lib/site";
 import { defaultPrivacy } from "@/lib/legal";
 import { StoreHeader } from "@/components/StoreChrome";
@@ -15,6 +16,9 @@ export default async function PrivacyPage() {
     <div className="min-h-screen bg-white flex flex-col">
       <StoreHeader />
       <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-10">
+        <Link href="/" className="inline-block text-sm text-amber-700 font-semibold hover:underline mb-4">
+          ← Back to the shop
+        </Link>
         <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Privacy Policy</h1>
         {updated && <LastUpdated date={updated} />}
         <div className="mt-6">
