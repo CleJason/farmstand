@@ -319,6 +319,12 @@ model Contact {
   @@index([phone])
 }
 
+// Customers who asked not to get "How was it?" review emails
+model ReviewOptOut {
+  email     String   @id // lowercase
+  createdAt DateTime @default(now())
+}
+
 // Numbers that replied STOP: never texted again (until they reply START)
 model SmsOptOut {
   phone     String   @id // digits, e.g. 5551234567

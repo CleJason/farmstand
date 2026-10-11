@@ -58,6 +58,9 @@ export async function maybeRequestReview(orderId: string): Promise<void> {
 
   const { days, percent } = await reviewSettings();
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  // They asked not to get review emails
+  if (await prisma.reviewOptOut.findUnique({ where: { email } })) return;
+
   const [recentlyAsked, recentlyReviewed, reviewedBefore] = await Promise.all([
     prisma.order.count({
       where: {
@@ -83,6 +86,8 @@ export async function maybeRequestReview(orderId: string): Promise<void> {
     customerName: order.user?.name ?? null,
     products: orderProductNames(order.items),
     reviewUrl: `${appUrl}/review?token=${token}`,
+    // "Don't ask me for reviews" link at the bottom of the email
+    optOutUrl: `${appUrl}/review/stop?token=${token}`,
     // Offered only on their first review
     rewardPercent: reviewedBefore ? 0 : percent,
   });
