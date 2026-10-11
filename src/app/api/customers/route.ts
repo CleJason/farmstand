@@ -25,6 +25,8 @@ export type Customer = {
   previousEmails: string[];
   previousPhones: string[];
   contactId: string | null; // the owner-entered record for this customer, if any
+  imported: { orders: number; spent: number; firstOrderAt: string | null; lastOrderAt: string | null } | null;
+  note: string | null;
   signedUpAt: string | null;
   orderCount: number;
   totalSpent: number; // cents, counted orders only
@@ -46,6 +48,8 @@ const blank = (key: string, kind: Customer["kind"]): Customer => ({
   previousEmails: [],
   previousPhones: [],
   contactId: null,
+  imported: null,
+  note: null,
   signedUpAt: null,
   orderCount: 0,
   totalSpent: 0,
@@ -181,6 +185,22 @@ export async function GET() {
     target.phone = ct.phone ?? target.phone;
     target.previousEmails = ct.otherEmails;
     target.previousPhones = ct.otherPhones;
+    target.note = ct.note;
+    // History brought over from Hotplate etc. counts in their totals
+    if (ct.importedOrders || ct.importedSpent || ct.lastOrderAt) {
+      target.imported = {
+        orders: ct.importedOrders,
+        spent: ct.importedSpent,
+        firstOrderAt: ct.firstOrderAt?.toISOString() ?? null,
+        lastOrderAt: ct.lastOrderAt?.toISOString() ?? null,
+      };
+      target.orderCount += ct.importedOrders;
+      target.totalSpent += ct.importedSpent;
+      const last = ct.lastOrderAt?.toISOString();
+      if (last && last > (target.lastOrderAt ?? "")) target.lastOrderAt = last;
+    }
+    const since = ct.customerSince?.toISOString();
+    if (since && since < (target.signedUpAt ?? "9999")) target.signedUpAt = since;
     for (const e of emails) byEmail.set(e, target.key);
     for (const p of phones) byPhone.set(p, target.key);
   }

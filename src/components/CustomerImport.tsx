@@ -40,6 +40,7 @@ export default function CustomerImport({ onDone }: { onDone: () => void }) {
   const [one, setOne] = useState<ImportedCustomer>({ name: "", email: "", phone: "" });
   const [rows, setRows] = useState<ImportedCustomer[]>([]);
   const [columns, setColumns] = useState("");
+  const [subscribedColumn, setSubscribedColumn] = useState<string | null>(null);
   const [subscribe, setSubscribe] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -48,6 +49,7 @@ export default function CustomerImport({ onDone }: { onDone: () => void }) {
     setMode(null);
     setRows([]);
     setColumns("");
+    setSubscribedColumn(null);
     setMessage("");
     setSubscribe(false);
     setOne({ name: "", email: "", phone: "" });
@@ -57,10 +59,13 @@ export default function CustomerImport({ onDone }: { onDone: () => void }) {
     const parsed = customersFromCsv(await file.text());
     setRows(parsed.rows);
     setColumns(parsed.columns);
+    setSubscribedColumn(parsed.subscribedColumn);
     setMessage(parsed.rows.length ? "" : "Couldn't find any customers in that file.");
   };
 
   const usable = rows.filter((r) => r.email.trim() || r.phone.trim());
+  const withHistory = usable.filter((r) => r.orders || r.spent).length;
+  const subscribedCount = usable.filter((r) => r.email.trim() && r.subscribed !== false).length;
 
   const run = async (list: ImportedCustomer[]) => {
     setBusy(true);
@@ -157,6 +162,14 @@ export default function CustomerImport({ onDone }: { onDone: () => void }) {
                         {rows.length > usable.length && ` (${rows.length - usable.length} rows without an email or phone will be skipped)`}.
                       </p>
                       {columns && <p className="text-xs text-stone-500">Using columns: {columns}</p>}
+                      {withHistory > 0 && (
+                        <p className="text-xs text-stone-600">{withHistory} with past orders and amounts, added to their totals.</p>
+                      )}
+                      <p className="text-xs text-stone-600">
+                        {subscribedColumn
+                          ? `Subscribed (from "${subscribedColumn}"): ${subscribedCount} with an email. Only they can be added to Drop Alerts.`
+                          : "No subscribed column found, so ticking Drop Alerts below adds everyone with an email."}
+                      </p>
                       <ul className="text-xs text-stone-600 pt-1">
                         {usable.slice(0, 3).map((r, i) => (
                           <li key={i}>{[r.name, r.email, r.phone].filter(Boolean).join(" · ")}</li>

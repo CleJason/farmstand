@@ -306,6 +306,13 @@ model Contact {
   // Earlier emails/numbers, kept so orders placed with them stay with this customer
   otherEmails String[] @default([])
   otherPhones String[] @default([])
+  // History brought over from another platform (e.g. Hotplate's customer export)
+  importedOrders  Int       @default(0)
+  importedSpent   Int       @default(0) // cents
+  firstOrderAt    DateTime?
+  lastOrderAt     DateTime?
+  customerSince   DateTime?
+  note            String?
   createdAt DateTime @default(now())
 
   @@index([phone])

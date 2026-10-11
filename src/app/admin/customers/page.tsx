@@ -270,6 +270,14 @@ export default function AdminCustomersPage() {
               <div className="text-sm text-stone-500 mt-1 space-y-0.5">
                 {selected.email && <div>{selected.email}</div>}
                 {selected.phone && <div>{selected.phone}</div>}
+                {selected.imported && (
+                  <div className="text-xs text-stone-600">
+                    Imported history: {selected.imported.orders} {selected.imported.orders === 1 ? "order" : "orders"} ·{" "}
+                    {formatPrice(selected.imported.spent)}
+                    {selected.imported.lastOrderAt && ` · last ${shortDate(selected.imported.lastOrderAt)}`}
+                  </div>
+                )}
+                {selected.note && <div className="text-xs text-stone-600 italic">Note: {selected.note}</div>}
                 {(selected.previousEmails.length > 0 || selected.previousPhones.length > 0) && (
                   <div className="text-xs text-stone-400">
                     Previously: {[...selected.previousEmails, ...selected.previousPhones].join(", ")}
