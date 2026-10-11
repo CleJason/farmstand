@@ -11,6 +11,8 @@ import DiscountInput, { type AppliedDiscount } from "@/components/DiscountInput"
 import GiftCardInput, { type AppliedGift } from "@/components/GiftCardInput";
 import LegalFooter from "@/components/LegalFooter";
 import BoxBuilder from "@/components/BoxBuilder";
+import AddOnPicker from "@/components/AddOnPicker";
+import { addOnsKey, productAddOns } from "@/lib/addons";
 import SpamHint from "@/components/SpamHint";
 import { type BoxPick, describePicks, dropBoxOptions, isBox, picksKey } from "@/lib/box";
 
@@ -41,6 +43,7 @@ interface DropDetails {
       price: number;
       imageUrl: string | null;
       imagePosition: string | null;
+      addOns: unknown;
       boxSize: number | null;
       boxOptions: string[];
     };
@@ -48,7 +51,7 @@ interface DropDetails {
 }
 
 // One cart line: a product, or one filled mix & match box (same picks share a line)
-type CartLine = { key: string; dropProductId: string; quantity: number; selections?: BoxPick[] };
+type CartLine = { key: string; dropProductId: string; quantity: number; selections?: BoxPick[]; addOns?: string[] };
 
 export default function DropDetailPage() {
   const site = useSite();
@@ -139,13 +142,13 @@ export default function DropDetailPage() {
   };
 
   /** Change a cart line by delta; creates it when adding a new product/box. */
-  const updateLine = (dropProductId: string, delta: number, selections?: BoxPick[]) => {
-    const key = `${dropProductId}#${picksKey(selections)}`;
+  const updateLine = (dropProductId: string, delta: number, selections?: BoxPick[], addOns?: string[]) => {
+    const key = `${dropProductId}#${picksKey(selections)}#${addOnsKey(addOns)}`;
     if (delta > 0 && !canAdd(dropProductId)) return;
     setCart((prev) => {
       const existing = prev.find((l) => l.key === key);
       if (!existing) {
-        return delta > 0 ? [...prev, { key, dropProductId, quantity: delta, selections }] : prev;
+        return delta > 0 ? [...prev, { key, dropProductId, quantity: delta, selections, addOns }] : prev;
       }
       const quantity = existing.quantity + delta;
       return quantity <= 0
@@ -157,10 +160,16 @@ export default function DropDetailPage() {
   const priceOf = (dp: DropDetails["dropProducts"][number]) =>
     dp.priceOverride !== null ? dp.priceOverride : dp.product.price;
 
+  // Price of one item on a line: the product plus any add-ons chosen
+  const unitPrice = (dp: DropDetails["dropProducts"][number], addOns?: string[]) =>
+    priceOf(dp) + productAddOns(dp.product.addOns).filter((a) => addOns?.includes(a.name)).reduce((s, a) => s + a.price, 0);
+
   const cartTotal = cart.reduce((sum, l) => {
     const dp = drop?.dropProducts.find((p) => p.id === l.dropProductId);
-    return dp ? sum + priceOf(dp) * l.quantity : sum;
+    return dp ? sum + unitPrice(dp, l.addOns) * l.quantity : sum;
   }, 0);
+  const [addingTo, setAddingTo] = useState<string | null>(null); // product with add-ons being added
+  const addOnProduct = drop?.dropProducts.find((p) => p.id === addingTo);
 
   const totalItemsCount = cart.reduce((a, l) => a + l.quantity, 0);
   const boxProduct = drop?.dropProducts.find((p) => p.id === buildingBoxFor);
@@ -184,6 +193,7 @@ export default function DropDetailPage() {
         dropProductId: l.dropProductId,
         quantity: l.quantity,
         selections: l.selections ?? null,
+        addOns: l.addOns ?? [],
       }));
 
       const res = await fetch("/api/orders", {
@@ -396,7 +406,9 @@ export default function DropDetailPage() {
                   : null;
               const isSoldOut = remaining !== null && remaining <= 0;
               const box = isBox(dp.product);
-              const boxLines = box ? cart.filter((l) => l.dropProductId === dp.id) : [];
+              const extras = productAddOns(dp.product.addOns);
+              // Boxes and products with add-ons list each different choice as its own line
+              const boxLines = box || extras.length > 0 ? cart.filter((l) => l.dropProductId === dp.id) : [];
 
               return (
                 <div
@@ -460,6 +472,14 @@ export default function DropDetailPage() {
                     >
                       {qty > 0 ? "+ Another box" : `Build a box`}
                     </button>
+                  ) : extras.length > 0 ? (
+                    <button
+                      disabled={(remaining !== null && qty >= remaining) || isSoldOut}
+                      onClick={() => setAddingTo(dp.id)}
+                      className="shrink-0 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed transition shadow-xs"
+                    >
+                      {qty > 0 ? "+ Add more" : "Add"}
+                    </button>
                   ) : (
                   /* Quantity Stepper */
                   <div className="flex items-center gap-2 shrink-0">
@@ -494,10 +514,16 @@ export default function DropDetailPage() {
                         key={l.key}
                         className="flex items-center justify-between gap-3 bg-[#FAF6F0] border border-[#E8DFD5] rounded-xl px-3 py-2"
                       >
-                        <p className="text-xs text-[#2D1E18] min-w-0">{describePicks(l.selections)}</p>
+                        <p className="text-xs text-[#2D1E18] min-w-0">
+                          {[describePicks(l.selections), l.addOns?.map((a) => `+ ${a}`).join(", ")].filter(Boolean).join(" · ") ||
+                            "Regular"}
+                          {l.addOns?.length ? (
+                            <span className="text-[#8A756C]"> · {formatPrice(unitPrice(dp, l.addOns))} each</span>
+                          ) : null}
+                        </p>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
-                            onClick={() => updateLine(dp.id, -1, l.selections)}
+                            onClick={() => updateLine(dp.id, -1, l.selections, l.addOns)}
                             aria-label="One less of this box"
                             className="w-7 h-7 rounded-md border border-stone-200 bg-white font-bold text-sm hover:bg-stone-50"
                           >
@@ -506,7 +532,7 @@ export default function DropDetailPage() {
                           <span className="w-5 text-center font-bold text-xs">{l.quantity}</span>
                           <button
                             disabled={!canAdd(dp.id)}
-                            onClick={() => updateLine(dp.id, 1, l.selections)}
+                            onClick={() => updateLine(dp.id, 1, l.selections, l.addOns)}
                             aria-label="One more of this box"
                             className="w-7 h-7 rounded-md bg-amber-600 text-white font-bold text-sm disabled:opacity-30"
                           >
@@ -686,11 +712,30 @@ export default function DropDetailPage() {
           price={priceOf(boxProduct)}
           boxSize={boxProduct.product.boxSize!}
           options={dropBoxOptions(boxProduct.product.boxOptions, boxProduct.boxOptions)}
-          onAdd={(picks) => {
-            updateLine(boxProduct.id, 1, picks);
+          addOns={productAddOns(boxProduct.product.addOns)}
+          onAdd={(picks, addOnNames) => {
+            updateLine(boxProduct.id, 1, picks, addOnNames.length ? addOnNames : undefined);
             setBuildingBoxFor(null);
           }}
           onClose={() => setBuildingBoxFor(null)}
+        />
+      )}
+
+      {addOnProduct && (
+        <AddOnPicker
+          name={addOnProduct.product.name}
+          price={priceOf(addOnProduct)}
+          addOns={productAddOns(addOnProduct.product.addOns)}
+          maxQty={
+            addOnProduct.quantityLimit === null
+              ? null
+              : addOnProduct.quantityLimit - addOnProduct.quantitySold - qtyInCart(addOnProduct.id)
+          }
+          onAdd={(quantity, addOnNames) => {
+            updateLine(addOnProduct.id, quantity, undefined, addOnNames.length ? addOnNames : undefined);
+            setAddingTo(null);
+          }}
+          onClose={() => setAddingTo(null)}
         />
       )}
 

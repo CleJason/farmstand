@@ -22,7 +22,10 @@ export async function GET() {
           total: true,
           status: true,
           // for the mix & match box tally (what to bake)
-          items: { where: { selections: { not: Prisma.DbNull } }, select: { dropProductId: true, quantity: true, selections: true } },
+          items: {
+            where: { OR: [{ selections: { not: Prisma.DbNull } }, { addOns: { not: Prisma.DbNull } }] },
+            select: { dropProductId: true, quantity: true, selections: true, addOns: true },
+          },
         },
       },
     },

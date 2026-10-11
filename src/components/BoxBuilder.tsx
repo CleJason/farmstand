@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import type { BoxPick } from "@/lib/box";
+import type { AddOn } from "@/lib/addons";
+import { AddOnChecklist } from "@/components/AddOnPicker";
 
 /**
  * Bottom sheet where the customer fills one mix & match box: a stepper per
@@ -14,6 +16,7 @@ export default function BoxBuilder({
   price,
   boxSize,
   options,
+  addOns = [],
   onAdd,
   onClose,
 }: {
@@ -21,10 +24,12 @@ export default function BoxBuilder({
   price: number;
   boxSize: number;
   options: string[];
-  onAdd: (picks: BoxPick[]) => void;
+  addOns?: AddOn[];
+  onAdd: (picks: BoxPick[], addOnNames: string[]) => void;
   onClose: () => void;
 }) {
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [extras, setExtras] = useState<string[]>([]);
   const chosen = Object.values(counts).reduce((a, b) => a + b, 0);
   const left = boxSize - chosen;
 
@@ -50,7 +55,10 @@ export default function BoxBuilder({
   const fillWith = (option: string) => setCounts({ [option]: boxSize });
 
   const add = () => {
-    onAdd(options.filter((o) => (counts[o] ?? 0) > 0).map((o) => ({ name: o, quantity: counts[o] })));
+    onAdd(
+      options.filter((o) => (counts[o] ?? 0) > 0).map((o) => ({ name: o, quantity: counts[o] })),
+      extras
+    );
   };
 
   return (
@@ -113,6 +121,7 @@ export default function BoxBuilder({
         </div>
 
         <div className="px-5 py-4 border-t border-stone-100 space-y-2">
+          <AddOnChecklist addOns={addOns} chosen={extras} onChange={setExtras} />
           <div className="h-1.5 rounded-full bg-stone-100 overflow-hidden">
             <div
               className="h-full bg-amber-500 transition-all"
@@ -125,7 +134,9 @@ export default function BoxBuilder({
             onClick={add}
             className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl disabled:opacity-50 text-sm"
           >
-            {left > 0 ? `Choose ${left} more` : `Add to order · ${formatPrice(price)}`}
+            {left > 0
+              ? `Choose ${left} more`
+              : `Add to order · ${formatPrice(price + addOns.filter((a) => extras.includes(a.name)).reduce((s, a) => s + a.price, 0))}`}
           </button>
         </div>
       </div>

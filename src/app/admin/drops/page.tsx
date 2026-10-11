@@ -6,6 +6,7 @@ import { formatDate, formatPrice } from "@/lib/utils";
 import { countsStock } from "@/lib/stock";
 import { useSite } from "@/components/SiteProvider";
 import type { BoxPick } from "@/lib/box";
+import { productAddOns } from "@/lib/addons";
 
 interface PickupSlot {
   id: string;
@@ -41,22 +42,26 @@ interface Drop {
     id: string;
     total: number;
     status: string;
-    items?: { dropProductId: string | null; quantity: number; selections: unknown }[];
+    items?: { dropProductId: string | null; quantity: number; selections: unknown; addOns?: unknown }[];
   }[];
 }
 
-/** For each mix & match box in the drop: how many of each choice to make. */
+/** For each box (choices) or product with add-ons in the drop: how many of each to make. */
 function boxTally(drop: Drop) {
   const tally = new Map<string, Map<string, number>>();
+  const add = (dpId: string, label: string, n: number) => {
+    const counts = tally.get(dpId) ?? new Map<string, number>();
+    counts.set(label, (counts.get(label) ?? 0) + n);
+    tally.set(dpId, counts);
+  };
   for (const order of drop.orders ?? []) {
     if (!countsStock(order.status)) continue;
     for (const item of order.items ?? []) {
-      if (!item.dropProductId || !Array.isArray(item.selections)) continue;
-      const counts = tally.get(item.dropProductId) ?? new Map<string, number>();
-      for (const pick of item.selections as BoxPick[]) {
-        counts.set(pick.name, (counts.get(pick.name) ?? 0) + pick.quantity * item.quantity);
+      if (!item.dropProductId) continue;
+      if (Array.isArray(item.selections)) {
+        for (const pick of item.selections as BoxPick[]) add(item.dropProductId, pick.name, pick.quantity * item.quantity);
       }
-      tally.set(item.dropProductId, counts);
+      for (const a of productAddOns(item.addOns)) add(item.dropProductId, `+ ${a.name}`, item.quantity);
     }
   }
   return drop.dropProducts

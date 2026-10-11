@@ -391,6 +391,21 @@ jobs:
           c=$(sms ci-secret '{"phone":"5557770000","text":"START"}'); echo "START -> $(cat /tmp/sms.json)"; grep -q '"start"' /tmp/sms.json || exit 1
           [ "$(psql "$PGURL" -tAc "SELECT count(*) FROM \"SmsOptOut\"")" = "0" ] || { echo "still opted out"; exit 1; }
 
+      - name: Product add-ons
+        env:
+          PGURL: postgresql://farmstand:smoketest@localhost:5432/farmstand
+        run: |
+          psql "$PGURL" -v ON_ERROR_STOP=1 <<SQL
+          INSERT INTO "Product" (id, name, price, "addOns", "updatedAt") VALUES ('p3', 'Cinnamon Roll', 500, '[{"name":"Extra icing","price":100}]', now());
+          INSERT INTO "DropProduct" (id, "dropId", "productId") VALUES ('dp3', 'd2', 'p3');
+          SQL
+          ao() { curl -s -o /tmp/ao.json -w '%{http_code}' -X POST http://localhost:3000/api/orders -H 'Content-Type: application/json' \
+            -d "{\"type\":\"DROP\",\"dropId\":\"d2\",\"paymentMethod\":\"VENMO\",\"guestName\":\"Test\",\"guestEmail\":\"ao@example.com\",\"items\":$1}"; }
+          c=$(ao '[{"dropProductId":"dp3","quantity":2,"addOns":["Extra icing"]},{"dropProductId":"dp3","quantity":1}]')
+          echo "rolls with and without icing -> $c $(cat /tmp/ao.json)"; [ "$c" = "200" ] || exit 1
+          [ "$(jq -r .total /tmp/ao.json)" = "1700" ] || { echo "Expected 2x600 + 500"; exit 1; }
+          c=$(ao '[{"dropProductId":"dp3","quantity":1,"addOns":["Sprinkles"]}]'); echo "unknown add-on -> $c"; [ "$c" = "400" ] || exit 1
+
       - name: Container logs
         if: always()
         run: docker logs farmstand || true

@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { getSiteSettings } from "@/lib/site";
 import { formatPickup, isPaidStatus, pickupAddressFor } from "@/lib/pickup";
 import { describePicks } from "@/lib/box";
+import { describeAddOns } from "@/lib/addons";
 import { formatPrice } from "@/lib/utils";
 import { SignOutButton, StoreHeader } from "@/components/StoreChrome";
 import LegalFooter from "@/components/LegalFooter";
@@ -101,6 +102,9 @@ export default async function MyOrdersPage() {
                         {i.quantity} × {i.dropProduct?.product.name ?? i.farmstandItem?.name ?? "Item"}
                         {describePicks(i.selections) && (
                           <span className="block text-xs text-stone-500 pl-4">{describePicks(i.selections)}</span>
+                        )}
+                        {describeAddOns(i.addOns) && (
+                          <span className="block text-xs text-stone-500 pl-4">{describeAddOns(i.addOns)}</span>
                         )}
                       </span>
                       <span className="text-stone-500">{formatPrice(i.priceAtPurchase * i.quantity)}</span>

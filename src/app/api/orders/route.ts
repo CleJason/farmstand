@@ -10,6 +10,7 @@ import { evaluateGift, GiftError, normalizeGiftCode } from "@/lib/gift";
 import { applyStatusChange } from "@/lib/order-effects";
 import { getSiteSettings } from "@/lib/site";
 import { type BoxPick, describePicks, dropBoxOptions, isBox, picksKey, validatePicks } from "@/lib/box";
+import { type AddOn, addOnsKey, addOnsTotal, chosenAddOns, describeAddOns, productAddOns } from "@/lib/addons";
 import {
   formatPickup,
   hideAddress,
@@ -66,15 +67,16 @@ class OrderError extends Error {}
 
 const PAYMENT_METHODS = ["STRIPE", "PAYPAL", "VENMO"];
 
-type RequestedItem = { id: string; quantity: number; selections: unknown };
+type RequestedItem = { id: string; quantity: number; selections: unknown; addOns: unknown };
 
 type PricedLine = {
   dropProductId: string | null;
   farmstandItemId: string | null;
-  name: string; // includes the box picks, for notifications
+  name: string; // includes the box picks and add-ons, for notifications
   quantity: number;
-  price: number; // cents, from the database
+  price: number; // cents per item, from the database (add-ons included)
   selections: BoxPick[] | null;
+  addOns: AddOn[] | null;
 };
 
 /** Validate quantities. Client-sent prices are ignored. */
@@ -89,15 +91,15 @@ function parseItems(items: unknown, key: "dropProductId" | "farmstandItemId"): R
     if (!Number.isInteger(quantity) || quantity < 1) {
       throw new OrderError("Quantities must be whole numbers of at least 1");
     }
-    return { id, quantity, selections: it?.selections };
+    return { id, quantity, selections: it?.selections, addOns: it?.addOns };
   });
 }
 
-/** Combine lines for the same item (and, for boxes, the same picks). */
+/** Combine lines for the same item (and the same box picks and add-ons). */
 function mergeLines(lines: PricedLine[]): PricedLine[] {
   const merged = new Map<string, PricedLine>();
   for (const l of lines) {
-    const key = `${l.dropProductId ?? l.farmstandItemId}#${picksKey(l.selections)}`;
+    const key = `${l.dropProductId ?? l.farmstandItemId}#${picksKey(l.selections)}#${addOnsKey(l.addOns?.map((a) => a.name))}`;
     const prev = merged.get(key);
     merged.set(key, prev ? { ...prev, quantity: prev.quantity + l.quantity } : l);
   }
@@ -136,7 +138,7 @@ async function priceOrder(
       requested.map(({ id, quantity }) => {
         const item = stock.find((s) => s.id === id);
         if (!item || !item.available) throw new OrderError("An item in your cart is no longer available");
-        return { dropProductId: null, farmstandItemId: id, name: item.name, quantity, price: item.price, selections: null };
+        return { dropProductId: null, farmstandItemId: id, name: item.name, quantity, price: item.price, selections: null, addOns: null };
       })
     );
     for (const [id, quantity] of totalsById(lines, "farmstandItemId")) {
@@ -181,27 +183,32 @@ async function priceOrder(
 
   const requested = parseItems(input.items, "dropProductId");
   const lines = mergeLines(
-    requested.map(({ id, quantity, selections }) => {
+    requested.map(({ id, quantity, selections, addOns }) => {
       const dp = drop.dropProducts.find((d) => d.id === id);
       if (!dp) throw new OrderError("An item in your cart is not part of this drop");
       let picks: BoxPick[] | null = null;
-      if (isBox(dp.product)) {
-        try {
+      let extras: AddOn[] = [];
+      try {
+        if (isBox(dp.product)) {
           picks = validatePicks(
             { ...dp.product, boxOptions: dropBoxOptions(dp.product.boxOptions, dp.boxOptions) },
             selections
           );
-        } catch (e) {
-          throw new OrderError((e as Error).message);
         }
+        extras = chosenAddOns(dp.product.name, productAddOns(dp.product.addOns), addOns);
+      } catch (e) {
+        throw new OrderError((e as Error).message);
       }
+      const details = [describePicks(picks), describeAddOns(extras)].filter(Boolean).join("; ");
       return {
         dropProductId: id,
         farmstandItemId: null,
-        name: picks ? `${dp.product.name} (${describePicks(picks)})` : dp.product.name,
+        name: details ? `${dp.product.name} (${details})` : dp.product.name,
         quantity,
-        price: dp.priceOverride ?? dp.product.price,
+        // Add-ons are per item, priced from the product
+        price: (dp.priceOverride ?? dp.product.price) + addOnsTotal(extras),
         selections: picks,
+        addOns: extras.length ? extras : null,
       };
     })
   );
@@ -300,6 +307,7 @@ export async function POST(req: Request) {
             quantity: l.quantity,
             priceAtPurchase: l.price,
             selections: l.selections ? (l.selections as Prisma.InputJsonValue) : Prisma.DbNull,
+            addOns: l.addOns ? (l.addOns as Prisma.InputJsonValue) : Prisma.DbNull,
           })),
         },
       };

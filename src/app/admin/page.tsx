@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { formatPrice } from "@/lib/utils";
 import { useSite } from "@/components/SiteProvider";
 import { describePicks } from "@/lib/box";
+import { describeAddOns } from "@/lib/addons";
 
 interface Order {
   id: string;
@@ -30,6 +31,7 @@ interface Order {
     quantity: number;
     priceAtPurchase: number;
     selections: unknown;
+    addOns: unknown;
     dropProduct: { product: { name: string } } | null;
     farmstandItem: { name: string } | null;
   }[];
@@ -322,6 +324,9 @@ export default function AdminDashboardPage() {
                           "Item"}
                         {describePicks(item.selections) && (
                           <span className="block pl-4 text-stone-500">{describePicks(item.selections)}</span>
+                        )}
+                        {describeAddOns(item.addOns) && (
+                          <span className="block pl-4 font-semibold text-amber-800">{describeAddOns(item.addOns)}</span>
                         )}
                       </span>
                       <span className="text-stone-500">

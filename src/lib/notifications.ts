@@ -1,6 +1,7 @@
 import { getSetting } from "@/lib/settings";
 import { getSiteSettings, isOn } from "@/lib/site";
 import { describePicks } from "@/lib/box";
+import { describeAddOns } from "@/lib/addons";
 import { isOptedOut } from "@/lib/sms-opt-out";
 
 /**
@@ -36,6 +37,7 @@ type NamedItem = {
   quantity: number;
   priceAtPurchase: number;
   selections: unknown;
+  addOns?: unknown;
   dropProduct?: { product: { name: string } } | null;
   farmstandItem?: { name: string } | null;
 };
@@ -44,8 +46,8 @@ type NamedItem = {
 export function notificationItems(items: NamedItem[]) {
   return items.map((i) => {
     const name = i.dropProduct?.product.name ?? i.farmstandItem?.name ?? "Item";
-    const picks = describePicks(i.selections);
-    return { name: picks ? `${name} (${picks})` : name, quantity: i.quantity, price: i.priceAtPurchase };
+    const details = [describePicks(i.selections), describeAddOns(i.addOns)].filter(Boolean).join("; ");
+    return { name: details ? `${name} (${details})` : name, quantity: i.quantity, price: i.priceAtPurchase };
   });
 }
 

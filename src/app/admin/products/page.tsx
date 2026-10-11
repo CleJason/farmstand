@@ -17,6 +17,7 @@ interface Product {
   active: boolean;
   boxSize: number | null;
   boxOptions: string[];
+  addOns: { name: string; price: number }[];
 }
 
 export default function AdminProductsPage() {
@@ -34,6 +35,8 @@ export default function AdminProductsPage() {
   const [isBox, setIsBox] = useState(false);
   const [boxSize, setBoxSize] = useState("");
   const [boxOptions, setBoxOptions] = useState("");
+  // Add-ons as typed: name + dollars
+  const [addOns, setAddOns] = useState<{ name: string; price: string }[]>([]);
 
   const loadProducts = async () => {
     try {
@@ -63,6 +66,7 @@ export default function AdminProductsPage() {
     setIsBox(false);
     setBoxSize("");
     setBoxOptions("");
+    setAddOns([]);
     setShowModal(true);
   };
 
@@ -77,6 +81,7 @@ export default function AdminProductsPage() {
     setIsBox(!!product.boxSize);
     setBoxSize(product.boxSize ? String(product.boxSize) : "");
     setBoxOptions((product.boxOptions ?? []).join("\n"));
+    setAddOns((product.addOns ?? []).map((a) => ({ name: a.name, price: (a.price / 100).toFixed(2) })));
     setShowModal(true);
   };
 
@@ -103,6 +108,9 @@ export default function AdminProductsPage() {
       imagePosition: imageUrl ? imagePosition : null,
       boxSize: isBox ? Number(boxSize) : null,
       boxOptions: isBox ? options : [],
+      addOns: addOns
+        .filter((a) => a.name.trim())
+        .map((a) => ({ name: a.name.trim(), price: Math.round((Number(a.price) || 0) * 100) })),
     };
     try {
       const res = editingId
@@ -216,6 +224,11 @@ export default function AdminProductsPage() {
                     Box of {product.boxSize} · {product.boxOptions.length} choices
                   </p>
                 )}
+                {product.addOns?.length > 0 && (
+                  <p className="text-[11px] text-amber-700 mt-0.5">
+                    Add-ons: {product.addOns.map((a) => `${a.name} +${formatPrice(a.price)}`).join(", ")}
+                  </p>
+                )}
                 <div className="mt-3 pt-3 border-t border-stone-100 flex items-center justify-between">
                   <button
                     onClick={() => openEdit(product)}
@@ -320,6 +333,49 @@ export default function AdminProductsPage() {
                     className="w-full text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
                   />
                 </div>
+              </div>
+
+              <div className="rounded-lg border border-stone-200 p-3 space-y-2">
+                <div>
+                  <span className="block text-sm font-medium text-stone-800">Add-ons</span>
+                  <span className="block text-xs text-stone-500">
+                    Extras customers can tick, like &quot;Extra icing&quot;. The price is added per item.
+                  </span>
+                </div>
+                {addOns.map((a, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input
+                      value={a.name}
+                      onChange={(e) => setAddOns(addOns.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+                      placeholder="e.g. Extra icing"
+                      className="flex-1 min-w-0 text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={a.price}
+                      onChange={(e) => setAddOns(addOns.map((x, j) => (j === i ? { ...x, price: e.target.value } : x)))}
+                      placeholder="$ 1.00"
+                      className="w-24 text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Remove add-on"
+                      onClick={() => setAddOns(addOns.filter((_, j) => j !== i))}
+                      className="px-2 text-stone-400 hover:text-red-600"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setAddOns([...addOns, { name: "", price: "" }])}
+                  className="text-xs font-semibold text-amber-700 hover:underline"
+                >
+                  + Add an add-on
+                </button>
               </div>
 
               <div className="rounded-lg border border-stone-200 p-3 space-y-3">

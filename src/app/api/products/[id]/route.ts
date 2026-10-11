@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { cleanPosition } from "@/lib/image-position";
 import { cleanBoxOptions, cleanBoxSize } from "@/lib/box";
+import { cleanAddOns } from "@/lib/addons";
 
 export async function PUT(
   req: Request,
@@ -29,6 +30,7 @@ export async function PUT(
       active: active !== undefined ? Boolean(active) : undefined,
       boxSize: data.boxSize !== undefined ? cleanBoxSize(data.boxSize) : undefined,
       boxOptions: data.boxOptions !== undefined ? cleanBoxOptions(data.boxOptions) : undefined,
+      addOns: data.addOns !== undefined ? cleanAddOns(data.addOns) : undefined,
     },
   });
 

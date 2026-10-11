@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { cleanPosition } from "@/lib/image-position";
 import { cleanBoxOptions, cleanBoxSize } from "@/lib/box";
+import { cleanAddOns } from "@/lib/addons";
 
 export async function GET() {
   const products = await prisma.product.findMany({
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
       active: active !== undefined ? Boolean(active) : true,
       boxSize: cleanBoxSize(data.boxSize),
       boxOptions: cleanBoxOptions(data.boxOptions),
+      addOns: cleanAddOns(data.addOns),
     },
   });
 

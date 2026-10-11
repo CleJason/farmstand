@@ -85,6 +85,8 @@ model Product {
   // (e.g. a 6-cookie box from 4 flavors). null = a normal product.
   boxSize     Int?
   boxOptions  String[] @default([])
+  // Optional extras the customer can tick, e.g. [{ "name": "Extra icing", "price": 100 }] (cents, per item)
+  addOns      Json     @default("[]")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -216,6 +218,7 @@ model OrderItem {
   quantity          Int
   priceAtPurchase   Int      // cents — snapshot at time of order
   selections        Json?    // mix & match box picks: [{ name, quantity }] per box
+  addOns            Json?    // extras chosen: [{ name, price }] (price included in priceAtPurchase)
   createdAt         DateTime @default(now())
 
   order         Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
