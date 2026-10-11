@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 interface Subscriber {
   id: string;
+  name: string | null; // looked up from customers/orders
   email: string | null; // null = phone only
   phone: string | null;
   createdAt: string;
@@ -28,7 +29,7 @@ export default function AdminAlertsPage() {
   }, []);
 
   const remove = async (s: Subscriber) => {
-    if (!confirm(`Remove ${s.email ?? s.phone} from drop alerts?`)) return;
+    if (!confirm(`Remove ${s.name ?? s.email ?? s.phone} from drop alerts?`)) return;
     const res = await fetch(`/api/subscribers?id=${encodeURIComponent(s.id)}`, { method: "DELETE" });
     if (res.ok) load();
     else alert("Couldn't remove them");
@@ -44,8 +45,8 @@ export default function AdminAlertsPage() {
   const exportCsv = () => {
     const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
     const csv = [
-      "Email,Phone,Signed Up",
-      ...subscribers.map((s) => [s.email ?? "", s.phone ?? "", s.createdAt.slice(0, 10)].map(esc).join(",")),
+      "Name,Email,Phone,Signed Up",
+      ...subscribers.map((s) => [s.name ?? "", s.email ?? "", s.phone ?? "", s.createdAt.slice(0, 10)].map(esc).join(",")),
     ].join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
@@ -98,7 +99,8 @@ export default function AdminAlertsPage() {
             <tbody className="divide-y divide-stone-100">
               {subscribers.map((s) => (
                 <tr key={s.id}>
-                  <td className="px-4 py-3 text-stone-900">{s.email ?? <span className="text-stone-400">text only</span>}</td>
+                  <td className="px-4 py-3 text-stone-900 font-medium">{s.name ?? <span className="text-stone-300 font-normal">—</span>}</td>
+                  <td className="px-4 py-3 text-stone-700">{s.email ?? <span className="text-stone-400">text only</span>}</td>
                   <td className="px-4 py-3 text-stone-600 whitespace-nowrap">{s.phone || "—"}</td>
                   <td className="px-4 py-3 text-stone-500 whitespace-nowrap">{shortDate(s.createdAt)}</td>
                   <td className="px-4 py-3 text-right">
