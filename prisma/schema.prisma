@@ -253,6 +253,7 @@ model DiscountCode {
   minSubtotal Int?                // cents; null = no minimum
   maxUses     Int?                // null = unlimited
   uses        Int       @default(0) // counted like stock: placed/paid orders only
+  allowedEmails String[] @default([]) // personal code: only these customers (lowercase); empty = anyone
   expiresAt   DateTime?
   active      Boolean   @default(true)
   createdAt   DateTime  @default(now())

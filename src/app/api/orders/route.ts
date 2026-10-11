@@ -249,7 +249,7 @@ export async function POST(req: Request) {
       let discountCode: string | null = null;
       let discount = 0;
       if (normalizeCode(data.discountCode)) {
-        const result = await evaluateDiscount(db, data.discountCode, type, subtotal);
+        const result = await evaluateDiscount(db, data.discountCode, type, subtotal, guestEmail || session?.user?.email);
         discountCode = result.code.code;
         discount = result.amount;
       }

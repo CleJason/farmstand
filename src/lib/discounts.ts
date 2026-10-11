@@ -15,11 +15,20 @@ export async function evaluateDiscount(
   db: Prisma.TransactionClient,
   rawCode: unknown,
   orderType: "DROP" | "FARMSTAND",
-  subtotal: number
+  subtotal: number,
+  customerEmail?: string | null
 ): Promise<{ code: DiscountCode; amount: number }> {
   const code = normalizeCode(rawCode);
   const discount = await db.discountCode.findUnique({ where: { code } });
   if (!discount || !discount.active) throw new DiscountError("That discount code isn't valid");
+  // Personal codes only work with the email(s) they were given to
+  if (discount.allowedEmails.length > 0) {
+    const email = String(customerEmail ?? "").trim().toLowerCase();
+    if (!email) throw new DiscountError("That code is for a specific customer. Enter your email first, then apply it");
+    if (!discount.allowedEmails.includes(email)) {
+      throw new DiscountError("That code is for a different customer. Use the email it was sent to");
+    }
+  }
   if (discount.expiresAt && discount.expiresAt < new Date()) {
     throw new DiscountError("That discount code has expired");
   }

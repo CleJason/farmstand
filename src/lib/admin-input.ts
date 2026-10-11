@@ -37,6 +37,14 @@ export function parseDiscount(body: Record<string, unknown>) {
     maxUses: optInt(body.maxUses, 1, "Max uses"),
     expiresAt,
     active: body.active === undefined ? true : Boolean(body.active),
+    // Personal code: only these customers' emails can use it (empty = anyone)
+    allowedEmails: [
+      ...new Set(
+        (Array.isArray(body.allowedEmails) ? body.allowedEmails : String(body.allowedEmails ?? "").split(/[\s,;]+/))
+          .map((e) => String(e).trim().toLowerCase())
+          .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
+      ),
+    ].slice(0, 100),
   };
 }
 

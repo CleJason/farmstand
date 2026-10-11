@@ -12,10 +12,12 @@ export type AppliedDiscount = { code: string; discount: number } | null;
 export default function DiscountInput({
   type,
   subtotal,
+  email = "",
   onChange,
 }: {
   type: "DROP" | "FARMSTAND";
   subtotal: number;
+  email?: string; // for personal codes that only work for certain customers
   onChange: (applied: AppliedDiscount) => void;
 }) {
   const [code, setCode] = useState("");
@@ -30,7 +32,7 @@ export default function DiscountInput({
       const res = await fetch("/api/discounts/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: value, type, subtotal }),
+        body: JSON.stringify({ code: value, type, subtotal, email }),
       }).then((r) => r.json());
       const next = res.valid ? { code: res.code as string, discount: res.discount as number } : null;
       setApplied(next);
@@ -43,11 +45,11 @@ export default function DiscountInput({
     }
   };
 
-  // Recalculate when the cart changes after a code was applied
+  // Recalculate when the cart (or the email, for personal codes) changes after a code was applied
   useEffect(() => {
     if (applied) check(applied.code);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subtotal]);
+  }, [subtotal, email]);
 
   const remove = () => {
     setApplied(null);

@@ -358,6 +358,20 @@ jobs:
           echo "$pub" | grep -qi "reviewer@example.com" && { echo "email leaked"; exit 1; }
           echo "reviews ok"
 
+      - name: Personal discount codes
+        env:
+          PGURL: postgresql://farmstand:smoketest@localhost:5432/farmstand
+        run: |
+          psql "$PGURL" -c "INSERT INTO \"DiscountCode\" (id, code, type, value, \"allowedEmails\", \"updatedAt\") VALUES ('dc2', 'SAM10', 'PERCENT', 10, ARRAY['sam@example.com'], now())"
+          box='[{"dropProductId":"dp2","quantity":1,"selections":[{"name":"Chocolate Chip","quantity":6}]}]'
+          pc() { curl -s -o /tmp/pc.json -w '%{http_code}' -X POST http://localhost:3000/api/orders -H 'Content-Type: application/json' \
+            -d "{\"type\":\"DROP\",\"dropId\":\"d2\",\"discountCode\":\"SAM10\",\"paymentMethod\":\"VENMO\",\"guestName\":\"Test\",\"guestEmail\":\"$1\",\"items\":$box}"; }
+          c=$(pc "someone@example.com"); echo "personal code, wrong email -> $c $(cat /tmp/pc.json)"; [ "$c" = "400" ] || exit 1
+          c=$(pc "Sam@Example.com"); echo "personal code, right email -> $c $(cat /tmp/pc.json)"; [ "$c" = "200" ] || exit 1
+          [ "$(jq -r .total /tmp/pc.json)" = "1620" ] || { echo "Expected 10% off 1800"; exit 1; }
+          chk=$(curl -s -X POST http://localhost:3000/api/discounts/check -H 'Content-Type: application/json' -d '{"code":"SAM10","type":"DROP","subtotal":1000}')
+          echo "check without email: $chk"; echo "$chk" | grep -q '"valid":false' || exit 1
+
       - name: Container logs
         if: always()
         run: docker logs farmstand || true

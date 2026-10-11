@@ -370,7 +370,7 @@ export default function FarmstandKioskPage() {
               />
             </div>
 
-            <DiscountInput type="FARMSTAND" subtotal={cartTotal} onChange={setDiscount} />
+            <DiscountInput type="FARMSTAND" subtotal={cartTotal} email={guestEmail} onChange={setDiscount} />
             <GiftCardInput amountDue={cartTotal - (discount?.discount ?? 0)} onChange={setGift} />
 
             <p className="text-[10px] text-stone-400 leading-snug">

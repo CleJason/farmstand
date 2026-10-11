@@ -46,7 +46,8 @@ export async function POST(req: Request) {
         if (first && percent > 0) {
           rewardCode = generateRewardCode();
           await tx.discountCode.create({
-            data: { code: rewardCode, type: "PERCENT", value: percent, appliesTo: "ALL", maxUses: 1 },
+            // Only works for the reviewer
+            data: { code: rewardCode, type: "PERCENT", value: percent, appliesTo: "ALL", maxUses: 1, allowedEmails: [email] },
           });
         }
         await tx.review.create({

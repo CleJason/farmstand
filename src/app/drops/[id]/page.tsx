@@ -589,7 +589,7 @@ export default function DropDetailPage() {
 
             <div>
               <label className="block text-xs font-bold text-[#2D1E18] mb-1">Discount Code</label>
-              <DiscountInput type="DROP" subtotal={cartTotal} onChange={setDiscount} />
+              <DiscountInput type="DROP" subtotal={cartTotal} email={guestEmail} onChange={setDiscount} />
             </div>
 
             <div>

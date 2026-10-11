@@ -45,6 +45,11 @@ export default async function MyOrdersPage() {
     }),
     prisma.contact.findFirst({ where: { OR: [{ email }, { otherEmails: { has: email } }] } }),
   ]);
+  // Reviews they've left (here or linked by the owner), under any of their emails
+  const reviews = await prisma.review.findMany({
+    where: { email: { in: [...new Set([email, contact?.email, ...(contact?.otherEmails ?? [])].filter(Boolean) as string[])] } },
+    orderBy: { reviewDate: "desc" },
+  });
 
   return (
     <div className="min-h-screen bg-[#FAFAF8]">
@@ -119,6 +124,32 @@ export default async function MyOrdersPage() {
               </div>
             );
           })
+        )}
+        {reviews.length > 0 && (
+          <section className="space-y-3 pt-4">
+            <h2 className="text-lg font-bold text-stone-900">My Reviews</h2>
+            {reviews.map((r) => (
+              <div key={r.id} className="bg-white rounded-xl border border-stone-200 p-4 space-y-1.5">
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-amber-500">
+                    {"★".repeat(r.rating)}
+                    <span className="text-stone-300">{"★".repeat(5 - r.rating)}</span>
+                  </span>
+                  <span className="text-xs text-stone-400">
+                    {r.reviewDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    {!r.visible && " · waiting for approval"}
+                  </span>
+                </div>
+                <p className="text-sm text-stone-700 whitespace-pre-line">{r.body}</p>
+                {r.products && <p className="text-xs text-stone-500">{r.products}</p>}
+                {r.reply && (
+                  <p className="text-sm text-stone-600 bg-[#FAF6F0] rounded-lg p-2.5">
+                    <b>{site.SITE_NAME}:</b> {r.reply}
+                  </p>
+                )}
+              </div>
+            ))}
+          </section>
         )}
         <p className="text-xs text-stone-400 text-center">Questions about an order? Just reply to your confirmation email.</p>
       </main>

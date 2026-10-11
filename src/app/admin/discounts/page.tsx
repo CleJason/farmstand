@@ -15,9 +15,11 @@ interface DiscountCode {
   uses: number;
   expiresAt: string | null;
   active: boolean;
+  allowedEmails: string[];
 }
 
 type Form = {
+  allowedEmails: string[]; // personal code: only these customers
   code: string;
   type: "PERCENT" | "AMOUNT";
   value: string; // percent or dollars
@@ -27,7 +29,16 @@ type Form = {
   expiresAt: string; // yyyy-mm-dd
 };
 
-const emptyForm: Form = { code: "", type: "PERCENT", value: "", appliesTo: "ALL", minSubtotal: "", maxUses: "", expiresAt: "" };
+const emptyForm: Form = {
+  code: "",
+  type: "PERCENT",
+  value: "",
+  appliesTo: "ALL",
+  minSubtotal: "",
+  maxUses: "",
+  expiresAt: "",
+  allowedEmails: [],
+};
 
 const inputClass =
   "w-full text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500";
@@ -60,6 +71,26 @@ export default function AdminDiscountsPage() {
 
   const set = (patch: Partial<Form>) => setForm((f) => ({ ...f, ...patch }));
 
+  // Customers to pick from for personal codes
+  const [customers, setCustomers] = useState<{ name: string | null; email: string }[]>([]);
+  const [pick, setPick] = useState("");
+  useEffect(() => {
+    fetch("/api/customers")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d: { name: string | null; email: string | null }[]) =>
+        setCustomers(Array.isArray(d) ? d.filter((c) => c.email).map((c) => ({ name: c.name, email: c.email!.toLowerCase() })) : [])
+      )
+      .catch(() => {});
+  }, []);
+  const nameFor = (email: string) => customers.find((c) => c.email === email)?.name;
+  const addCustomer = () => {
+    const email = pick.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError("Pick a customer, or type their email");
+    setError(null);
+    if (!form.allowedEmails.includes(email)) set({ allowedEmails: [...form.allowedEmails, email] });
+    setPick("");
+  };
+
   const openNew = () => {
     setEditingId(null);
     setForm(emptyForm);
@@ -77,6 +108,7 @@ export default function AdminDiscountsPage() {
       minSubtotal: d.minSubtotal !== null ? (d.minSubtotal / 100).toFixed(2) : "",
       maxUses: d.maxUses !== null ? String(d.maxUses) : "",
       expiresAt: d.expiresAt ? d.expiresAt.slice(0, 10) : "",
+      allowedEmails: d.allowedEmails ?? [],
     });
     setError(null);
     setShowModal(true);
@@ -94,6 +126,7 @@ export default function AdminDiscountsPage() {
       maxUses: form.maxUses || null,
       // Valid through the end of the chosen day
       expiresAt: form.expiresAt ? new Date(`${form.expiresAt}T23:59:59`).toISOString() : null,
+      allowedEmails: form.allowedEmails,
     };
     const res = await fetch(editingId ? `/api/discounts/${editingId}` : "/api/discounts", {
       method: editingId ? "PUT" : "POST",
@@ -157,6 +190,11 @@ export default function AdminDiscountsPage() {
                 </div>
                 <div className="text-xs text-stone-500 space-y-0.5">
                   <div>{appliesLabel[d.appliesTo]}</div>
+                  {d.allowedEmails?.length > 0 && (
+                    <div className="text-amber-800">
+                      Only for: {d.allowedEmails.map((e) => nameFor(e) ?? e).join(", ")}
+                    </div>
+                  )}
                   {d.minSubtotal !== null && <div>Min order {formatPrice(d.minSubtotal)}</div>}
                   <div>
                     Used {d.uses}
@@ -190,7 +228,7 @@ export default function AdminDiscountsPage() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-stone-900 mb-4">{editingId ? "Edit Code" : "New Discount Code"}</h2>
             <form onSubmit={save} className="space-y-3">
               <label className="block">
@@ -240,6 +278,58 @@ export default function AdminDiscountsPage() {
                   <span className="block text-xs font-medium text-stone-600 mb-1">Expires</span>
                   <input type="date" value={form.expiresAt} onChange={(e) => set({ expiresAt: e.target.value })} className={inputClass} />
                 </label>
+              </div>
+              <div>
+                <span className="block text-xs font-medium text-stone-600 mb-1">Only for these customers (optional)</span>
+                <div className="flex gap-2">
+                  <input
+                    list="discount-customers"
+                    value={pick}
+                    onChange={(e) => setPick(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addCustomer();
+                      }
+                    }}
+                    placeholder="Start typing a name or email"
+                    className={inputClass}
+                  />
+                  <button type="button" onClick={addCustomer} className="px-3 text-sm font-semibold rounded-lg border border-stone-300 text-stone-700 hover:bg-stone-50">
+                    Add
+                  </button>
+                </div>
+                <datalist id="discount-customers">
+                  {customers.map((c) => (
+                    <option key={c.email} value={c.email}>
+                      {c.name ?? ""}
+                    </option>
+                  ))}
+                </datalist>
+                {form.allowedEmails.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {form.allowedEmails.map((e) => (
+                      <span key={e} className="inline-flex items-center gap-1 text-xs bg-amber-50 border border-amber-200 text-amber-900 rounded-full pl-2.5 pr-1 py-0.5">
+                        {nameFor(e) ? `${nameFor(e)} · ${e}` : e}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${e}`}
+                          onClick={() => set({ allowedEmails: form.allowedEmails.filter((x) => x !== e) })}
+                          className="px-1 text-amber-700 hover:text-red-600"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-stone-400 mt-1">Leave empty and anyone can use the code.</p>
+                )}
+                {form.allowedEmails.length > 0 && (
+                  <p className="text-[11px] text-stone-400 mt-1">
+                    It only works when the order uses one of these emails. Set Max uses to 1 for a one-time code.
+                  </p>
+                )}
               </div>
               {error && <p className="text-sm text-red-600">{error}</p>}
               <div className="flex gap-2 pt-2">
