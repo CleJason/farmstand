@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Elements,
   PaymentElement,
@@ -89,13 +89,17 @@ export default function CheckoutModal({
   onSuccess,
   onClose,
 }: CheckoutModalProps) {
-  const stripePromise = stripePublishableKey
-    ? loadStripe(stripePublishableKey)
-    : null;
+  // Load Stripe once, not on every render (re-loading resets the card form)
+  const stripePromise = useMemo(
+    () => (stripePublishableKey ? loadStripe(stripePublishableKey) : null),
+    [stripePublishableKey]
+  );
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+    // Scrolls as a whole, so the card form fits even on short phone screens
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto overscroll-contain">
+      <div className="min-h-full flex items-start sm:items-center justify-center p-3 sm:p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative my-2">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl font-bold"
@@ -162,6 +166,7 @@ export default function CheckoutModal({
             </button>
           </div>
         ) : null}
+      </div>
       </div>
     </div>
   );
