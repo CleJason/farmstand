@@ -12,8 +12,11 @@ export default function ReviewForm({
   products,
   defaultName,
   rewardPercent,
+  preview = false,
 }: {
   token: string;
+  preview?: boolean; // admin preview: shows the thank-you without saving
+
   shopName: string;
   products: string[];
   defaultName: string;
@@ -30,6 +33,10 @@ export default function ReviewForm({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (preview) {
+      setDone({ code: rewardPercent > 0 ? "THANKS-SAMPLE" : null, percent: rewardPercent });
+      return;
+    }
     setSending(true);
     setError("");
     try {

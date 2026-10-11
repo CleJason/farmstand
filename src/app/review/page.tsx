@@ -4,13 +4,43 @@ import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/site";
 import { hasReviewed, orderProductNames, reviewSettings } from "@/lib/review-requests";
 import ReviewForm from "@/components/ReviewForm";
+import { auth } from "@/lib/auth";
 
 export const metadata = { title: "Leave a review", robots: { index: false } };
 
 /** The private link from a customer's "How was it?" email. */
-export default async function ReviewPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
+export default async function ReviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ token?: string; preview?: string }>;
+}) {
   await connection();
-  const { token } = await searchParams;
+  const { token, preview } = await searchParams;
+
+  // Admin → Site → Text & buttons: see the form with sample products (nothing is saved)
+  if (preview) {
+    const session = await auth();
+    if (session?.user?.role === "ADMIN") {
+      const [site, { percent }] = await Promise.all([getSiteSettings(), reviewSettings()]);
+      return (
+        <div className="min-h-screen bg-[#FAF6F0] flex items-center justify-center p-4 sm:p-6">
+          <div className="max-w-md w-full bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-stone-200 space-y-4">
+            <p className="text-xs text-center text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
+              Preview: what customers see from their &quot;How was it?&quot; email. Sending here saves nothing.
+            </p>
+            <ReviewForm
+              token=""
+              preview
+              shopName={site.SITE_NAME}
+              products={["Sample item", "Another item"]}
+              defaultName=""
+              rewardPercent={percent}
+            />
+          </div>
+        </div>
+      );
+    }
+  }
   const [site, order] = await Promise.all([
     getSiteSettings(),
     token

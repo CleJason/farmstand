@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { COPY, parseCopy, type CopyKey, type CopyOverrides } from "@/lib/copy";
+import { useSite } from "@/components/SiteProvider";
+import { standHref } from "@/lib/site-defaults";
 
 const inputClass =
   "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500";
@@ -9,11 +11,36 @@ const inputClass =
 const KEYS = Object.keys(COPY) as CopyKey[];
 const GROUPS = [...new Set(KEYS.map((k) => COPY[k].group))];
 
+/** Where each section shows up, and how to get there. */
+function previewFor(group: string, stand: string): { href: string; how?: string }[] {
+  switch (group) {
+    case "Menu & footer":
+    case "Home page":
+      return [{ href: "/" }];
+    case "Pre-order page":
+    case "Boxes & add-ons":
+      return [{ href: "/#drops", how: "open a drop" }];
+    case "Walk-up page":
+      return [{ href: stand }];
+    case "Checkout":
+      return [{ href: stand, how: "add an item, choose Card, tap Pay; close before paying and no order is made" }];
+    case "Gift card page":
+      return [{ href: "/gift" }];
+    case "Sign in & My orders":
+      return [{ href: "/my-orders" }, { href: "/login" }];
+    case "Review form":
+      return [{ href: "/review?preview=1" }];
+    default:
+      return [];
+  }
+}
+
 /**
  * Admin → Site → Text & buttons: every customer-facing label, grouped by page.
  * Empty = the default wording. Edits live in the site form until Save.
  */
 export default function CopyEditor({ value, onChange }: { value: string; onChange: (json: string) => void }) {
+  const stand = standHref(useSite());
   const overrides = useMemo(() => parseCopy(value), [value]);
   const [search, setSearch] = useState("");
   const q = search.trim().toLowerCase();
@@ -59,6 +86,18 @@ export default function CopyEditor({ value, onChange }: { value: string; onChang
               {groupChanged > 0 && <span className="ml-2 text-xs font-normal text-amber-700">{groupChanged} changed</span>}
             </summary>
             <div className="space-y-3 px-3 pb-3">
+              <p className="text-[11px] text-stone-500">
+                Save, then preview:{" "}
+                {previewFor(group, stand).map((p, i) => (
+                  <span key={p.href}>
+                    {i > 0 && " · "}
+                    <a href={p.href} target="_blank" rel="noopener" className="font-medium text-amber-700 underline">
+                      {p.href.replace("?preview=1", "")} ↗
+                    </a>
+                    {p.how && ` (${p.how})`}
+                  </span>
+                ))}
+              </p>
               {keys.map((k) => {
                 const entry = COPY[k];
                 const long = "long" in entry && entry.long;
