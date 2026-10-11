@@ -57,7 +57,11 @@ export default function AdminMessagesPage() {
     if (open) loadConvo(open).then(loadThreads);
   }, [open, loadConvo, loadThreads]);
 
-  useEffect(() => bottom.current?.scrollIntoView({ block: "end" }), [convo?.messages.length]);
+  // Braces matter: newer browsers return a Promise from scrollIntoView, and an
+  // effect must not return anything but a cleanup function (React crashes)
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ block: "end" });
+  }, [convo?.messages.length]);
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
