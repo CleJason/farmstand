@@ -17,7 +17,10 @@ export async function POST(req: Request) {
   }
   const { phone, text } = await req.json().catch(() => ({}));
   const key = phoneKey(String(phone ?? ""));
-  const action = keywordAction(String(text ?? ""));
+  const body = String(text ?? "").slice(0, 2000);
+  // Every incoming text shows up in Admin → Messages
+  if (key && body.trim()) await prisma.smsMessage.create({ data: { phone: key, direction: "IN", body } });
+  const action = keywordAction(body);
   if (!key || !action) return NextResponse.json({ action: "none" });
 
   if (action === "stop") {

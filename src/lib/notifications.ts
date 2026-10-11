@@ -18,7 +18,8 @@ type NotificationEvent =
   | "drop.reminder"
   | "farmstand.purchased"
   | "review.requested"
-  | "review.thanks";
+  | "review.thanks"
+  | "sms.send";
 
 /** Business name for emails/texts, or "" if the owner turned that off in Admin → Site. */
 async function businessName() {
@@ -51,9 +52,9 @@ export function notificationItems(items: NamedItem[]) {
 export async function fireNotification(
   event: NotificationEvent,
   payload: Record<string, unknown>
-): Promise<void> {
+): Promise<boolean> {
   const baseUrl = await getSetting("N8N_WEBHOOK_BASE_URL");
-  if (!baseUrl) return;
+  if (!baseUrl) return false;
 
   const secret = await getSetting("N8N_WEBHOOK_SECRET");
   const url = `${baseUrl}/${event}`;
@@ -75,8 +76,10 @@ export async function fireNotification(
     if (!res.ok) {
       console.error(`[n8n] Webhook ${event} returned ${res.status}`);
     }
+    return res.ok; // true = n8n took it
   } catch (err) {
     // Never throw — notification failure should not break the order flow
     console.error(`[n8n] Failed to fire ${event}:`, err);
+    return false;
   }
 }

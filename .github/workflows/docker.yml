@@ -383,6 +383,8 @@ jobs:
           sms() { curl -s -o /tmp/sms.json -w '%{http_code}' -X POST http://localhost:3000/api/sms/inbound -H 'Content-Type: application/json' -H "x-webhook-secret: $1" -d "$2"; }
           c=$(sms wrong '{"phone":"+15557770000","text":"STOP"}'); echo "wrong secret -> $c"; [ "$c" = "401" ] || exit 1
           c=$(sms ci-secret '{"phone":"+15557770000","text":"Thanks!"}'); echo "normal reply -> $(cat /tmp/sms.json)"; grep -q '"none"' /tmp/sms.json || exit 1
+          [ "$(psql "$PGURL" -tAc "SELECT body FROM \"SmsMessage\" WHERE phone = '5557770000' AND direction = 'IN' LIMIT 1")" = "Thanks!" ] || { echo "text not saved to inbox"; exit 1; }
+          c=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/messages); echo "inbox signed out -> $c"; [ "$c" = "401" ] || exit 1
           c=$(sms ci-secret '{"phone":"+1 (555) 777-0000","text":" stop "}'); echo "STOP -> $(cat /tmp/sms.json)"; grep -q '"stop"' /tmp/sms.json || exit 1
           [ "$(psql "$PGURL" -tAc "SELECT count(*) FROM \"SmsOptOut\" WHERE phone = '5557770000'")" = "1" ] || { echo "not opted out"; exit 1; }
           [ "$(psql "$PGURL" -tAc "SELECT count(*) FROM \"Subscriber\" WHERE id = 'sp1'")" = "0" ] || { echo "still on alerts"; exit 1; }

@@ -325,6 +325,18 @@ model ReviewOptOut {
   createdAt DateTime @default(now())
 }
 
+// Text conversations shown in Admin → Messages (incoming texts and the owner's replies)
+model SmsMessage {
+  id        String   @id @default(cuid())
+  phone     String   // digits, e.g. 5551234567
+  direction String   // IN | OUT
+  body      String
+  read      Boolean  @default(false) // incoming: seen in Admin yet
+  createdAt DateTime @default(now())
+
+  @@index([phone, createdAt])
+}
+
 // Numbers that replied STOP: never texted again (until they reply START)
 model SmsOptOut {
   phone     String   @id // digits, e.g. 5551234567

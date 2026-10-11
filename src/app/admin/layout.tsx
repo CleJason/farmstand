@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { redirectToSetupIfNeeded } from "@/lib/first-run";
 import type { Metadata } from "next";
 import { getSiteSettings } from "@/lib/site";
+import { prisma } from "@/lib/prisma";
 import InstallPrompt from "@/components/InstallPrompt";
 
 export const runtime = "nodejs";
@@ -29,10 +30,14 @@ export default async function AdminLayout({
   const session = await auth();
   if (!session?.user) redirect("/login?callbackUrl=/admin");
   if (session.user.role !== "ADMIN") redirect("/");
-  const site = await getSiteSettings();
+  const [site, unreadTexts] = await Promise.all([
+    getSiteSettings(),
+    prisma.smsMessage.count({ where: { direction: "IN", read: false } }).catch(() => 0),
+  ]);
 
   const navItems = [
     { href: "/admin", label: "Orders", icon: "📋" },
+    { href: "/admin/messages", label: unreadTexts ? `Messages (${unreadTexts})` : "Messages", icon: "💬" },
     { href: "/admin/drops", label: "Drops", icon: "📅" },
     { href: "/admin/farmstand", label: site.SITE_FARMSTAND_HEADING, icon: "🏪" },
     { href: "/admin/products", label: "Products", icon: "📦" },
