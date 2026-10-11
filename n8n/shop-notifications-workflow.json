@@ -11,10 +11,10 @@
         -60
       ],
       "parameters": {
-        "content": "## Shop notifications\nThe shop app POSTs to **<n8n>/webhook/<event>** with an `x-webhook-secret` header. Requests without the right secret are ignored.\n\n**Before activating:**\n1. On each of the 8 webhook nodes, replace `CHANGE_ME` (Options → Only Run If) with your own long random secret.\n2. Pick your SMTP credential on each Send Email node and set the **From** address.\n3. In the shop: Admin → Settings → Notifications, set the n8n URL (ending in /webhook) and the same secret.\n4. SMS is **disabled** until SMS Gate is set up: add its address + login, then enable the SMS node.",
+        "content": "## Shop notifications\nThe shop POSTs to **<n8n>/webhook/<event>** with an `x-webhook-secret` header; anything without the right secret is ignored.\n\n**Setup (see the README for details):**\n1. Replace every `CHANGE_ME` (webhook nodes → Options → Only Run If, and the header on **Check STOP / START**) with your secret.\n2. Pick your SMTP credential on each email node and set the **From** address.\n3. Texts: create an **HTTP Basic Auth** credential with your SMS Gate login, pick it on every SMS Gate node, and replace `YOUR-SMS-GATE-SERVER`.\n4. Replace `YOUR-SHOP-DOMAIN`, `YOUR-N8N-DOMAIN`, `sms-in-CHANGE-ME` and the owner numbers on **Text Owners: New Order**.\n5. Publish, then run **Run Once: Connect Incoming Texts** one time.",
         "color": 4,
-        "width": 380,
-        "height": 400
+        "width": 460,
+        "height": 460
       }
     },
     {
@@ -108,6 +108,12 @@
               "name": "firstName",
               "value": "={{ String($json.body?.customerName ?? \"\").trim().split(/\\s+/)[0] || \"\" }}",
               "type": "string"
+            },
+            {
+              "id": "c11",
+              "name": "canText",
+              "value": "={{ $json.body?.customerCanText !== false }}",
+              "type": "boolean"
             }
           ]
         }
@@ -209,6 +215,15 @@
                 "singleValue": true
               },
               "rightValue": ""
+            },
+            {
+              "leftValue": "={{ $json.canText }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
             }
           ],
           "combinator": "and"
@@ -226,7 +241,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "http://SMS-GATE-PHONE-IP:8080/message",
+        "url": "https://YOUR-SMS-GATE-SERVER/api/3rdparty/v1/messages",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBasicAuth",
         "sendBody": true,
@@ -234,7 +249,6 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ phoneNumbers: [$json.phone], message: $json.shop + \": order #\" + $json.orderNo + \" is confirmed (\" + $json.total + \").\" + ($json.isPickup && $json.pickupWhen ? \" Pickup: \" + $json.pickupWhen + \".\" : \"\") + ($json.isPickup && $json.pickupAddress ? \" \" + $json.pickupAddress.replace(/\\n/g, \", \") : \"\") + \" Reply STOP to opt out.\" }) }}"
       },
-      "disabled": true,
       "onError": "continueRegularOutput"
     },
     {
@@ -648,7 +662,7 @@
         "toEmail": "={{ $json.body?.customerEmail }}",
         "subject": "={{ $json.body?.businessName || \"Your order\" }}: order #{{ String($json.body?.orderId ?? \"\").slice(-6).toUpperCase() }} received – one step left",
         "emailFormat": "html",
-        "html": "={{ (() => { const b = $json.body || {}; const no = String(b.orderId || '').slice(-6).toUpperCase(); const total = '$' + (Number(b.total || 0) / 100).toFixed(2); const isPaypal = b.paymentMethod === 'PAYPAL'; const app = isPaypal ? 'PayPal' : 'Venmo'; const h = String(b.paymentHandle || '').replace(/^@/, ''); const link = !h ? '' : isPaypal ? 'https://paypal.me/' + h + '/' + (Number(b.total || 0) / 100).toFixed(2) : 'https://venmo.com/u/' + h; const items = (b.items || []).map(i => i.quantity + ' × ' + i.name).join('<br>'); return '<div style=\"font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1c1917\"><h2 style=\"margin-bottom:4px\">Thanks! We got your ' + (b.type === 'GIFT' ? 'gift card order' : 'order') + '</h2>' + '<p style=\"color:#57534e\">Order <b>#' + no + '</b> · Total <b>' + total + '</b></p>' + (items ? '<p style=\"line-height:1.6\">' + items + '</p>' : '') + (b.pickupTime ? '<p>Pickup: ' + b.pickupTime + '</p>' : '') + '<div style=\"background:#fafaf8;border:1px solid #e7e5e4;border-radius:12px;padding:14px;margin:16px 0\"><b>To finish, send ' + total + ' with ' + app + '</b>' + (h ? '<br>' + (isPaypal ? 'paypal.me/' : '@') + h : '') + '<br>Please put <b>#' + no + '</b> in the payment note.' + (link ? '<p style=\"margin:14px 0 0\"><a href=\"' + link + '\" style=\"background:#d97706;color:#ffffff;padding:10px 20px;border-radius:999px;text-decoration:none;font-weight:bold\">Pay with ' + app + '</a></p>' : '') + '</div>' + '<p>We\\'ll email your confirmation' + (b.type === 'DROP' ? ' with the exact pickup address' : '') + ' as soon as the payment comes in.</p><p style=\"color:#78716c;font-size:13px\">Questions? Just reply to this email.<br>— ' + (b.businessName || '') + '</p></div>'; })() }}",
+        "html": "={{ (() => { const b = $json.body || {}; const no = String(b.orderId || '').slice(-6).toUpperCase(); const total = '$' + (Number(b.total || 0) / 100).toFixed(2); const isPaypal = b.paymentMethod === 'PAYPAL'; const app = isPaypal ? 'PayPal' : 'Venmo'; const h = String(b.paymentHandle || '').replace(/^@/, ''); const link = !h ? '' : isPaypal ? 'https://paypal.me/' + h + '/' + (Number(b.total || 0) / 100).toFixed(2) : 'https://venmo.com/u/' + h; const items = (b.items || []).map(i => i.quantity + ' × ' + i.name).join('<br>'); return '<div style=\"font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1c1917\"><h2 style=\"margin-bottom:4px\">Thanks! We got your ' + (b.type === 'GIFT' ? 'gift card order' : 'order') + '</h2>' + '<p style=\"color:#57534e\">Order <b>#' + no + '</b> · Total <b>' + total + '</b></p>' + (items ? '<p style=\"line-height:1.6\">' + items + '</p>' : '') + (b.pickupTime ? '<p>Pickup: ' + b.pickupTime + '</p>' : '') + '<div style=\"background:#fafaf8;border:1px solid #e7e5e4;border-radius:12px;padding:14px;margin:16px 0\"><b>To finish, send ' + total + ' with ' + app + '</b>' + (h ? '<br>' + (isPaypal ? 'paypal.me/' : '@') + h : '') + '<br>Please put <b>#' + no + '</b> in the payment note.' + (link ? '<p style=\"margin:14px 0 0\"><a href=\"' + link + '\" style=\"background:#d97706;color:#ffffff;padding:10px 20px;border-radius:999px;text-decoration:none;font-weight:bold\">Pay with ' + app + '</a></p>' : '') + '</div>' + (b.type === 'DROP' ? '<p>Your exact pickup address will be in your confirmation email. Check your spam folder if you don\\'t see it.</p>' : '') + '<p style=\"color:#78716c;font-size:13px\">Questions? Just reply to this email.<br>— ' + (b.businessName || '') + '</p></div>'; })() }}",
         "options": {
           "appendAttribution": false
         }
@@ -688,7 +702,7 @@
         "toEmail": "={{ $json.body?.customerEmail }}",
         "subject": "={{ $json.body?.rewardPercent > 0 ? 'Get ' + $json.body.rewardPercent + '% off: how was your ' + ($json.body?.businessName || '') + ' order?' : 'How was your ' + ($json.body?.businessName || '') + ' order?' }}",
         "emailFormat": "html",
-        "html": "={{ (() => { const b = $json.body || {}; const shop = b.businessName || 'us'; const products = (b.products || []).join(', '); return '<div style=\"font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1c1917;text-align:center\"><h2 style=\"margin-bottom:4px\">How was everything?</h2>' + (products ? '<p style=\"color:#57534e\">' + products + '</p>' : '') + '<p>We hope you loved it! A quick review helps ' + shop + ' more than you know.</p>' + (b.rewardPercent > 0 ? '<p style=\"background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px\">🎁 Leave your first review and get <b>' + b.rewardPercent + '% off</b> your next order.</p>' : '') + '<p style=\"margin:24px 0\"><a href=\"' + b.reviewUrl + '\" style=\"background:#d97706;color:#ffffff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:bold\">Leave a review</a></p>' + '<p style=\"color:#a8a29e;font-size:12px\">It only takes a minute. — ' + (b.businessName || '') + '</p></div>'; })() }}",
+        "html": "={{ (() => { const b = $json.body || {}; const shop = b.businessName || 'us'; const products = (b.products || []).join(', '); return '<div style=\"font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1c1917;text-align:center\"><h2 style=\"margin-bottom:4px\">How was everything?</h2>' + (products ? '<p style=\"color:#57534e\">' + products + '</p>' : '') + '<p>We hope you loved it! A quick review helps ' + shop + ' more than you know.</p>' + (b.rewardPercent > 0 ? '<p style=\"background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px\">🎁 Leave your first review and get <b>' + b.rewardPercent + '% off</b> your next order.</p>' : '') + '<p style=\"margin:24px 0\"><a href=\"' + b.reviewUrl + '\" style=\"background:#d97706;color:#ffffff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:bold\">Leave a review</a></p>' + '<p style=\"color:#a8a29e;font-size:12px\">It only takes a minute. — ' + (b.businessName || '') + '</p>' + (b.optOutUrl ? '<p style=\"color:#a8a29e;font-size:11px\"><a href=\"' + b.optOutUrl + '\" style=\"color:#a8a29e\">Don\\'t ask me for reviews</a></p>' : '') + '</div>'; })() }}",
         "options": {
           "appendAttribution": false
         }
@@ -794,6 +808,255 @@
           "appendAttribution": false
         }
       }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d20",
+      "name": "Text Owners: New Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        784,
+        448
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-SMS-GATE-SERVER/api/3rdparty/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phoneNumbers: ['+15550000001', '+15550000002'], message: (() => { const b = $json.body || {}; const m = b.paymentMethod === 'PAYPAL' ? 'PayPal (check payment)' : b.paymentMethod === 'VENMO' ? 'Venmo (check payment)' : 'card, paid'; return 'New order #' + String(b.orderId || '').slice(-6).toUpperCase() + (b.customerName ? ' - ' + b.customerName : '') + ' - $' + (Number(b.total || 0) / 100).toFixed(2) + ' ' + m + (b.pickupTime ? ' - pickup ' + b.pickupTime : '') + '. ' + (b.items || []).map(i => i.quantity + 'x ' + i.name).join(', '); })() }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d21",
+      "name": "Phone-Only Subscribers",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        1424
+      ],
+      "parameters": {
+        "jsCode": "// People with no email get the drop alert by text (never anyone who replied STOP)\nconst b = $input.first().json.body || {};\nconst shop = b.businessName || 'our shop';\nreturn (b.subscribers || [])\n  .filter((s) => s && !s.email && s.phone && s.canText)\n  .map((s) => {\n    const d = String(s.phone).replace(/\\D/g, '');\n    const phone = d.length === 10 ? '+1' + d : d.length === 11 && d.startsWith('1') ? '+' + d : '+' + d;\n    const message = shop + ': ' + (b.title || 'A new drop') + ' is open for orders! ' + (b.dropUrl || '') + (b.orderCloseAt ? ' Orders close ' + b.orderCloseAt + '.' : '') + ' Reply STOP to opt out.';\n    return { json: { phone, message } };\n  });"
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d22",
+      "name": "One Text At A Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        528,
+        1424
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d23",
+      "name": "Text Drop Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        784,
+        1504
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-SMS-GATE-SERVER/api/3rdparty/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phoneNumbers: [$json.phone], message: $json.message }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d24",
+      "name": "Pause 8s Between Texts",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        1504
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 8,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d25",
+      "name": "Incoming Text (SMS Gate)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        1984
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sms-in-CHANGE-ME",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d26",
+      "name": "Check STOP / START (shop)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        272,
+        1984
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-SHOP-DOMAIN/api/sms/inbound",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $json.body?.payload?.phoneNumber ?? '', text: $json.body?.payload?.message ?? '' }) }}",
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "CHANGE_ME"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d27",
+      "name": "Opted Out Or In?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        528,
+        1984
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.action }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              },
+              "rightValue": "none"
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d28",
+      "name": "Text STOP/START Confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        784,
+        1984
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-SMS-GATE-SERVER/api/3rdparty/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phoneNumbers: [$('Incoming Text (SMS Gate)').item.json.body.payload.phoneNumber], message: $json.action === 'stop' ? 'You are unsubscribed and will not get any more texts from us. Reply START to resubscribe.' : 'You are resubscribed to texts. Reply STOP to opt out.' }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d29",
+      "name": "Run Once: Connect Incoming Texts",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        2208
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d30",
+      "name": "Register Webhook In SMS Gate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        272,
+        2208
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-SMS-GATE-SERVER/api/3rdparty/v1/webhooks",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ id: 'shop-incoming-texts', url: 'https://YOUR-N8N-DOMAIN/webhook/sms-in-CHANGE-ME', event: 'sms:received' }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d31",
+      "name": "Reply From Admin",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        2432
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sms.send",
+        "responseMode": "onReceived",
+        "options": {
+          "onlyRunIf": "={{ $json.headers['x-webhook-secret'] === 'CHANGE_ME' }}"
+        }
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d32",
+      "name": "Send Reply Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        272,
+        2432
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-SMS-GATE-SERVER/api/3rdparty/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phoneNumbers: [$json.body.phone], message: $json.body.message }) }}",
+        "options": {}
+      }
     }
   ],
   "connections": {
@@ -879,6 +1142,11 @@
             "node": "Customer Email On Order?",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Text Owners: New Order",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -961,6 +1229,11 @@
             "node": "One Item Per Subscriber",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Phone-Only Subscribers",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1014,6 +1287,111 @@
         [
           {
             "node": "Email Owner: New Card Order",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Text Owners: New Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Phone-Only Subscribers": {
+      "main": [
+        [
+          {
+            "node": "One Text At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Text At A Time": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Text Drop Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Drop Alert": {
+      "main": [
+        [
+          {
+            "node": "Pause 8s Between Texts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pause 8s Between Texts": {
+      "main": [
+        [
+          {
+            "node": "One Text At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Incoming Text (SMS Gate)": {
+      "main": [
+        [
+          {
+            "node": "Check STOP / START (shop)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check STOP / START (shop)": {
+      "main": [
+        [
+          {
+            "node": "Opted Out Or In?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Opted Out Or In?": {
+      "main": [
+        [
+          {
+            "node": "Text STOP/START Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Once: Connect Incoming Texts": {
+      "main": [
+        [
+          {
+            "node": "Register Webhook In SMS Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply From Admin": {
+      "main": [
+        [
+          {
+            "node": "Send Reply Text",
             "type": "main",
             "index": 0
           }
