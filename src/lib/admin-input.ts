@@ -63,6 +63,10 @@ export function parseReview(body: Record<string, unknown>) {
         .join(", ")
         .slice(0, 500) || null,
     reply: String(body.reply ?? "").trim().slice(0, 4000) || null,
+    // Which customer wrote it (links a review copied from Hotplate to their profile)
+    ...(body.email !== undefined
+      ? { email: String(body.email ?? "").trim().toLowerCase().slice(0, 254) || null }
+      : {}),
     reviewDate,
     visible: body.visible === undefined ? true : Boolean(body.visible),
   };

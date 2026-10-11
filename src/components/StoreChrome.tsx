@@ -54,15 +54,25 @@ function AccountLinks() {
 
   return (
     <>
+      <Link href="/my-orders" className={quiet}>
+        My Orders
+      </Link>
       {viewer.isAdmin && (
         <Link href="/admin" className={primary}>
           Admin
         </Link>
       )}
-      <button type="button" onClick={() => signOut({ callbackUrl: "/" })} className={quiet}>
-        Sign out
-      </button>
+      {/* On phones this lives on My Orders, to keep the header to one line */}
+      <SignOutButton className={`hidden sm:inline ${quiet}`} />
     </>
+  );
+}
+
+export function SignOutButton({ className = "" }: { className?: string }) {
+  return (
+    <button type="button" onClick={() => signOut({ callbackUrl: "/" })} className={className}>
+      Sign out
+    </button>
   );
 }
 

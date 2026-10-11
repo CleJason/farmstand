@@ -91,6 +91,7 @@ type Form = {
   products: string;
   reply: string;
   reviewDate: string;
+  email: string; // the customer who wrote it (optional)
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -102,6 +103,7 @@ const emptyForm = (): Form => ({
   products: "",
   reply: "",
   reviewDate: today(),
+  email: "",
 });
 
 const inputClass =
@@ -114,6 +116,17 @@ export default function AdminReviewsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(emptyForm());
   const [error, setError] = useState<string | null>(null);
+
+  // For linking a review to a customer
+  const [customers, setCustomers] = useState<{ name: string | null; email: string }[]>([]);
+  useEffect(() => {
+    fetch("/api/customers")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d: { name: string | null; email: string | null }[]) =>
+        setCustomers(Array.isArray(d) ? d.filter((c) => c.email).map((c) => ({ name: c.name, email: c.email! })) : [])
+      )
+      .catch(() => {});
+  }, []);
 
   const load = () =>
     fetch("/api/reviews")
@@ -144,6 +157,7 @@ export default function AdminReviewsPage() {
       products: r.products ?? "",
       reply: r.reply ?? "",
       reviewDate: r.reviewDate.slice(0, 10),
+      email: r.email ?? "",
     });
     setError(null);
     setShowModal(true);
@@ -291,6 +305,26 @@ export default function AdminReviewsPage() {
                   className={inputClass}
                 />
                 <span className="block text-[11px] text-stone-400 mt-1">Separate with commas. Shown as tags on the review.</span>
+              </label>
+              <label className="block">
+                <span className="block text-xs font-medium text-stone-600 mb-1">Customer (optional)</span>
+                <input
+                  list="review-customers"
+                  value={form.email}
+                  onChange={(e) => set({ email: e.target.value })}
+                  placeholder="Start typing a name or email"
+                  className={inputClass}
+                />
+                <datalist id="review-customers">
+                  {customers.map((c) => (
+                    <option key={c.email} value={c.email}>
+                      {c.name ?? ""}
+                    </option>
+                  ))}
+                </datalist>
+                <span className="block text-[11px] text-stone-400 mt-1">
+                  Links the review to their profile, so they aren&apos;t offered the first-review discount again.
+                </span>
               </label>
               <label className="block">
                 <span className="block text-xs font-medium text-stone-600 mb-1">Your reply (optional)</span>

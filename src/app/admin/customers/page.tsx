@@ -40,6 +40,14 @@ export default function AdminCustomersPage() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Customer | null>(null);
   const [edit, setEdit] = useState<{ name: string; phone: string; email: string } | null>(null);
+  // All reviews (admin view includes the reviewer's email) to show on each profile
+  const [reviews, setReviews] = useState<{ id: string; rating: number; body: string; email: string | null; reviewDate: string }[]>([]);
+  useEffect(() => {
+    fetch("/api/reviews")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setReviews(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
   const [editError, setEditError] = useState("");
 
   const saveEdit = async () => {
@@ -304,6 +312,25 @@ export default function AdminCustomersPage() {
                 <div className="text-lg font-bold text-stone-900">{formatPrice(selected.totalSpent)}</div>
               </div>
             </div>
+
+            {(() => {
+              const mine = new Set([selected.email, ...selected.previousEmails].filter(Boolean).map((e) => e!.toLowerCase()));
+              const theirs = reviews.filter((r) => r.email && mine.has(r.email));
+              return theirs.length === 0 ? null : (
+                <div>
+                  <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Reviews</h3>
+                  <ul className="space-y-2">
+                    {theirs.map((r) => (
+                      <li key={r.id} className="text-sm bg-stone-50 rounded-lg p-2">
+                        <span className="text-amber-500">{"★".repeat(r.rating)}</span>{" "}
+                        <span className="text-xs text-stone-400">{shortDate(r.reviewDate)}</span>
+                        <p className="text-stone-700 line-clamp-3">{r.body}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
 
             <div>
               <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Order history</h3>
