@@ -36,7 +36,7 @@ export default async function UnsubscribePage({
     body = `You won't get any more drop alerts from ${site.SITE_NAME}.`;
   } else if (subscriber) {
     heading = "Stop drop alerts?";
-    body = `${subscriber.email} will no longer hear about new drops from ${site.SITE_NAME}.`;
+    body = `${subscriber.email ?? subscriber.phone ?? "You"} will no longer hear about new drops from ${site.SITE_NAME}.`;
   } else {
     heading = "Already unsubscribed";
     body = "This link has already been used, or the address isn't on the list.";

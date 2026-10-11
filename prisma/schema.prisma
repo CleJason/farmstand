@@ -322,10 +322,12 @@ model Contact {
 // People who signed up on the home page to hear about new drops
 model Subscriber {
   id          String   @id @default(cuid())
-  email       String   @unique // stored lowercase
-  phone       String?          // optional, for text alerts
+  email       String?  @unique // stored lowercase; null = phone only (text alerts)
+  phone       String?          // digits, for text alerts
   unsubscribeToken String @unique @default(cuid())
   createdAt   DateTime @default(now())
+
+  @@index([phone])
 }
 
 // ─────────────────────────────────────────────

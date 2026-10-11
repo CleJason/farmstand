@@ -65,7 +65,7 @@ export default function CustomerImport({ onDone }: { onDone: () => void }) {
 
   const usable = rows.filter((r) => r.email.trim() || r.phone.trim());
   const withHistory = usable.filter((r) => r.orders || r.spent).length;
-  const subscribedCount = usable.filter((r) => r.email.trim() && r.subscribed !== false).length;
+  const subscribedCount = usable.filter((r) => r.subscribed !== false).length;
 
   const run = async (list: ImportedCustomer[]) => {
     setBusy(true);
@@ -167,8 +167,8 @@ export default function CustomerImport({ onDone }: { onDone: () => void }) {
                       )}
                       <p className="text-xs text-stone-600">
                         {subscribedColumn
-                          ? `Subscribed (from "${subscribedColumn}"): ${subscribedCount} with an email. Only they can be added to Drop Alerts.`
-                          : "No subscribed column found, so ticking Drop Alerts below adds everyone with an email."}
+                          ? `Subscribed (from "${subscribedColumn}"): ${subscribedCount}. Only they can be added to Drop Alerts.`
+                          : "No subscribed column found, so ticking Drop Alerts below adds everyone in the file (phone-only people get texts once texting is set up)."}
                       </p>
                       <ul className="text-xs text-stone-600 pt-1">
                         {usable.slice(0, 3).map((r, i) => (

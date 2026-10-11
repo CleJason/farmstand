@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 interface Subscriber {
   id: string;
-  email: string;
+  email: string | null; // null = phone only
   phone: string | null;
   createdAt: string;
 }
@@ -28,17 +28,24 @@ export default function AdminAlertsPage() {
   }, []);
 
   const remove = async (s: Subscriber) => {
-    if (!confirm(`Remove ${s.email} from drop alerts?`)) return;
+    if (!confirm(`Remove ${s.email ?? s.phone} from drop alerts?`)) return;
     const res = await fetch(`/api/subscribers?id=${encodeURIComponent(s.id)}`, { method: "DELETE" });
     if (res.ok) load();
     else alert("Couldn't remove them");
+  };
+
+  const removeAll = async () => {
+    if (!confirm(`Remove all ${subscribers.length} people from Drop Alerts? (Their customer records stay.)`)) return;
+    const res = await fetch("/api/subscribers?all=1", { method: "DELETE" });
+    if (res.ok) load();
+    else alert("Couldn't clear the list");
   };
 
   const exportCsv = () => {
     const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
     const csv = [
       "Email,Phone,Signed Up",
-      ...subscribers.map((s) => [s.email, s.phone ?? "", s.createdAt.slice(0, 10)].map(esc).join(",")),
+      ...subscribers.map((s) => [s.email ?? "", s.phone ?? "", s.createdAt.slice(0, 10)].map(esc).join(",")),
     ].join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
@@ -77,15 +84,21 @@ export default function AdminAlertsPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-stone-200 overflow-x-auto">
-          <div className="px-4 py-3 text-sm text-stone-600 border-b border-stone-100">
-            <b className="text-stone-900">{subscribers.length}</b> {subscribers.length === 1 ? "person" : "people"} on the
-            list
+          <div className="px-4 py-3 text-sm text-stone-600 border-b border-stone-100 flex flex-wrap items-center justify-between gap-2">
+            <span>
+              <b className="text-stone-900">{subscribers.length}</b> {subscribers.length === 1 ? "person" : "people"} on the
+              list · {subscribers.filter((s) => s.email).length} get emails,{" "}
+              {subscribers.filter((s) => !s.email).length} are phone-only (texts, once texting is set up)
+            </span>
+            <button onClick={removeAll} className="text-xs text-stone-400 hover:text-red-600">
+              Remove all
+            </button>
           </div>
           <table className="w-full text-sm">
             <tbody className="divide-y divide-stone-100">
               {subscribers.map((s) => (
                 <tr key={s.id}>
-                  <td className="px-4 py-3 text-stone-900">{s.email}</td>
+                  <td className="px-4 py-3 text-stone-900">{s.email ?? <span className="text-stone-400">text only</span>}</td>
                   <td className="px-4 py-3 text-stone-600 whitespace-nowrap">{s.phone || "—"}</td>
                   <td className="px-4 py-3 text-stone-500 whitespace-nowrap">{shortDate(s.createdAt)}</td>
                   <td className="px-4 py-3 text-right">

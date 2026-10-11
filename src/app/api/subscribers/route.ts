@@ -19,7 +19,13 @@ export async function GET() {
 
 export async function DELETE(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const id = new URL(req.url).searchParams.get("id");
+  const params = new URL(req.url).searchParams;
+  // ?all=1 empties the whole list (e.g. before re-importing a cleaned-up file)
+  if (params.get("all") === "1") {
+    const { count } = await prisma.subscriber.deleteMany({});
+    return NextResponse.json({ ok: true, removed: count });
+  }
+  const id = params.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   await prisma.subscriber.deleteMany({ where: { id } });
   return NextResponse.json({ ok: true });

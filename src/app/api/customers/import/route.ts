@@ -74,9 +74,15 @@ export async function POST(req: Request) {
       added++;
     }
 
-    if (subscribe && email && r.subscribed !== false && !(await prisma.subscriber.findUnique({ where: { email } }))) {
-      await prisma.subscriber.create({ data: { email, phone } });
-      subscribed++;
+    // Email people get email alerts; phone-only people get text alerts once texting is set up
+    if (subscribe && r.subscribed !== false) {
+      const already = email
+        ? await prisma.subscriber.findUnique({ where: { email } })
+        : await prisma.subscriber.findFirst({ where: { phone: phone! } });
+      if (!already) {
+        await prisma.subscriber.create({ data: { email, phone } });
+        subscribed++;
+      }
     }
   }
 
