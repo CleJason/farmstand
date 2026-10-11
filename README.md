@@ -23,7 +23,7 @@ A self-hosted replacement for Hotplate built for small makers, home bakers, farm
 - **Customer reviews**: a review request after pickup, reviews tagged with what they ordered, owner approval, and an optional first-review discount.
 - **Customers (Admin → Customers)**: everyone who signed up, ordered or was imported (CSV import from Hotplate and others, including order history and phone-only customers), editable, with old emails/numbers kept so history stays together. Customers can sign in to see **My Orders** and their reviews.
 - **First-Run Setup Wizard (`/setup`)**: Seamless onboarding for anyone pulling the repo from GitHub to set admin credentials and API keys without modifying code.
-- **No-code customization (Admin → Site / Settings)**: business name, text, logo, cover photo, colors, socials, privacy policy and terms, website address, payment and notification keys.
+- **No-code customization (Admin → Site / Settings)**: business name, logo, cover photo, brand and button text colors, socials, privacy policy and terms, website address, payment and notification keys. **Text & buttons** lets you reword every label and button customers see, and the walk-up page can be renamed and given its own address (e.g. `/porch-pickup`; `/farmstand` keeps working for printed QR codes).
 
 ---
 
