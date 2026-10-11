@@ -319,6 +319,12 @@ model Contact {
   @@index([phone])
 }
 
+// Numbers that replied STOP: never texted again (until they reply START)
+model SmsOptOut {
+  phone     String   @id // digits, e.g. 5551234567
+  createdAt DateTime @default(now())
+}
+
 // People who signed up on the home page to hear about new drops
 model Subscriber {
   id          String   @id @default(cuid())

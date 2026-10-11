@@ -1,6 +1,7 @@
 import { getSetting } from "@/lib/settings";
 import { getSiteSettings, isOn } from "@/lib/site";
 import { describePicks } from "@/lib/box";
+import { isOptedOut } from "@/lib/sms-opt-out";
 
 /**
  * Fire a notification event to n8n.
@@ -56,6 +57,8 @@ export async function fireNotification(
 
   const secret = await getSetting("N8N_WEBHOOK_SECRET");
   const url = `${baseUrl}/${event}`;
+  // n8n only texts a customer when this is true (they haven't replied STOP)
+  if (payload.customerPhone) payload = { ...payload, customerCanText: !(await isOptedOut(String(payload.customerPhone))) };
 
   try {
     const res = await fetch(url, {

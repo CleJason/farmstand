@@ -372,6 +372,23 @@ jobs:
           chk=$(curl -s -X POST http://localhost:3000/api/discounts/check -H 'Content-Type: application/json' -d '{"code":"SAM10","type":"DROP","subtotal":1000}')
           echo "check without email: $chk"; echo "$chk" | grep -q '"valid":false' || exit 1
 
+      - name: Text STOP / START
+        env:
+          PGURL: postgresql://farmstand:smoketest@localhost:5432/farmstand
+        run: |
+          psql "$PGURL" -v ON_ERROR_STOP=1 <<SQL
+          INSERT INTO "Setting" (key, value, "updatedAt") VALUES ('N8N_WEBHOOK_SECRET', 'ci-secret', now());
+          INSERT INTO "Subscriber" (id, phone, "unsubscribeToken") VALUES ('sp1', '5557770000', 'tok-sp1');
+          SQL
+          sms() { curl -s -o /tmp/sms.json -w '%{http_code}' -X POST http://localhost:3000/api/sms/inbound -H 'Content-Type: application/json' -H "x-webhook-secret: $1" -d "$2"; }
+          c=$(sms wrong '{"phone":"+15557770000","text":"STOP"}'); echo "wrong secret -> $c"; [ "$c" = "401" ] || exit 1
+          c=$(sms ci-secret '{"phone":"+15557770000","text":"Thanks!"}'); echo "normal reply -> $(cat /tmp/sms.json)"; grep -q '"none"' /tmp/sms.json || exit 1
+          c=$(sms ci-secret '{"phone":"+1 (555) 777-0000","text":" stop "}'); echo "STOP -> $(cat /tmp/sms.json)"; grep -q '"stop"' /tmp/sms.json || exit 1
+          [ "$(psql "$PGURL" -tAc "SELECT count(*) FROM \"SmsOptOut\" WHERE phone = '5557770000'")" = "1" ] || { echo "not opted out"; exit 1; }
+          [ "$(psql "$PGURL" -tAc "SELECT count(*) FROM \"Subscriber\" WHERE id = 'sp1'")" = "0" ] || { echo "still on alerts"; exit 1; }
+          c=$(sms ci-secret '{"phone":"5557770000","text":"START"}'); echo "START -> $(cat /tmp/sms.json)"; grep -q '"start"' /tmp/sms.json || exit 1
+          [ "$(psql "$PGURL" -tAc "SELECT count(*) FROM \"SmsOptOut\"")" = "0" ] || { echo "still opted out"; exit 1; }
+
       - name: Container logs
         if: always()
         run: docker logs farmstand || true

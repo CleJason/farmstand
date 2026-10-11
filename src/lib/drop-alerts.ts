@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { getSetting } from "@/lib/settings";
 import { fireNotification } from "@/lib/notifications";
 import { formatPickup } from "@/lib/pickup";
+import { phoneKey } from "@/lib/phone";
+import { optedOutSet } from "@/lib/sms-opt-out";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -39,6 +41,7 @@ export async function announceDrop(dropId: string): Promise<void> {
     getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || ""),
   ]);
   if (!drop || subscribers.length === 0) return;
+  const optedOut = await optedOutSet();
 
   await fireNotification("drop.announced", {
     dropId: drop.id,
@@ -52,6 +55,8 @@ export async function announceDrop(dropId: string): Promise<void> {
     subscribers: subscribers.map((s) => ({
       email: s.email,
       phone: s.phone,
+      // Phone-only people get a text instead of an email, unless they replied STOP
+      canText: !!phoneKey(s.phone) && !optedOut.has(phoneKey(s.phone)),
       unsubscribeUrl: `${appUrl}/unsubscribe?token=${s.unsubscribeToken}`,
     })),
   });

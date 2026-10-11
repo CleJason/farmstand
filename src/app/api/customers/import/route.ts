@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/admin-input";
 import { cleanEmail } from "@/lib/drop-alerts";
 import { phoneKey } from "@/lib/phone";
+import { isOptedOut } from "@/lib/sms-opt-out";
 
 const MAX_ROWS = 5000;
 
@@ -75,7 +76,8 @@ export async function POST(req: Request) {
     }
 
     // Email people get email alerts; phone-only people get text alerts once texting is set up
-    if (subscribe && r.subscribed !== false) {
+    // Never re-add a phone-only person who texted STOP
+    if (subscribe && r.subscribed !== false && (email || !(await isOptedOut(phone)))) {
       const already = email
         ? await prisma.subscriber.findUnique({ where: { email } })
         : await prisma.subscriber.findFirst({ where: { phone: phone! } });
