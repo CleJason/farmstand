@@ -36,6 +36,11 @@ export const SITE_DEFAULTS = {
   SITE_NAME_IN_TAB: "true",
   SITE_NAME_IN_NOTIFICATIONS: "true",
   SITE_BRAND_COLOR: "#D97706",
+  SITE_BUTTON_TEXT_COLOR: "#FFFFFF", // text on brand-colored buttons
+  // Web address of the walk-up page: yoursite.com/<this>. /farmstand always works too.
+  SITE_FARMSTAND_PATH: "farmstand",
+  // Changed wording for text and buttons, as JSON (see src/lib/copy.ts)
+  SITE_COPY: "",
   // Legal pages (/privacy, /terms). Empty = the built-in starter text.
   SITE_PRIVACY: "",
   SITE_TERMS: "",
@@ -72,4 +77,28 @@ export function publicSite(site: SiteSettings): SiteSettings {
 
 export function isHexColor(v: string) {
   return /^#[0-9a-fA-F]{6}$/.test(v);
+}
+
+/** Built-in pages the walk-up page's address can't take over. */
+export const RESERVED_PATHS = [
+  "admin", "api", "drops", "gift", "login", "my-orders", "privacy", "pwa-icon", "review",
+  "setup", "terms", "unsubscribe", "uploads", "manifest.webmanifest", "_next", "icon.png",
+  "icon.svg", "offline.html", "sw.js", "favicon.ico",
+];
+
+/** "Porch Pickup!" → "porch-pickup"; "" when unusable. */
+export function cleanPath(v: string) {
+  const p = v
+    .toLowerCase()
+    .trim()
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  return p && !RESERVED_PATHS.includes(p) ? p : "";
+}
+
+/** Link to the walk-up page, e.g. "/porch-pickup". */
+export function standHref(site: Pick<SiteSettings, "SITE_FARMSTAND_PATH">) {
+  return `/${cleanPath(site.SITE_FARMSTAND_PATH || "") || "farmstand"}`;
 }

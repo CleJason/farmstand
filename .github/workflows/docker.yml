@@ -371,6 +371,24 @@ jobs:
           [ "$(jq -r .total /tmp/pc.json)" = "1620" ] || { echo "Expected 10% off 1800"; exit 1; }
           chk=$(curl -s -X POST http://localhost:3000/api/discounts/check -H 'Content-Type: application/json' -d '{"code":"SAM10","type":"DROP","subtotal":1000}')
           echo "check without email: $chk"; echo "$chk" | grep -q '"valid":false' || exit 1
+          echo "$chk" | grep -q '"needsEmail":true' || { echo "checkout should ask for the email"; exit 1; }
+
+      - name: Editable text and walk-up page address
+        env:
+          PGURL: postgresql://farmstand:smoketest@localhost:5432/farmstand
+        run: |
+          psql "$PGURL" -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO "Setting" (key, value, "updatedAt") VALUES
+            ('SITE_FARMSTAND_PATH', 'porch-pickup', now()),
+            ('SITE_COPY', '{"home.viewDrops":"Order Here Now"}', now());
+          SQL
+          for p in /porch-pickup /farmstand; do
+            c=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:3000$p"); echo "GET $p -> $c"; [ "$c" = "200" ] || exit 1
+          done
+          c=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/not-a-page); echo "GET /not-a-page -> $c"; [ "$c" = "404" ] || exit 1
+          home=$(curl -s http://localhost:3000/)
+          echo "$home" | grep -q "Order Here Now" || { echo "edited text not shown"; exit 1; }
+          echo "$home" | grep -q 'href="/porch-pickup"' || { echo "links don't use the new address"; exit 1; }
 
       - name: Text STOP / START
         env:

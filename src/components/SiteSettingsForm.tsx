@@ -6,6 +6,7 @@ import ImageUpload from "@/components/ImageUpload";
 import ImagePositioner from "@/components/ImagePositioner";
 import { SITE_DEFAULTS, isHexColor, isOn, type SiteKey, type SiteSettings } from "@/lib/site-defaults";
 import { defaultPrivacy, defaultTerms } from "@/lib/legal";
+import CopyEditor from "@/components/CopyEditor";
 
 const inputClass =
   "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500";
@@ -45,6 +46,11 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
         key: "SITE_FARMSTAND_HEADING",
         label: "Name",
         hint: "What you call it, e.g. Farmstand or Porch Pickup. Used everywhere: menus, buttons, admin, QR code and discounts.",
+      },
+      {
+        key: "SITE_FARMSTAND_PATH",
+        label: "Web address",
+        hint: "The end of the page's link, e.g. porch-pickup → yoursite.com/porch-pickup. Lowercase letters, numbers and dashes. Links and the QR code follow it; the old /farmstand link keeps working so QR codes you've already printed still work.",
       },
       { key: "SITE_FARMSTAND_BLURB", label: "Description", multiline: true },
     ],
@@ -242,6 +248,35 @@ export default function SiteSettingsForm() {
           </div>
           <span className="block text-[11px] text-stone-400 mt-1">Buttons, links and highlights across the site.</span>
         </div>
+        <div className="sm:col-start-2">
+          <span className="block text-xs font-medium text-stone-700 mb-1">Button text color</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={
+                isHexColor(values.SITE_BUTTON_TEXT_COLOR) ? values.SITE_BUTTON_TEXT_COLOR : SITE_DEFAULTS.SITE_BUTTON_TEXT_COLOR
+              }
+              onChange={(e) => set("SITE_BUTTON_TEXT_COLOR", e.target.value.toUpperCase())}
+              className="h-10 w-14 rounded border border-stone-300 cursor-pointer"
+            />
+            <input
+              type="text"
+              value={values.SITE_BUTTON_TEXT_COLOR}
+              onChange={(e) => set("SITE_BUTTON_TEXT_COLOR", e.target.value)}
+              className={`${inputClass} font-mono w-32`}
+            />
+          </div>
+          <span
+            className="inline-block mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg"
+            style={{
+              background: isHexColor(values.SITE_BRAND_COLOR) ? values.SITE_BRAND_COLOR : SITE_DEFAULTS.SITE_BRAND_COLOR,
+              color: isHexColor(values.SITE_BUTTON_TEXT_COLOR) ? values.SITE_BUTTON_TEXT_COLOR : "#FFFFFF",
+            }}
+          >
+            Button preview
+          </span>
+          <span className="block text-[11px] text-stone-400 mt-1">White unless your brand color is very light.</span>
+        </div>
       </div>
 
       {toggle("SITE_LOGO_IN_HEADER", "Show the logo in the header (top-left)", values.SITE_LOGO_URL ? undefined : "upload a logo above")}
@@ -312,6 +347,11 @@ export default function SiteSettingsForm() {
           )}
         </div>
       ))}
+
+      <div className="space-y-3">
+        <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Text &amp; buttons</h3>
+        <CopyEditor value={values.SITE_COPY} onChange={(json) => set("SITE_COPY", json)} />
+      </div>
 
       <div className="flex items-center gap-3 sticky bottom-0 bg-white py-3 border-t border-stone-100">
         <button

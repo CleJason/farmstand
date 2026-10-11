@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import type { AddOn } from "@/lib/addons";
+import { useText } from "@/components/SiteProvider";
 
 /** Checkboxes for a product's extras (e.g. "Extra icing +$1.00"); used for products and boxes. */
 export function AddOnChecklist({
@@ -15,10 +16,11 @@ export function AddOnChecklist({
   chosen: string[];
   onChange: (names: string[]) => void;
 }) {
+  const text = useText();
   if (addOns.length === 0) return null;
   return (
     <div className="space-y-1">
-      <p className="text-xs font-bold text-[#2D1E18]">Add-ons (per item)</p>
+      <p className="text-xs font-bold text-[#2D1E18]">{text("addon.title")}</p>
       {addOns.map((a) => (
         <label key={a.name} className="flex items-center justify-between gap-3 py-1.5 text-sm text-[#2D1E18] cursor-pointer">
           <span className="flex items-center gap-2">
@@ -30,7 +32,7 @@ export function AddOnChecklist({
             />
             {a.name}
           </span>
-          <span className="text-[#735D54]">{a.price > 0 ? `+${formatPrice(a.price)}` : "free"}</span>
+          <span className="text-[#735D54]">{a.price > 0 ? `+${formatPrice(a.price)}` : text("addon.free")}</span>
         </label>
       ))}
     </div>
@@ -53,6 +55,7 @@ export default function AddOnPicker({
   onAdd: (quantity: number, addOnNames: string[]) => void;
   onClose: () => void;
 }) {
+  const text = useText();
   const [chosen, setChosen] = useState<string[]>([]);
   const [qty, setQty] = useState(1);
   const each = price + addOns.filter((a) => chosen.includes(a.name)).reduce((s, a) => s + a.price, 0);
@@ -70,7 +73,7 @@ export default function AddOnPicker({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-bold text-lg text-[#2D1E18]">{name}</h2>
-            <p className="text-sm text-[#735D54]">{formatPrice(price)} each</p>
+            <p className="text-sm text-[#735D54]">{text("addon.each", { price: formatPrice(price) })}</p>
           </div>
           <button onClick={onClose} aria-label="Close" className="p-1 text-stone-400 hover:text-stone-800">
             <X size={20} />
@@ -78,7 +81,7 @@ export default function AddOnPicker({
         </div>
         <AddOnChecklist addOns={addOns} chosen={chosen} onChange={setChosen} />
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-[#2D1E18]">How many</span>
+          <span className="text-sm font-semibold text-[#2D1E18]">{text("addon.howMany")}</span>
           <div className="flex items-center gap-2">
             <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="w-8 h-8 rounded-lg border border-stone-200 font-bold">
               -
@@ -98,7 +101,7 @@ export default function AddOnPicker({
           onClick={() => onAdd(qty, chosen)}
           className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
         >
-          Add to order · {formatPrice(each * qty)}
+          {text("box.add", { price: formatPrice(each * qty) })}
         </button>
       </div>
     </div>

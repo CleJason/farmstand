@@ -1,6 +1,9 @@
 import type { DiscountCode, Prisma } from "@prisma/client";
 
-export class DiscountError extends Error {}
+export class DiscountError extends Error {
+  /** True when the code is a personal one and checkout should ask for the customer's email. */
+  needsEmail = false;
+}
 
 export const normalizeCode = (code: unknown) =>
   String(code ?? "")
@@ -24,10 +27,13 @@ export async function evaluateDiscount(
   // Personal codes only work with the email(s) they were given to
   if (discount.allowedEmails.length > 0) {
     const email = String(customerEmail ?? "").trim().toLowerCase();
-    if (!email) throw new DiscountError("That code is for a specific customer. Enter your email first, then apply it");
-    if (!discount.allowedEmails.includes(email)) {
-      throw new DiscountError("That code is for a different customer. Use the email it was sent to");
-    }
+    const err = new DiscountError(
+      email
+        ? "That code is for a different customer. Use the email it was sent to"
+        : "That code is for a specific customer. Enter the email it was sent to"
+    );
+    err.needsEmail = true;
+    if (!email || !discount.allowedEmails.includes(email)) throw err;
   }
   if (discount.expiresAt && discount.expiresAt < new Date()) {
     throw new DiscountError("That discount code has expired");

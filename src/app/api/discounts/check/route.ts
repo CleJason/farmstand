@@ -20,7 +20,9 @@ export async function POST(req: Request) {
     );
     return NextResponse.json({ valid: true, code: d.code, discount: amount });
   } catch (err) {
-    if (err instanceof DiscountError) return NextResponse.json({ valid: false, error: err.message });
+    if (err instanceof DiscountError) {
+      return NextResponse.json({ valid: false, error: err.message, needsEmail: err.needsEmail });
+    }
     throw err;
   }
 }

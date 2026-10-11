@@ -66,7 +66,15 @@ export default async function RootLayout({
     : null;
 
   return (
-    <html lang="en" style={{ "--brand": brandColor(site.SITE_BRAND_COLOR) } as React.CSSProperties}>
+    <html
+      lang="en"
+      style={
+        {
+          "--brand": brandColor(site.SITE_BRAND_COLOR),
+          "--on-brand": isHexColor(site.SITE_BUTTON_TEXT_COLOR) ? site.SITE_BUTTON_TEXT_COLOR : "#FFFFFF",
+        } as React.CSSProperties
+      }
+    >
       <body className={`${geistSans.variable} font-sans antialiased`}>
         <SiteProvider site={publicSite(site)} viewer={viewer}>
           {children}

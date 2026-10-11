@@ -10,16 +10,17 @@ import { describeAddOns } from "@/lib/addons";
 import { formatPrice } from "@/lib/utils";
 import { SignOutButton, StoreHeader } from "@/components/StoreChrome";
 import LegalFooter from "@/components/LegalFooter";
+import { textFor, type CopyKey } from "@/lib/copy";
 
 export const metadata = { title: "My Orders", robots: { index: false } };
 
-const STATUS: Record<string, { label: string; classes: string }> = {
-  AWAITING_CONFIRM: { label: "Waiting for payment", classes: "bg-amber-50 text-amber-700" },
-  PAID: { label: "Confirmed", classes: "bg-emerald-50 text-emerald-700" },
-  READY: { label: "Ready for pickup", classes: "bg-blue-50 text-blue-700" },
-  PICKED_UP: { label: "Picked up", classes: "bg-stone-100 text-stone-600" },
-  CANCELLED: { label: "Cancelled", classes: "bg-red-50 text-red-600" },
-  REFUNDED: { label: "Refunded", classes: "bg-purple-50 text-purple-600" },
+const STATUS_CLASSES: Record<string, string> = {
+  AWAITING_CONFIRM: "bg-amber-50 text-amber-700",
+  PAID: "bg-emerald-50 text-emerald-700",
+  READY: "bg-blue-50 text-blue-700",
+  PICKED_UP: "bg-stone-100 text-stone-600",
+  CANCELLED: "bg-red-50 text-red-600",
+  REFUNDED: "bg-purple-50 text-purple-600",
 };
 
 /** A signed-in customer's orders on this site, plus a summary of history brought over from before. */
@@ -46,6 +47,7 @@ export default async function MyOrdersPage() {
     }),
     prisma.contact.findFirst({ where: { OR: [{ email }, { otherEmails: { has: email } }] } }),
   ]);
+  const text = textFor(site);
   // Reviews they've left (here or linked by the owner), under any of their emails
   const reviews = await prisma.review.findMany({
     where: { email: { in: [...new Set([email, contact?.email, ...(contact?.otherEmails ?? [])].filter(Boolean) as string[])] } },
@@ -57,30 +59,29 @@ export default async function MyOrdersPage() {
       <StoreHeader />
       <main className="max-w-2xl mx-auto px-4 py-8 space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-stone-900">My Orders</h1>
+          <h1 className="text-2xl font-bold text-stone-900">{text("orders.title")}</h1>
           <SignOutButton className="text-sm text-stone-500 hover:text-stone-900 font-medium" />
         </div>
 
         {contact && (contact.importedOrders > 0 || contact.importedSpent > 0) && (
           <p className="text-sm text-stone-600 bg-white border border-stone-200 rounded-xl p-4">
-            Before our new website you&apos;d ordered with us{" "}
-            <b>
-              {contact.importedOrders} {contact.importedOrders === 1 ? "time" : "times"}
-            </b>
-            . Thank you for being a regular! 💛
+            {text("orders.regular", { count: contact.importedOrders })}
           </p>
         )}
 
         {orders.length === 0 ? (
           <div className="bg-white rounded-xl border border-stone-200 p-8 text-center space-y-3">
-            <p className="text-stone-600">No orders on this site yet.</p>
+            <p className="text-stone-600">{text("orders.empty")}</p>
             <Link href="/#drops" className="inline-block bg-amber-600 hover:bg-amber-700 text-white font-semibold px-6 py-2.5 rounded-full text-sm">
-              See what&apos;s available
+              {text("orders.browse")}
             </Link>
           </div>
         ) : (
           orders.map((o) => {
-            const status = STATUS[o.status] ?? { label: o.status, classes: "bg-stone-100 text-stone-600" };
+            const status = {
+              label: o.status in STATUS_CLASSES ? text(`status.${o.status}` as CopyKey) : o.status,
+              classes: STATUS_CLASSES[o.status] ?? "bg-stone-100 text-stone-600",
+            };
             const address = o.type === "DROP" && isPaidStatus(o.status) ? pickupAddressFor(o.pickupSlot, site) : null;
             return (
               <div key={o.id} className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
@@ -112,12 +113,12 @@ export default async function MyOrdersPage() {
                   ))}
                 </ul>
                 <div className="flex justify-between text-sm font-semibold text-stone-900 border-t border-stone-100 pt-2">
-                  <span>Total</span>
+                  <span>{text("orders.total")}</span>
                   <span>{formatPrice(o.total)}</span>
                 </div>
                 {o.pickupTime && (
                   <div className="text-sm bg-[#FAF6F0] rounded-lg p-3">
-                    <b>Pickup:</b> {formatPickup(o.pickupTime)}
+                    <b>{text("orders.pickup")}</b> {formatPickup(o.pickupTime)}
                     {address ? (
                       <span className="block whitespace-pre-line text-stone-600 mt-1">{address}</span>
                     ) : (
@@ -131,7 +132,7 @@ export default async function MyOrdersPage() {
         )}
         {reviews.length > 0 && (
           <section className="space-y-3 pt-4">
-            <h2 className="text-lg font-bold text-stone-900">My Reviews</h2>
+            <h2 className="text-lg font-bold text-stone-900">{text("orders.reviews")}</h2>
             {reviews.map((r) => (
               <div key={r.id} className="bg-white rounded-xl border border-stone-200 p-4 space-y-1.5">
                 <div className="flex items-center justify-between gap-2 text-sm">
@@ -155,7 +156,7 @@ export default async function MyOrdersPage() {
             ))}
           </section>
         )}
-        <p className="text-xs text-stone-400 text-center">Questions about an order? Just reply to your confirmation email.</p>
+        <p className="text-xs text-stone-400 text-center">{text("orders.questions")}</p>
       </main>
       <LegalFooter />
     </div>

@@ -3,13 +3,14 @@
 import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { useSite } from "@/components/SiteProvider";
+import { useSite, useText } from "@/components/SiteProvider";
 import { ShopBrand } from "@/components/StoreChrome";
 import LegalFooter from "@/components/LegalFooter";
 import SpamHint from "@/components/SpamHint";
 
 function LoginForm() {
   const site = useSite();
+  const text = useText();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
   const forAdmin = callbackUrl.startsWith("/admin");
@@ -53,10 +54,10 @@ function LoginForm() {
       <div className="bg-white rounded-2xl border border-stone-200 p-8 shadow-sm">
         <div className="text-center mb-6">
           <h1 className="text-xl font-bold text-stone-900">
-            {forAdmin ? "Admin sign in" : "Welcome back"}
+            {forAdmin ? "Admin sign in" : text("login.title")}
           </h1>
           <p className="text-sm text-stone-500 mt-1">
-            Sign in to {site.SITE_NAME}
+            {text("login.subtitle", { shop: site.SITE_NAME })}
             {forAdmin && " admin"}
           </p>
         </div>
@@ -67,15 +68,14 @@ function LoginForm() {
               <span className="text-emerald-600 text-xl">✉</span>
             </div>
             <div>
-              <p className="text-stone-900 font-medium">Check your email</p>
+              <p className="text-stone-900 font-medium">{text("login.sentTitle")}</p>
               <p className="text-sm text-stone-500 mt-1">
-                We sent a magic link to{" "}
-                <span className="font-medium text-stone-700">{email}</span>
+                {text("login.sentText", { email })}
               </p>
             </div>
             <SpamHint />
             <p className="text-xs text-stone-400">
-              The link expires in 24 hours.
+              {text("login.expires")}
             </p>
           </div>
         ) : (
@@ -83,7 +83,7 @@ function LoginForm() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-1.5">
-                  Email address
+                  {text("login.emailLabel")}
                 </label>
                 <input
                   type="email"
@@ -104,13 +104,13 @@ function LoginForm() {
                 disabled={loading || !email}
                 className="w-full bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded-xl font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {loading ? "Sending..." : "Send Magic Link"}
+                {loading ? text("login.sending") : text("login.button")}
               </button>
             </form>
             <p className="text-xs text-stone-400 mt-4 text-center">
               {forAdmin
                 ? "Only the shop's admin emails can sign in here."
-                : "No password needed. New customers are registered automatically."}
+                : text("login.note")}
             </p>
           </>
         )}

@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { redirectToSetupIfNeeded } from "@/lib/first-run";
 import type { Metadata } from "next";
-import { getSiteSettings } from "@/lib/site";
+import { getSiteSettings, standHref } from "@/lib/site";
 import { prisma } from "@/lib/prisma";
 import InstallPrompt from "@/components/InstallPrompt";
 
@@ -96,7 +96,7 @@ export default async function AdminLayout({
               ← Storefront
             </Link>
             <Link
-              href="/farmstand"
+              href={standHref(site)}
               className="flex-1 text-center text-xs font-medium px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg transition-colors"
             >
               Kiosk

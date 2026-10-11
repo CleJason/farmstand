@@ -6,7 +6,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { formatDate, formatPrice } from "@/lib/utils";
 import CheckoutModal from "@/components/CheckoutModal";
-import { useSite } from "@/components/SiteProvider";
+import ContactDetailsModal, { type ContactDetails } from "@/components/ContactDetailsModal";
+import { useText, useViewer } from "@/components/SiteProvider";
 import DiscountInput, { type AppliedDiscount } from "@/components/DiscountInput";
 import GiftCardInput, { type AppliedGift } from "@/components/GiftCardInput";
 import LegalFooter from "@/components/LegalFooter";
@@ -54,7 +55,8 @@ interface DropDetails {
 type CartLine = { key: string; dropProductId: string; quantity: number; selections?: BoxPick[]; addOns?: string[] };
 
 export default function DropDetailPage() {
-  const site = useSite();
+  const text = useText();
+  const viewer = useViewer();
   const params = useParams();
   const id = params?.id as string;
 
@@ -66,10 +68,15 @@ export default function DropDetailPage() {
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [discount, setDiscount] = useState<AppliedDiscount>(null);
   const [gift, setGift] = useState<AppliedGift>(null);
-  const [notes, setNotes] = useState("");
-  const [guestName, setGuestName] = useState("");
-  const [guestEmail, setGuestEmail] = useState("");
-  const [guestPhone, setGuestPhone] = useState("");
+  // Who the order is for: asked in the first checkout step
+  const [details, setDetails] = useState<ContactDetails>({
+    name: "",
+    email: viewer?.email ?? "",
+    phone: "",
+    notes: "",
+  });
+  const [showDetails, setShowDetails] = useState(false);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"STRIPE" | "PAYPAL" | "VENMO">("STRIPE");
 
   const [paymentSettings, setPaymentSettings] = useState<{
@@ -174,19 +181,26 @@ export default function DropDetailPage() {
   const totalItemsCount = cart.reduce((a, l) => a + l.quantity, 0);
   const boxProduct = drop?.dropProducts.find((p) => p.id === buildingBoxFor);
 
-  const handleCheckout = async () => {
+  // "Proceed to Checkout": pickup time first, then the details step
+  const startCheckout = () => {
     if (drop!.pickupSlots.length > 0 && (!selectedSlotId || !selectedTime)) {
-      alert("Please choose a pickup day and time!");
+      alert(text("drop.needPickup"));
       return;
     }
-    if (!guestName.trim()) {
-      alert("Please add your name so we know whose order it is!");
+    setDetailsError(null);
+    setShowDetails(true);
+  };
+
+  const placeOrder = async () => {
+    if (!details.name.trim()) {
+      setDetailsError(text("checkout.needName"));
       return;
     }
-    if (!guestEmail) {
-      alert("Please provide an email for order pickup confirmation!");
+    if (!details.email.trim()) {
+      setDetailsError(text("checkout.needEmail"));
       return;
     }
+    setDetailsError(null);
     setSubmitting(true);
     try {
       const items = cart.map((l) => ({
@@ -208,15 +222,16 @@ export default function DropDetailPage() {
           giftCode: gift?.code ?? null,
           items,
           paymentMethod,
-          notes,
-          guestName: guestName.trim(),
-          guestEmail,
-          guestPhone: guestPhone || null,
+          notes: details.notes,
+          guestName: details.name.trim(),
+          guestEmail: details.email.trim(),
+          guestPhone: details.phone || null,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Order failed");
+      setShowDetails(false);
 
       // Fully paid by gift card: nothing more to pay
       if (data.status === "PAID") {
@@ -233,8 +248,8 @@ export default function DropDetailPage() {
         clientSecret: data.clientSecret,
         total: data.total,
       });
-    } catch (e: any) {
-      alert(e.message || "Failed to submit order");
+    } catch (e) {
+      setDetailsError((e instanceof Error && e.message) || "Failed to submit order");
     } finally {
       setSubmitting(false);
     }
@@ -243,7 +258,7 @@ export default function DropDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAF6F0]">
-        <div className="text-[#8A756C] font-semibold text-sm">Loading Drop Menu...</div>
+        <div className="text-[#8A756C] font-semibold text-sm">{text("drop.loading")}</div>
       </div>
     );
   }
@@ -251,7 +266,7 @@ export default function DropDetailPage() {
   if (!drop) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAF6F0]">
-        <div className="text-[#8A756C]">Drop not found.</div>
+        <div className="text-[#8A756C]">{text("drop.notFound")}</div>
       </div>
     );
   }
@@ -263,20 +278,16 @@ export default function DropDetailPage() {
           <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto text-3xl font-bold">
             ✓
           </div>
-          <h1 className="text-2xl font-black text-[#2D1E18]">
-            Pre-Order Confirmed!
-          </h1>
-          <p className="text-[#735D54] text-sm leading-relaxed">
-            Thank you! Your order and pickup time have been saved. We&apos;ll have it ready for you.
-          </p>
+          <h1 className="text-2xl font-black text-[#2D1E18]">{text("drop.doneTitle")}</h1>
+          <p className="text-[#735D54] text-sm leading-relaxed">{text("drop.doneText")}</p>
           {pickupInfo?.paid && pickupInfo.address ? (
             <div className="text-left text-sm bg-[#FAF6F0] rounded-xl p-3 space-y-1">
-              <p className="font-semibold text-[#2D1E18]">Pickup address</p>
+              <p className="font-semibold text-[#2D1E18]">{text("drop.addressTitle")}</p>
               <p className="text-[#735D54] whitespace-pre-line">{pickupInfo.address}</p>
             </div>
           ) : (
             <p className="text-sm text-[#2D1E18] bg-[#FAF6F0] rounded-xl p-3 leading-relaxed">
-              📧 The exact pickup address will be in your <b>confirmation email</b>.
+              {text("drop.addressNote")}
             </p>
           )}
           <SpamHint />
@@ -285,7 +296,7 @@ export default function DropDetailPage() {
               href="/"
               className="inline-block w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl transition shadow-sm text-sm"
             >
-              Back to Home
+              {text("drop.backHome")}
             </Link>
           </div>
         </div>
@@ -302,7 +313,7 @@ export default function DropDetailPage() {
             href="/"
             className="text-xs text-[#8A756C] hover:text-amber-600 flex items-center gap-1 font-medium transition"
           >
-            ← Back to All Drops
+            {text("drop.back")}
           </Link>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-2xl md:text-3xl font-black text-[#2D1E18] tracking-tight">
@@ -315,14 +326,18 @@ export default function DropDetailPage() {
                   : "bg-[#FEF5E7] text-[#B86B1E] border border-[#FAD7A0]"
               }`}
             >
-              {drop.status}
+              {drop.status === "OPEN"
+                ? text("home.badgeOpen")
+                : drop.status === "DRAFT"
+                  ? text("home.badgeSoon")
+                  : text("home.badgeClosed")}
             </span>
           </div>
           {drop.description && (
             <p className="text-sm text-[#735D54] leading-relaxed">{drop.description}</p>
           )}
           <div className="text-xs text-[#8A756C] pt-1">
-            Pre-orders close:{" "}
+            {text("drop.closes")}{" "}
             <span className="font-bold text-[#2D1E18]">
               {formatDate(drop.orderCloseAt)}
             </span>
@@ -333,9 +348,7 @@ export default function DropDetailPage() {
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-8">
         {/* Step 1: Pickup Slot Selection */}
         <section className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm space-y-3">
-          <h2 className="font-bold text-lg text-[#2D1E18]">
-            1. Choose Your Pickup Time
-          </h2>
+          <h2 className="font-bold text-lg text-[#2D1E18]">{text("drop.step1")}</h2>
           <div className="grid sm:grid-cols-2 gap-3">
             {drop.pickupSlots.map((slot) => {
               const isSelected = selectedSlotId === slot.id;
@@ -355,7 +368,7 @@ export default function DropDetailPage() {
                   <span>
                     <span className="block text-sm">{slot.label}</span>
                     {slot.location && <span className="block text-xs font-normal text-[#8A756C]">📍 {slot.location}</span>}
-                    {allFull && <span className="block text-xs font-normal">Fully booked</span>}
+                    {allFull && <span className="block text-xs font-normal">{text("drop.fullyBooked")}</span>}
                   </span>
                   {isSelected && <span className="text-amber-600">✓</span>}
                 </button>
@@ -365,7 +378,7 @@ export default function DropDetailPage() {
 
           {selectedSlot && selectedSlot.times.length > 1 && (
             <div className="space-y-2 pt-2">
-              <p className="text-sm font-semibold text-[#2D1E18]">Pick a time</p>
+              <p className="text-sm font-semibold text-[#2D1E18]">{text("drop.pickTime")}</p>
               <div className="flex flex-wrap gap-2">
                 {selectedSlot.times.map((t) => {
                   const isChosen = selectedTime === t.time;
@@ -393,9 +406,7 @@ export default function DropDetailPage() {
 
         {/* Step 2: Food Menu */}
         <section className="space-y-4">
-          <h2 className="font-bold text-lg text-[#2D1E18]">
-            2. Choose Your Items
-          </h2>
+          <h2 className="font-bold text-lg text-[#2D1E18]">{text("drop.step2")}</h2>
           <div className="grid gap-4">
             {drop.dropProducts.map((dp) => {
               const qty = qtyInCart(dp.id);
@@ -447,7 +458,7 @@ export default function DropDetailPage() {
                       </span>
                       {box && (
                         <span className="text-[11px] font-semibold text-[#735D54]">
-                          Mix &amp; match {dp.product.boxSize}
+                          {text("drop.mixMatch", { count: dp.product.boxSize ?? "" })}
                         </span>
                       )}
                       {remaining !== null && (
@@ -458,7 +469,7 @@ export default function DropDetailPage() {
                               : "bg-[#FAF6F0] text-[#735D54] border border-[#E8DFD5]"
                           }`}
                         >
-                          {isSoldOut ? "Sold out" : `${remaining} left`}
+                          {isSoldOut ? text("drop.soldOut") : text("drop.left", { count: remaining })}
                         </span>
                       )}
                     </div>
@@ -470,7 +481,7 @@ export default function DropDetailPage() {
                       onClick={() => setBuildingBoxFor(dp.id)}
                       className="shrink-0 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed transition shadow-xs"
                     >
-                      {qty > 0 ? "+ Another box" : `Build a box`}
+                      {qty > 0 ? text("drop.anotherBox") : text("drop.buildBox")}
                     </button>
                   ) : extras.length > 0 ? (
                     <button
@@ -478,7 +489,7 @@ export default function DropDetailPage() {
                       onClick={() => setAddingTo(dp.id)}
                       className="shrink-0 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed transition shadow-xs"
                     >
-                      {qty > 0 ? "+ Add more" : "Add"}
+                      {qty > 0 ? text("drop.addMore") : text("drop.add")}
                     </button>
                   ) : (
                   /* Quantity Stepper */
@@ -516,15 +527,18 @@ export default function DropDetailPage() {
                       >
                         <p className="text-xs text-[#2D1E18] min-w-0">
                           {[describePicks(l.selections), l.addOns?.map((a) => `+ ${a}`).join(", ")].filter(Boolean).join(" · ") ||
-                            "Regular"}
+                            text("drop.regular")}
                           {l.addOns?.length ? (
-                            <span className="text-[#8A756C]"> · {formatPrice(unitPrice(dp, l.addOns))} each</span>
+                            <span className="text-[#8A756C]">
+                              {" "}
+                              · {text("addon.each", { price: formatPrice(unitPrice(dp, l.addOns)) })}
+                            </span>
                           ) : null}
                         </p>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             onClick={() => updateLine(dp.id, -1, l.selections, l.addOns)}
-                            aria-label="One less of this box"
+                            aria-label="One less"
                             className="w-7 h-7 rounded-md border border-stone-200 bg-white font-bold text-sm hover:bg-stone-50"
                           >
                             -
@@ -533,7 +547,7 @@ export default function DropDetailPage() {
                           <button
                             disabled={!canAdd(dp.id)}
                             onClick={() => updateLine(dp.id, 1, l.selections, l.addOns)}
-                            aria-label="One more of this box"
+                            aria-label="One more"
                             className="w-7 h-7 rounded-md bg-amber-600 text-white font-bold text-sm disabled:opacity-30"
                           >
                             +
@@ -549,84 +563,29 @@ export default function DropDetailPage() {
           </div>
         </section>
 
-        {/* Step 3: Contact & Payment Info */}
+        {/* Step 3: Discount, gift card & payment method (contact details come in checkout) */}
         {totalItemsCount > 0 && (
           <section className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm space-y-4">
-            <h2 className="font-bold text-lg text-[#2D1E18]">
-              3. Pickup &amp; Payment Details
-            </h2>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-[#2D1E18] mb-1">Your Name *</label>
-                <input
-                  type="text"
-                  required
-                  autoComplete="name"
-                  maxLength={80}
-                  placeholder="First and last name"
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  className="w-full text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-600"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-[#2D1E18] mb-1">
-                  Email Address * (for confirmation)
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="you@example.com"
-                  value={guestEmail}
-                  onChange={(e) => setGuestEmail(e.target.value)}
-                  className="w-full text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-600"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-[#2D1E18] mb-1">
-                  Phone (optional for SMS pickup reminder)
-                </label>
-                <input
-                  type="tel"
-                  placeholder="(555) 000-0000"
-                  value={guestPhone}
-                  onChange={(e) => setGuestPhone(e.target.value)}
-                  className="w-full text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-600"
-                />
-                <p className="text-[11px] text-[#8A756C] mt-1">
-                  If you add a phone number, you agree to get texts about this order. Msg &amp; data rates may apply. Reply
-                  STOP to opt out.
-                </p>
-              </div>
-            </div>
+            <h2 className="font-bold text-lg text-[#2D1E18]">{text("drop.step3")}</h2>
 
             <div>
-              <label className="block text-xs font-bold text-[#2D1E18] mb-1">
-                Special Notes / Requests
-              </label>
-              <input
-                type="text"
-                placeholder="Anything we should know?"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="w-full text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-600"
+              <label className="block text-xs font-bold text-[#2D1E18] mb-1">{text("drop.discountLabel")}</label>
+              <DiscountInput
+                type="DROP"
+                subtotal={cartTotal}
+                email={details.email}
+                onEmail={(email) => setDetails((d) => ({ ...d, email }))}
+                onChange={setDiscount}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#2D1E18] mb-1">Discount Code</label>
-              <DiscountInput type="DROP" subtotal={cartTotal} email={guestEmail} onChange={setDiscount} />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-[#2D1E18] mb-1">Gift Card</label>
+              <label className="block text-xs font-bold text-[#2D1E18] mb-1">{text("drop.giftLabel")}</label>
               <GiftCardInput amountDue={cartTotal - (discount?.discount ?? 0)} onChange={setGift} />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#2D1E18] mb-2">
-                Select Payment Method
-              </label>
+              <label className="block text-xs font-bold text-[#2D1E18] mb-2">{text("drop.paymentLabel")}</label>
               <div className="flex gap-2">
                 {paymentSettings.hasStripe && (
                   <button
@@ -638,7 +597,7 @@ export default function DropDetailPage() {
                         : "bg-[#FAF6F0] text-[#735D54] border-[#E8DFD5]"
                     }`}
                   >
-                    💳 Card / Apple Pay
+                    {text("pay.card")}
                   </button>
                 )}
                 {paymentSettings.venmoUsername && (
@@ -651,7 +610,7 @@ export default function DropDetailPage() {
                         : "bg-[#FAF6F0] text-[#735D54] border-[#E8DFD5]"
                     }`}
                   >
-                    Venmo
+                    {text("pay.venmo")}
                   </button>
                 )}
                 {paymentSettings.paypalUsername && (
@@ -664,7 +623,7 @@ export default function DropDetailPage() {
                         : "bg-[#FAF6F0] text-[#735D54] border-[#E8DFD5]"
                     }`}
                   >
-                    PayPal
+                    {text("pay.paypal")}
                   </button>
                 )}
               </div>
@@ -672,9 +631,9 @@ export default function DropDetailPage() {
           </section>
         )}
         <p className="text-[11px] text-[#8A756C] text-center">
-          By placing an order you agree to our{" "}
-          <Link href="/terms" className="underline">Terms</Link> and{" "}
-          <Link href="/privacy" className="underline">Privacy Policy</Link>.
+          {text("drop.agree")}{" "}
+          <Link href="/terms" className="underline">{text("footer.terms")}</Link> &amp;{" "}
+          <Link href="/privacy" className="underline">{text("footer.privacy")}</Link>.
         </p>
       </main>
 
@@ -685,9 +644,7 @@ export default function DropDetailPage() {
         <div className="fixed bottom-0 inset-x-0 bg-white border-t border-stone-200 p-4 shadow-2xl z-40 max-w-3xl mx-auto rounded-t-2xl">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <div className="text-xs text-[#735D54]">
-                {totalItemsCount} {totalItemsCount === 1 ? "item" : "items"} selected
-              </div>
+              <div className="text-xs text-[#735D54]">{text("drop.selected", { count: totalItemsCount })}</div>
               <div className="text-xl font-black text-[#2D1E18]">
                 {(discount || gift) && (
                   <span className="text-sm font-medium text-stone-400 line-through mr-2">{formatPrice(cartTotal)}</span>
@@ -696,11 +653,11 @@ export default function DropDetailPage() {
               </div>
             </div>
             <button
-              onClick={handleCheckout}
+              onClick={startCheckout}
               disabled={submitting}
               className="bg-amber-600 hover:bg-amber-700 text-white font-black px-8 py-3.5 rounded-xl shadow-sm transition disabled:opacity-50 text-sm"
             >
-              {submitting ? "Submitting..." : "Proceed to Checkout →"}
+              {text("drop.checkout")}
             </button>
           </div>
         </div>
@@ -739,7 +696,20 @@ export default function DropDetailPage() {
         />
       )}
 
-      {/* Checkout Modal */}
+      {/* Checkout step 1: who the order is for */}
+      {showDetails && (
+        <ContactDetailsModal
+          details={details}
+          onChange={setDetails}
+          required
+          submitting={submitting}
+          error={detailsError}
+          onSubmit={placeOrder}
+          onClose={() => setShowDetails(false)}
+        />
+      )}
+
+      {/* Checkout step 2: payment */}
       {activeOrder && (
         <CheckoutModal
           orderId={activeOrder.orderId}

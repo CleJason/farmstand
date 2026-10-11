@@ -2,7 +2,16 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { cleanPosition } from "@/lib/image-position";
-import { getSiteSettings, isHexColor, publicSite, SITE_KEYS, TOGGLE_KEYS, type SiteKey } from "@/lib/site";
+import { parseCopy } from "@/lib/copy";
+import {
+  cleanPath,
+  getSiteSettings,
+  isHexColor,
+  publicSite,
+  SITE_KEYS,
+  TOGGLE_KEYS,
+  type SiteKey,
+} from "@/lib/site";
 
 const MAX_LENGTH = 2000;
 
@@ -26,7 +35,8 @@ export async function PUT(req: Request) {
   for (const key of SITE_KEYS) {
     if (typeof body[key] !== "string") continue;
     if (key === "SITE_PRIVACY_UPDATED" || key === "SITE_TERMS_UPDATED") continue; // set below
-    const max = key === "SITE_PRIVACY" || key === "SITE_TERMS" ? 20000 : MAX_LENGTH;
+    const max =
+      key === "SITE_PRIVACY" || key === "SITE_TERMS" ? 20000 : key === "SITE_COPY" ? 100000 : MAX_LENGTH;
     const value = body[key].trim().slice(0, max);
     updates.push({ key, value });
   }
@@ -40,9 +50,28 @@ export async function PUT(req: Request) {
     }
   }
 
-  const color = updates.find((u) => u.key === "SITE_BRAND_COLOR")?.value;
-  if (color && !isHexColor(color)) {
-    return NextResponse.json({ error: "Brand color must look like #D97706" }, { status: 400 });
+  for (const key of ["SITE_BRAND_COLOR", "SITE_BUTTON_TEXT_COLOR"]) {
+    const color = updates.find((u) => u.key === key)?.value;
+    if (color && !isHexColor(color)) {
+      return NextResponse.json({ error: "Colors must look like #D97706" }, { status: 400 });
+    }
+  }
+  const path = updates.find((u) => u.key === "SITE_FARMSTAND_PATH");
+  if (path && path.value) {
+    const clean = cleanPath(path.value);
+    if (!clean) {
+      return NextResponse.json(
+        { error: "That page address is taken by a built-in page. Try another, e.g. porch-pickup" },
+        { status: 400 }
+      );
+    }
+    path.value = clean;
+  }
+  const copy = updates.find((u) => u.key === "SITE_COPY");
+  if (copy) {
+    // Keep only known keys with text; drop anything else
+    const parsed = parseCopy(copy.value);
+    copy.value = Object.keys(parsed).length ? JSON.stringify(parsed) : "";
   }
   for (const u of updates) {
     if (TOGGLE_KEYS.includes(u.key as SiteKey)) u.value = u.value === "true" ? "true" : "false";

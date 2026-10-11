@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import Stars from "@/components/Stars";
 import ReviewCard, { type ReviewData } from "@/components/ReviewCard";
+import { useText } from "@/components/SiteProvider";
 
 const PREVIEW = 3;
 
@@ -13,6 +14,7 @@ const PREVIEW = 3;
  * Hidden when there are no reviews.
  */
 export default function ReviewsSection() {
+  const text = useText();
   const [reviews, setReviews] = useState<ReviewData[]>([]);
   const [panelOpen, setPanelOpen] = useState(false);
 
@@ -47,13 +49,11 @@ export default function ReviewsSection() {
       <div className="max-w-5xl mx-auto px-4 py-12">
         <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-stone-900 tracking-tight">What customers say</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-stone-900 tracking-tight">{text("reviews.heading")}</h2>
             <div aria-hidden className="mt-2 h-1 w-12 rounded-full bg-amber-500/80" />
             <div className="mt-1 flex items-center gap-2 text-sm text-stone-500">
               <Stars rating={Math.round(average)} />
-              <span>
-                {average.toFixed(1)} from {reviews.length} {reviews.length === 1 ? "review" : "reviews"}
-              </span>
+              <span>{text("reviews.summary", { average: average.toFixed(1), count: reviews.length })}</span>
             </div>
           </div>
           {reviews.length > PREVIEW && (
@@ -61,7 +61,7 @@ export default function ReviewsSection() {
               onClick={() => setPanelOpen(true)}
               className="text-sm font-semibold border border-stone-300 hover:border-stone-400 bg-white rounded-lg px-4 py-2 text-stone-800"
             >
-              See all {reviews.length} reviews
+              {text("reviews.seeAll", { count: reviews.length })}
             </button>
           )}
         </div>
@@ -91,7 +91,7 @@ export default function ReviewsSection() {
         >
           <div className="flex items-start justify-between px-5 py-4 bg-white border-b border-stone-200">
             <div>
-              <h2 className="text-lg font-bold text-stone-900">Reviews</h2>
+              <h2 className="text-lg font-bold text-stone-900">{text("reviews.panelTitle")}</h2>
               <p className="text-sm text-stone-500">{reviews.length} total</p>
             </div>
             <button onClick={() => setPanelOpen(false)} aria-label="Close" className="p-1 text-stone-500 hover:text-stone-900">

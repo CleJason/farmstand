@@ -6,7 +6,7 @@ import CheckoutModal from "@/components/CheckoutModal";
 import { StoreHeader } from "@/components/StoreChrome";
 import LegalFooter from "@/components/LegalFooter";
 import SpamHint from "@/components/SpamHint";
-import { useSite } from "@/components/SiteProvider";
+import { useSite, useText } from "@/components/SiteProvider";
 import { formatPrice } from "@/lib/utils";
 
 const PRESETS = [2500, 5000, 7500, 10000];
@@ -23,6 +23,7 @@ const inputClass =
 
 export default function GiftCardPage() {
   const site = useSite();
+  const text = useText();
   const [amount, setAmount] = useState<number>(5000);
   const [custom, setCustom] = useState("");
   const [recipientName, setRecipientName] = useState("");
@@ -83,17 +84,14 @@ export default function GiftCardPage() {
         <StoreHeader />
         <div className="max-w-md mx-auto px-4 py-16 text-center space-y-4">
           <div className="text-5xl">🎁</div>
-          <h1 className="text-2xl font-bold text-stone-900">Thank you!</h1>
+          <h1 className="text-2xl font-bold text-stone-900">{text("giftPage.doneTitle")}</h1>
           <p className="text-sm text-stone-600">
-            {paymentMethod === "STRIPE"
-              ? "Your gift card is paid."
-              : "Once we confirm your payment, the gift card is activated."}{" "}
-            The code will be emailed to {recipientEmail ? "the recipient" : "you"}
-            {recipientEmail ? " and a receipt to you" : ""}.
+            {paymentMethod === "STRIPE" ? text("giftPage.donePaid") : text("giftPage.doneManual")}{" "}
+            {text("giftPage.doneTo", { who: recipientEmail ? "the recipient (and a receipt to you)" : "you" })}
           </p>
           <SpamHint />
           <Link href="/" className="inline-block bg-amber-600 hover:bg-amber-700 text-white font-semibold px-6 py-2.5 rounded-full text-sm">
-            Back to {site.SITE_NAME}
+            {text("giftPage.back", { shop: site.SITE_NAME })}
           </Link>
         </div>
       </div>
@@ -106,15 +104,15 @@ export default function GiftCardPage() {
       <main className="max-w-lg mx-auto px-4 py-10">
         <div className="text-center mb-8">
           <div className="text-4xl">🎁</div>
-          <h1 className="text-3xl font-bold text-stone-900 tracking-tight mt-2">Gift Cards</h1>
+          <h1 className="text-3xl font-bold text-stone-900 tracking-tight mt-2">{text("giftPage.title")}</h1>
           <p className="text-sm text-stone-500 mt-2">
-            Give someone a treat from {site.SITE_NAME}. They can use it on pre-orders or at {site.SITE_FARMSTAND_HEADING}.
+            {text("giftPage.intro", { shop: site.SITE_NAME, stand: site.SITE_FARMSTAND_HEADING })}
           </p>
         </div>
 
         <form onSubmit={buy} className="space-y-5">
           <div>
-            <span className="block text-xs font-bold text-stone-900 mb-2">Amount</span>
+            <span className="block text-xs font-bold text-stone-900 mb-2">{text("giftPage.amount")}</span>
             <div className="grid grid-cols-4 gap-2">
               {PRESETS.map((p) => (
                 <button
@@ -139,51 +137,51 @@ export default function GiftCardPage() {
               step="1"
               value={custom}
               onChange={(e) => setCustom(e.target.value)}
-              placeholder="Or another amount ($5–$500)"
+              placeholder={text("giftPage.custom")}
               className={`${inputClass} mt-2`}
             />
           </div>
 
           <div className="grid sm:grid-cols-2 gap-3">
             <label className="block">
-              <span className="block text-xs font-bold text-stone-900 mb-1">Recipient&apos;s name</span>
+              <span className="block text-xs font-bold text-stone-900 mb-1">{text("giftPage.recipientName")}</span>
               <input value={recipientName} onChange={(e) => setRecipientName(e.target.value)} className={inputClass} />
             </label>
             <label className="block">
-              <span className="block text-xs font-bold text-stone-900 mb-1">Recipient&apos;s email</span>
-              <input type="email" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} placeholder="We'll email them the code" className={inputClass} />
+              <span className="block text-xs font-bold text-stone-900 mb-1">{text("giftPage.recipientEmail")}</span>
+              <input type="email" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} placeholder={text("giftPage.recipientEmailHint")} className={inputClass} />
             </label>
           </div>
           <label className="block">
-            <span className="block text-xs font-bold text-stone-900 mb-1">From</span>
-            <input value={fromName} onChange={(e) => setFromName(e.target.value)} placeholder="Your name" className={inputClass} />
+            <span className="block text-xs font-bold text-stone-900 mb-1">{text("giftPage.from")}</span>
+            <input value={fromName} onChange={(e) => setFromName(e.target.value)} placeholder={text("giftPage.fromHint")} className={inputClass} />
           </label>
           <label className="block">
-            <span className="block text-xs font-bold text-stone-900 mb-1">Message (optional)</span>
+            <span className="block text-xs font-bold text-stone-900 mb-1">{text("giftPage.message")}</span>
             <textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} className={inputClass} />
           </label>
           <label className="block">
-            <span className="block text-xs font-bold text-stone-900 mb-1">Your email * (for the receipt)</span>
+            <span className="block text-xs font-bold text-stone-900 mb-1">{text("giftPage.yourEmail")}</span>
             <input type="email" required value={purchaserEmail} onChange={(e) => setPurchaserEmail(e.target.value)} className={inputClass} />
           </label>
 
           {payments && (
             <div>
-              <span className="block text-xs font-bold text-stone-900 mb-2">Pay with</span>
+              <span className="block text-xs font-bold text-stone-900 mb-2">{text("giftPage.payWith")}</span>
               <div className="flex gap-2">
                 {payments.hasStripe && (
                   <button type="button" onClick={() => setPaymentMethod("STRIPE")} className={`flex-1 py-3 text-xs font-bold rounded-xl border ${paymentMethod === "STRIPE" ? "bg-amber-600 text-white border-amber-600" : "border-stone-200 text-stone-600"}`}>
-                    💳 Card
+                    {text("pay.card")}
                   </button>
                 )}
                 {payments.venmoUsername && (
                   <button type="button" onClick={() => setPaymentMethod("VENMO")} className={`flex-1 py-3 text-xs font-bold rounded-xl border ${paymentMethod === "VENMO" ? "bg-[#008CFF] text-white border-[#008CFF]" : "border-stone-200 text-stone-600"}`}>
-                    Venmo
+                    {text("pay.venmo")}
                   </button>
                 )}
                 {payments.paypalUsername && (
                   <button type="button" onClick={() => setPaymentMethod("PAYPAL")} className={`flex-1 py-3 text-xs font-bold rounded-xl border ${paymentMethod === "PAYPAL" ? "bg-[#0070BA] text-white border-[#0070BA]" : "border-stone-200 text-stone-600"}`}>
-                    PayPal
+                    {text("pay.paypal")}
                   </button>
                 )}
               </div>
@@ -192,15 +190,15 @@ export default function GiftCardPage() {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
           <p className="text-[11px] text-stone-400 text-center">
-            By buying you agree to our <Link href="/terms" className="underline">Terms</Link> and{" "}
-            <Link href="/privacy" className="underline">Privacy Policy</Link>.
+            {text("giftPage.agree")} <Link href="/terms" className="underline">{text("footer.terms")}</Link> &amp;{" "}
+            <Link href="/privacy" className="underline">{text("footer.privacy")}</Link>.
           </p>
           <button
             type="submit"
             disabled={submitting || !finalAmount}
             className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3.5 rounded-xl disabled:opacity-50"
           >
-            {submitting ? "One moment..." : `Buy ${formatPrice(finalAmount || 0)} gift card`}
+            {submitting ? text("checkout.submitting") : text("giftPage.buy", { amount: formatPrice(finalAmount || 0) })}
           </button>
         </form>
       </main>

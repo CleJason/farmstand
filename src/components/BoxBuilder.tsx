@@ -6,6 +6,7 @@ import { formatPrice } from "@/lib/utils";
 import type { BoxPick } from "@/lib/box";
 import type { AddOn } from "@/lib/addons";
 import { AddOnChecklist } from "@/components/AddOnPicker";
+import { useText } from "@/components/SiteProvider";
 
 /**
  * Bottom sheet where the customer fills one mix & match box: a stepper per
@@ -28,6 +29,7 @@ export default function BoxBuilder({
   onAdd: (picks: BoxPick[], addOnNames: string[]) => void;
   onClose: () => void;
 }) {
+  const text = useText();
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [extras, setExtras] = useState<string[]>([]);
   const chosen = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -73,7 +75,7 @@ export default function BoxBuilder({
           <div>
             <h2 className="font-bold text-lg text-[#2D1E18]">{name}</h2>
             <p className="text-sm text-[#735D54]">
-              Choose {boxSize} · {formatPrice(price)}
+              {text("box.choose", { count: boxSize })} · {formatPrice(price)}
             </p>
           </div>
           <button onClick={onClose} aria-label="Close" className="p-1 text-stone-400 hover:text-stone-800">
@@ -135,8 +137,10 @@ export default function BoxBuilder({
             className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl disabled:opacity-50 text-sm"
           >
             {left > 0
-              ? `Choose ${left} more`
-              : `Add to order · ${formatPrice(price + addOns.filter((a) => extras.includes(a.name)).reduce((s, a) => s + a.price, 0))}`}
+              ? text("box.chooseMore", { count: left })
+              : text("box.add", {
+                  price: formatPrice(price + addOns.filter((a) => extras.includes(a.name)).reduce((s, a) => s + a.price, 0)),
+                })}
           </button>
         </div>
       </div>

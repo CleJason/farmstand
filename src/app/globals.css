@@ -26,6 +26,16 @@
   --color-amber-700: color-mix(in oklab, var(--brand) 85%, black);
   --color-amber-800: color-mix(in oklab, var(--brand) 70%, black);
   --color-amber-900: color-mix(in oklab, var(--brand) 55%, black);
+
+  /* Text on brand-colored buttons (Admin → Site → Colors) */
+  --on-brand: #FFFFFF;
+}
+
+.bg-amber-500.text-white,
+.bg-amber-600.text-white,
+.bg-amber-700.text-white,
+.bg-amber-800.text-white {
+  color: var(--on-brand);
 }
 
 body {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { useSite } from "@/components/SiteProvider";
+import { standHref } from "@/lib/site-defaults";
 
 /** Printable QR code pointing customers at the walk-up farmstand page. */
 export default function FarmstandQrCode() {
@@ -20,11 +21,11 @@ export default function FarmstandQrCode() {
         if (res.ok) base = (await res.json()).appUrl || "";
       } catch {}
       // Fall back to wherever the admin is browsing from
-      const target = `${(base || window.location.origin).replace(/\/+$/, "")}/farmstand`;
+      const target = `${(base || window.location.origin).replace(/\/+$/, "")}${standHref(site)}`;
       setUrl(target);
       setDataUrl(await QRCode.toDataURL(target, { width: 1024, margin: 2 }));
     })();
-  }, [open, dataUrl]);
+  }, [open, dataUrl, site]);
 
   return (
     <>
@@ -66,7 +67,7 @@ export default function FarmstandQrCode() {
               </button>
               <a
                 href={dataUrl ?? undefined}
-                download="farmstand-qr.png"
+                download="qr-code.png"
                 className={`flex-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-sm px-4 py-2 rounded-lg ${
                   dataUrl ? "" : "pointer-events-none opacity-50"
                 }`}

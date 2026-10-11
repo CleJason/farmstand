@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Share } from "lucide-react";
-import { useSite } from "@/components/SiteProvider";
+import { useSite, useText } from "@/components/SiteProvider";
 
 /**
  * Share the shop: the phone's share sheet (Messages, Facebook, …) where
@@ -10,6 +10,7 @@ import { useSite } from "@/components/SiteProvider";
  */
 export default function ShareButton({ className = "" }: { className?: string }) {
   const site = useSite();
+  const text = useText();
   const [copied, setCopied] = useState(false);
 
   const share = async () => {
@@ -34,9 +35,9 @@ export default function ShareButton({ className = "" }: { className?: string }) 
   };
 
   return (
-    <button type="button" onClick={share} className={className} aria-label="Share">
+    <button type="button" onClick={share} className={className} aria-label={text("nav.share")}>
       <Share size={15} aria-hidden />
-      <span>{copied ? "Link copied!" : "Share"}</span>
+      <span>{copied ? text("nav.shareCopied") : text("nav.share")}</span>
     </button>
   );
 }

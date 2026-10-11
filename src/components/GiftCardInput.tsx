@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatPrice } from "@/lib/utils";
+import { useText } from "@/components/SiteProvider";
 
 export type AppliedGift = { code: string; amount: number; balance: number } | null;
 
@@ -13,6 +14,7 @@ export default function GiftCardInput({
   amountDue: number;
   onChange: (applied: AppliedGift) => void;
 }) {
+  const text = useText();
   const [code, setCode] = useState("");
   const [applied, setApplied] = useState<AppliedGift>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,11 +60,11 @@ export default function GiftCardInput({
           <span>
             🎁 <span className="font-mono font-semibold">{applied.code}</span>: −{formatPrice(applied.amount)}
             <span className="block text-[11px] text-emerald-700">
-              {formatPrice(applied.balance - applied.amount)} will be left on the card
+              {text("gift.left", { amount: formatPrice(applied.balance - applied.amount) })}
             </span>
           </span>
           <button type="button" onClick={remove} className="text-xs underline shrink-0">
-            Remove
+            {text("remove")}
           </button>
         </div>
       ) : (
@@ -70,8 +72,8 @@ export default function GiftCardInput({
           <input
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="Gift card code"
-            className="flex-1 text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl font-mono focus:outline-none focus:border-amber-600"
+            placeholder={text("gift.placeholder")}
+            className="flex-1 min-w-0 text-sm px-3.5 py-2.5 border border-stone-200 rounded-xl font-mono focus:outline-none focus:border-amber-600"
           />
           <button
             type="button"
@@ -79,7 +81,7 @@ export default function GiftCardInput({
             onClick={() => check(code)}
             className="px-4 text-sm font-semibold rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-50 disabled:opacity-50"
           >
-            {checking ? "…" : "Apply"}
+            {checking ? "…" : text("apply")}
           </button>
         </div>
       )}

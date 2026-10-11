@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { formatDate, formatPrice } from "@/lib/utils";
-import { useSite } from "@/components/SiteProvider";
+import { useSite, useText } from "@/components/SiteProvider";
+import { standHref } from "@/lib/site-defaults";
 import { StoreHeader } from "@/components/StoreChrome";
 import SocialLinks from "@/components/SocialLinks";
 import ReviewsSection from "@/components/ReviewsSection";
@@ -36,6 +37,8 @@ interface Drop {
 
 export default function HomeClient() {
   const site = useSite();
+  const text = useText();
+  const stand = standHref(site);
   const [drops, setDrops] = useState<Drop[]>([]);
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState<{ average: number; count: number } | null>(null);
@@ -108,7 +111,7 @@ export default function HomeClient() {
                 ★
               </span>
               <span className="underline-offset-2 hover:underline">
-                ({rating.count} {rating.count === 1 ? "review" : "reviews"})
+                {text("home.reviewCount", { count: rating.count })}
               </span>
             </a>
           )}
@@ -126,10 +129,10 @@ export default function HomeClient() {
               href="#drops"
               className="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-7 py-3 rounded-full text-sm shadow-md shadow-amber-600/25 hover:-translate-y-0.5 transition-all"
             >
-              View This Week&apos;s Drop
+              {text("home.viewDrops")}
             </a>
             <Link
-              href="/farmstand"
+              href={stand}
               className="bg-white border border-stone-300 hover:border-amber-400 text-stone-800 font-semibold px-7 py-3 rounded-full text-sm shadow-sm hover:-translate-y-0.5 transition-all"
             >
               {site.SITE_FARMSTAND_HEADING}
@@ -160,7 +163,7 @@ export default function HomeClient() {
         {loading ? (
           <div className="text-center py-20">
             <div className="inline-block w-6 h-6 border-2 border-stone-300 border-t-amber-600 rounded-full animate-spin" />
-            <p className="text-sm text-stone-400 mt-3">Loading drops...</p>
+            <p className="text-sm text-stone-400 mt-3">{text("home.loadingDrops")}</p>
           </div>
         ) : drops.length === 0 ? (
           <div className="rounded-3xl p-12 text-center border-2 border-dashed border-amber-200 bg-gradient-to-br from-amber-50/80 to-white">
@@ -168,20 +171,19 @@ export default function HomeClient() {
               <span className="text-2xl">🗓️</span>
             </div>
             <h3 className="font-semibold text-stone-900 text-lg">
-              No active drops right now
+              {text("home.noDropsTitle")}
             </h3>
             <p className="text-stone-500 text-sm mt-2 max-w-sm mx-auto">
-              The next drop will be posted soon. Check {site.SITE_FARMSTAND_HEADING} for
-              what&apos;s available now!
+              {text("home.noDropsText", { stand: site.SITE_FARMSTAND_HEADING })}
             </p>
             <Link
-              href="/farmstand"
+              href={stand}
               className="inline-block mt-6 bg-amber-600 hover:bg-amber-700 text-white font-semibold px-6 py-2.5 rounded-full text-sm shadow-md shadow-amber-600/25 hover:-translate-y-0.5 transition-all"
             >
-              Visit {site.SITE_FARMSTAND_HEADING} →
+              {text("home.visitStand", { stand: site.SITE_FARMSTAND_HEADING })}
             </Link>
             <a href="#alerts" className="block mt-3 text-sm font-semibold text-amber-700 hover:underline">
-              Get an alert when the next drop opens
+              {text("home.alertsLink")}
             </a>
           </div>
         ) : (
@@ -205,7 +207,7 @@ export default function HomeClient() {
                                 : "bg-amber-50 text-amber-700"
                             }`}
                           >
-                            {isOpen ? "Ordering Open" : "Coming Soon"}
+                            {isOpen ? text("home.badgeOpen") : text("home.badgeSoon")}
                           </span>
                         </div>
                         <h3 className="text-xl md:text-2xl font-bold text-stone-900">
@@ -219,7 +221,7 @@ export default function HomeClient() {
                       </div>
                       <div className="text-right text-xs text-stone-400">
                         <div>
-                          Closes{" "}
+                          {text("home.closes")}{" "}
                           <span className="font-medium text-stone-600">
                             {formatDate(drop.orderCloseAt)}
                           </span>
@@ -282,13 +284,13 @@ export default function HomeClient() {
                   {/* Drop Footer CTA */}
                   <div className="border-t border-stone-100 px-6 md:px-8 py-4 flex items-center justify-between bg-[#FAFAF8]">
                     <span className="text-xs text-stone-400">
-                      {drop.dropProducts.length} items available
+                      {text("home.itemsAvailable", { count: drop.dropProducts.length })}
                     </span>
                     <Link
                       href={`/drops/${drop.id}`}
                       className="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-5 py-2 rounded-full text-sm transition-colors"
                     >
-                      {isOpen ? "Order Now →" : "View Menu →"}
+                      {isOpen ? text("home.orderNow") : text("home.viewMenu")}
                     </Link>
                   </div>
                 </div>

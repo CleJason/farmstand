@@ -9,6 +9,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { formatPrice, paypalMeUrl, venmoUrl } from "@/lib/utils";
+import { useText } from "@/components/SiteProvider";
 
 interface CheckoutModalProps {
   orderId: string;
@@ -29,6 +30,7 @@ function StripeCheckoutForm({
   total: number;
   onSuccess: () => void;
 }) {
+  const text = useText();
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
@@ -70,9 +72,9 @@ function StripeCheckoutForm({
       <button
         type="submit"
         disabled={!stripe || loading}
-        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl transition disabled:opacity-50"
+        className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-xl transition disabled:opacity-50"
       >
-        {loading ? "Processing..." : `Pay ${formatPrice(total)}`}
+        {loading ? text("checkout.processing") : text("checkout.payCard", { total: formatPrice(total) })}
       </button>
     </form>
   );
@@ -89,6 +91,9 @@ export default function CheckoutModal({
   onSuccess,
   onClose,
 }: CheckoutModalProps) {
+  const text = useText();
+  const order = orderId.slice(-6).toUpperCase();
+  const vars = { total: formatPrice(total), order, handle: venmoUsername ?? "" };
   // Load Stripe once, not on every render (re-loading resets the card form)
   const stripePromise = useMemo(
     () => (stripePublishableKey ? loadStripe(stripePublishableKey) : null),
@@ -107,13 +112,8 @@ export default function CheckoutModal({
           ✕
         </button>
 
-        <h2 className="text-xl font-bold text-gray-900 mb-2">
-          Complete Your Order
-        </h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Order #{orderId.slice(-6).toUpperCase()} · Total:{" "}
-          <span className="font-semibold text-gray-900">{formatPrice(total)}</span>
-        </p>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">{text("checkout.title")}</h2>
+        <p className="text-sm text-gray-500 mb-6">{text("checkout.orderLine", vars)}</p>
 
         {paymentMethod === "STRIPE" && clientSecret && stripePromise ? (
           <Elements
@@ -125,8 +125,7 @@ export default function CheckoutModal({
         ) : paymentMethod === "PAYPAL" ? (
           <div className="space-y-4 text-center">
             <div className="p-4 bg-sky-50 rounded-xl border border-sky-100 text-sky-900 text-sm">
-              Click below to send <strong>{formatPrice(total)}</strong> to PayPal.
-              Include your Order ID <strong>#{orderId.slice(-6).toUpperCase()}</strong> in the note!
+              {text("checkout.paypalText", vars)}
             </div>
             <a
               href={paypalMeUrl(paypalUsername, total)}
@@ -134,21 +133,19 @@ export default function CheckoutModal({
               rel="noopener noreferrer"
               className="block w-full bg-[#0070BA] hover:bg-[#003087] text-white font-medium py-3 rounded-xl transition"
             >
-              Open PayPal.me ({formatPrice(total)}) →
+              {text("checkout.paypalButton", vars)}
             </a>
             <button
               onClick={onSuccess}
               className="w-full border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2.5 rounded-xl transition text-sm"
             >
-              I have sent the payment
+              {text("checkout.sent")}
             </button>
           </div>
         ) : paymentMethod === "VENMO" ? (
           <div className="space-y-4 text-center">
             <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-blue-900 text-sm">
-              Click below to send <strong>{formatPrice(total)}</strong> on Venmo to{" "}
-              <strong>@{venmoUsername}</strong>. Put Order #
-              <strong>{orderId.slice(-6).toUpperCase()}</strong> in the note!
+              {text("checkout.venmoText", vars)}
             </div>
             <a
               href={venmoUrl(venmoUsername, total, `Order #${orderId.slice(-6)}`)}
@@ -156,13 +153,13 @@ export default function CheckoutModal({
               rel="noopener noreferrer"
               className="block w-full bg-[#008CFF] hover:bg-[#0070CC] text-white font-medium py-3 rounded-xl transition"
             >
-              Open Venmo ({formatPrice(total)}) →
+              {text("checkout.venmoButton", vars)}
             </a>
             <button
               onClick={onSuccess}
               className="w-full border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2.5 rounded-xl transition text-sm"
             >
-              I have sent the payment
+              {text("checkout.sent")}
             </button>
           </div>
         ) : null}
