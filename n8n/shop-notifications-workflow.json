@@ -733,6 +733,67 @@
           "appendAttribution": false
         }
       }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d10",
+      "name": "Paid By Card?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        272,
+        352
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body?.paymentMethod }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "STRIPE"
+            },
+            {
+              "leftValue": "={{ $json.body?.ownerEmail ?? \"\" }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d11",
+      "name": "Email Owner: New Card Order",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        528,
+        352
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "operation": "send",
+        "fromEmail": "Your Shop <hello@example.com>",
+        "toEmail": "={{ $json.body?.ownerEmail }}",
+        "subject": "=New paid order #{{ String($json.body?.orderId ?? \"\").slice(-6).toUpperCase() }}{{ $json.body?.customerName ? \" from \" + $json.body.customerName : \"\" }} – {{ \"$\" + (Number($json.body?.total ?? 0) / 100).toFixed(2) }}",
+        "emailFormat": "html",
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:520px;color:#1c1917\"><h3>New {{ $json.body?.type === \"FARMSTAND\" ? \"walk-up\" : \"pre-order\" }} paid by card</h3><p><b>{{ \"$\" + (Number($json.body?.total ?? 0) / 100).toFixed(2) }}</b></p><p>{{ $json.body?.customerName || \"\" }}<br>{{ $json.body?.customerEmail || \"\" }}<br>{{ $json.body?.customerPhone || \"\" }}</p><p>{{ ($json.body?.items || []).map(i => i.quantity + \" × \" + i.name).join(\"<br>\") }}</p>{{ $json.body?.pickupTime ? \"<p>Pickup: \" + $json.body.pickupTime + \"</p>\" : \"\" }}<p><a href=\"{{ $json.body?.adminUrl }}\">Open orders</a></p></div>",
+        "options": {
+          "appendAttribution": false
+        }
+      }
     }
   ],
   "connections": {
@@ -741,6 +802,11 @@
         [
           {
             "node": "Prepare Confirmation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Paid By Card?",
             "type": "main",
             "index": 0
           }
@@ -768,6 +834,11 @@
         [
           {
             "node": "Prepare Confirmation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Paid By Card?",
             "type": "main",
             "index": 0
           }
@@ -932,6 +1003,17 @@
         [
           {
             "node": "Email Customer: Thank-You Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Paid By Card?": {
+      "main": [
+        [
+          {
+            "node": "Email Owner: New Card Order",
             "type": "main",
             "index": 0
           }
