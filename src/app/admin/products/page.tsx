@@ -256,7 +256,7 @@ export default function AdminProductsPage() {
       {/* Create Product Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-stone-900 mb-4">
               {editingId ? "Edit Product" : "New Product"}
             </h2>
@@ -297,12 +297,15 @@ export default function AdminProductsPage() {
                   Description
                 </label>
                 <textarea
-                  rows={2}
+                  rows={8}
                   placeholder="What makes it special, ingredients, size..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 resize-none"
+                  className="w-full text-sm leading-relaxed px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 resize-y min-h-[160px]"
                 />
+                <span className="block text-[11px] text-stone-400 mt-1">
+                  Line breaks show on the item&apos;s details. Drag the corner to make this box bigger.
+                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

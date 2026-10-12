@@ -496,7 +496,7 @@ export default function AdminDropsPage() {
                 </label>
                 <label className="block">
                   <span className="block text-xs font-medium text-stone-600 mb-1">Description</span>
-                  <textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} />
+                  <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} className={`${inputClass} resize-y`} />
                 </label>
                 <div className="grid sm:grid-cols-3 gap-3">
                   <label className="block">
