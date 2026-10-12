@@ -162,6 +162,14 @@ export const COPY = {
   "checkout.title": { group: "Checkout", label: "Payment step: title", default: "Complete Your Order" },
   "checkout.orderLine": { group: "Checkout", label: "Payment step: order line", default: "Order #{order} · Total: {total}" },
   "checkout.payCard": { group: "Checkout", label: "Card: pay button", default: "Pay {total}" },
+  "checkout.cardLoading": { group: "Checkout", label: "Card: form loading", default: "Loading the secure card form…" },
+  "checkout.cardTrouble": {
+    group: "Checkout",
+    label: "Card: form didn't load",
+    default:
+      "The card form didn't load. If you have an ad or content blocker, turn it off for this site, or open this page in Safari or Chrome (not inside Facebook or Instagram). You can also close this and pay with Venmo or PayPal.",
+    long: true,
+  },
   "checkout.processing": { group: "Checkout", label: "Card: processing", default: "Processing..." },
   "checkout.venmoText": {
     group: "Checkout",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Elements,
   PaymentElement,
@@ -37,6 +37,14 @@ function StripeCheckoutForm({
   const elements = useElements();
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // The card form comes from Stripe's servers; blockers and some in-app browsers stop it loading
+  const [ready, setReady] = useState(false);
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    if (ready) return;
+    const t = setTimeout(() => setStuck(true), 10000);
+    return () => clearTimeout(t);
+  }, [ready]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +75,22 @@ function StripeCheckoutForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement />
+      <PaymentElement
+        onReady={() => {
+          setReady(true);
+          setStuck(false);
+        }}
+        onLoadError={(e) => {
+          console.error("Stripe card form failed to load", e.error);
+          setStuck(true);
+        }}
+      />
+      {!ready && !stuck && <p className="text-sm text-stone-500 text-center py-6">{text("checkout.cardLoading")}</p>}
+      {stuck && !ready && (
+        <div className="p-3 bg-amber-50 text-amber-900 text-sm rounded-lg border border-amber-200">
+          {text("checkout.cardTrouble")}
+        </div>
+      )}
       {errorMessage && (
         <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
           {errorMessage}
@@ -75,7 +98,7 @@ function StripeCheckoutForm({
       )}
       <button
         type="submit"
-        disabled={!stripe || loading}
+        disabled={!stripe || !ready || loading}
         className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-xl transition disabled:opacity-50"
       >
         {loading ? text("checkout.processing") : text("checkout.payCard", { total: formatPrice(total) })}
@@ -100,7 +123,14 @@ export default function CheckoutModal({
   const vars = { total: formatPrice(total), order, handle: venmoUsername ?? "" };
   // Load Stripe once, not on every render (re-loading resets the card form)
   const stripePromise = useMemo(
-    () => (stripePublishableKey ? loadStripe(stripePublishableKey) : null),
+    () =>
+      stripePublishableKey
+        ? loadStripe(stripePublishableKey).catch((err) => {
+            // Stripe's script was blocked or didn't download; the form shows what to do
+            console.error("Couldn't load Stripe", err);
+            return null;
+          })
+        : null,
     [stripePublishableKey]
   );
 
@@ -166,7 +196,11 @@ export default function CheckoutModal({
               {text("checkout.sent")}
             </button>
           </div>
-        ) : null}
+        ) : (
+          <div className="p-3 bg-amber-50 text-amber-900 text-sm rounded-lg border border-amber-200">
+            {text("checkout.cardTrouble")}
+          </div>
+        )}
       </div>
       </div>
     </div>
