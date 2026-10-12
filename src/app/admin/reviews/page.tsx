@@ -277,6 +277,15 @@ export default function AdminReviewsPage() {
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            {/* Always-visible close button, so long forms don't need scrolling to Cancel */}
+            <button
+              type="button"
+              onClick={() => setShowModal(false)}
+              aria-label="Close"
+              className="sticky top-0 float-right -mt-2 -mr-2 z-10 w-9 h-9 rounded-full bg-white shadow border border-stone-200 text-stone-500 hover:text-stone-900 text-lg leading-none"
+            >
+              ✕
+            </button>
             <h2 className="text-lg font-bold text-stone-900 mb-4">{editingId ? "Edit Review" : "Add Review"}</h2>
             <form onSubmit={save} className="space-y-3">
               <div>
