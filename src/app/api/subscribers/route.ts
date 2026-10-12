@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { phoneKey } from "@/lib/phone";
+import { cleanEmail, cleanPhone } from "@/lib/drop-alerts";
 
 async function isAdmin() {
   const session = await auth();
@@ -43,6 +44,26 @@ export async function GET() {
       name: (s.email && byEmail.get(s.email)) || (s.phone && byPhone.get(phoneKey(s.phone))) || null,
     }))
   );
+}
+
+/** Add someone by hand (email, phone, or both). Same email again just updates the phone. */
+export async function POST(req: Request) {
+  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const data = await req.json().catch(() => ({}));
+  const email = data.email ? cleanEmail(data.email) : null;
+  const phone = data.phone ? cleanPhone(data.phone) : null;
+  if (data.email && !email) return NextResponse.json({ error: "That email doesn't look right" }, { status: 400 });
+  if (data.phone && !phone) return NextResponse.json({ error: "That phone number doesn't look right" }, { status: 400 });
+  if (!email && !phone) return NextResponse.json({ error: "Add an email, a phone number, or both" }, { status: 400 });
+
+  if (email) {
+    await prisma.subscriber.upsert({ where: { email }, create: { email, phone }, update: phone ? { phone } : {} });
+  } else {
+    // Phone only: skip if that number is already on the list
+    const all = await prisma.subscriber.findMany({ where: { phone: { not: null } }, select: { phone: true } });
+    if (!all.some((s) => phoneKey(s.phone) === phoneKey(phone))) await prisma.subscriber.create({ data: { phone } });
+  }
+  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req: Request) {

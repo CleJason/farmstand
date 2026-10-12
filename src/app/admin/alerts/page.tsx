@@ -16,6 +16,9 @@ const shortDate = (iso: string) =>
 export default function AdminAlertsPage() {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [adding, setAdding] = useState(false);
 
   const load = () =>
     fetch("/api/subscribers")
@@ -33,6 +36,22 @@ export default function AdminAlertsPage() {
     const res = await fetch(`/api/subscribers?id=${encodeURIComponent(s.id)}`, { method: "DELETE" });
     if (res.ok) load();
     else alert("Couldn't remove them");
+  };
+
+  const add = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdding(true);
+    const res = await fetch("/api/subscribers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: newEmail.trim(), phone: newPhone.trim() }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setAdding(false);
+    if (!res.ok) return alert(data.error || "Couldn't add them");
+    setNewEmail("");
+    setNewPhone("");
+    load();
   };
 
   const removeAll = async () => {
@@ -62,7 +81,8 @@ export default function AdminAlertsPage() {
         <div>
           <h1 className="text-xl font-bold text-stone-900">Drop Alerts</h1>
           <p className="text-sm text-stone-500 mt-0.5">
-            People who signed up on the home page. They&apos;re emailed once when a drop first opens for orders.
+            People who signed up on the home page (or you added). When a drop opens they get one email, and one text if
+            they gave a phone number.
           </p>
         </div>
         <button
@@ -73,6 +93,38 @@ export default function AdminAlertsPage() {
           Export CSV
         </button>
       </div>
+
+      <form onSubmit={add} className="bg-white rounded-xl border border-stone-200 p-4 flex flex-wrap items-end gap-2">
+        <label className="flex-1 min-w-[180px]">
+          <span className="block text-xs font-medium text-stone-600 mb-1">Email</span>
+          <input
+            type="email"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            placeholder="name@example.com"
+            className="w-full text-sm px-3 py-2 border border-stone-200 rounded-lg"
+          />
+        </label>
+        <label className="flex-1 min-w-[150px]">
+          <span className="block text-xs font-medium text-stone-600 mb-1">Phone (for texts)</span>
+          <input
+            type="tel"
+            value={newPhone}
+            onChange={(e) => setNewPhone(e.target.value)}
+            placeholder="(555) 000-0000"
+            className="w-full text-sm px-3 py-2 border border-stone-200 rounded-lg"
+          />
+        </label>
+        <button
+          disabled={adding || (!newEmail.trim() && !newPhone.trim())}
+          className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold text-sm px-4 py-2 rounded-lg"
+        >
+          {adding ? "Adding…" : "+ Add to list"}
+        </button>
+        <p className="basis-full text-[11px] text-stone-400">
+          Only add people who asked for drop alerts. Anyone who replied STOP never gets texts.
+        </p>
+      </form>
 
       {loading ? (
         <div className="text-center py-16">
@@ -89,7 +141,7 @@ export default function AdminAlertsPage() {
             <span>
               <b className="text-stone-900">{subscribers.length}</b> {subscribers.length === 1 ? "person" : "people"} on the
               list · {subscribers.filter((s) => s.email).length} get emails,{" "}
-              {subscribers.filter((s) => !s.email).length} are phone-only (texts, once texting is set up)
+              {subscribers.filter((s) => s.phone).length} have a phone number (texts)
             </span>
             <button onClick={removeAll} className="text-xs text-stone-400 hover:text-red-600">
               Remove all
