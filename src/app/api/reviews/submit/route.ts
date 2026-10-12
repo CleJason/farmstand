@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSetting } from "@/lib/settings";
 import { fireNotification } from "@/lib/notifications";
 import { generateRewardCode, orderProductNames, reviewSettings } from "@/lib/review-requests";
+import { reviewImages } from "@/lib/admin-input";
 
 class ReviewError extends Error {}
 
@@ -61,6 +62,7 @@ export async function POST(req: Request) {
             email,
             orderId: order.id,
             rewardCode,
+            images: reviewImages(data.images),
           },
         });
         return { email, name, rewardCode };

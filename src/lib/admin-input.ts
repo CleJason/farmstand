@@ -75,7 +75,16 @@ export function parseReview(body: Record<string, unknown>) {
     ...(body.email !== undefined
       ? { email: String(body.email ?? "").trim().toLowerCase().slice(0, 254) || null }
       : {}),
+    ...(body.images !== undefined ? { images: reviewImages(body.images) } : {}),
     reviewDate,
     visible: body.visible === undefined ? true : Boolean(body.visible),
   };
+}
+
+export const MAX_REVIEW_IMAGES = 4;
+
+/** Review photos: only files uploaded to this site, at most 4. */
+export function reviewImages(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return [...new Set(input.map(String).filter((u) => /^\/uploads\/[\w.-]+$/.test(u)))].slice(0, MAX_REVIEW_IMAGES);
 }

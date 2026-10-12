@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
+import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
-import { prisma } from "@/lib/prisma";
-import { fireNotification, itemsWithNames, notificationItems } from "@/lib/notifications";
 import { getSetting } from "@/lib/settings";
-import { countsStock } from "@/lib/stock";
-import { applyStatusChange } from "@/lib/order-effects";
-import { notifyGiftActivated } from "@/lib/gift-notify";
-import { formatPickup, pickupAddressFor } from "@/lib/pickup";
-import { getSiteSettings } from "@/lib/site";
+import { markCardOrderPaid } from "@/lib/stripe-paid";
 
 export async function POST(req: Request) {
   const stripe = await getStripe();
@@ -27,74 +22,19 @@ export async function POST(req: Request) {
   }
 
   const payload = await req.text();
-  let event: any;
+  let event: Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-  } catch (err: any) {
-    console.error("Stripe webhook verification failed:", err.message);
-    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Stripe webhook verification failed:", message);
+    return NextResponse.json({ error: `Webhook Error: ${message}` }, { status: 400 });
   }
 
+  // A failed attempt leaves the order Pending (the customer can retry), so only success matters
   if (event.type === "payment_intent.succeeded") {
-    const paymentIntent = event.data.object;
-    const order = await prisma.order.findFirst({
-      where: { stripePaymentIntentId: paymentIntent.id },
-      include: {
-        items: itemsWithNames,
-        pickupSlot: true,
-        user: true,
-      },
-    });
-
-    // Only act on the first delivery: Stripe retries webhooks, and the owner
-    // may already have moved the order along manually.
-    if (order && !countsStock(order.status)) {
-      const result = await prisma.$transaction(async (tx) => {
-        const { count } = await tx.order.updateMany({
-          where: { id: order.id, status: order.status },
-          data: { status: "PAID" },
-        });
-        if (count !== 1) return null;
-        // Stock, discount use, gift card spend; activates a gift card this order bought
-        return { activatedGift: await applyStatusChange(tx, order, order.status, "PAID") };
-      });
-      if (!result) return NextResponse.json({ received: true });
-
-      if (order.type === "GIFT") {
-        if (result.activatedGift) await notifyGiftActivated(result.activatedGift);
-        return NextResponse.json({ received: true });
-      }
-
-      await fireNotification(
-        order.type === "FARMSTAND" ? "farmstand.purchased" : "order.confirmed",
-        {
-          orderId: order.id,
-          type: order.type,
-          status: "PAID",
-          paymentMethod: "STRIPE",
-          // So the owner hears about card orders too (they confirm themselves)
-          ownerEmail: await getSetting("ADMIN_EMAIL"),
-          adminUrl: `${await getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || "")}/admin`,
-          total: order.total,
-          customerName: order.guestName || order.user?.name || null,
-          customerEmail: order.guestEmail || order.user?.email,
-          customerPhone: order.guestPhone || order.user?.phone,
-          pickupSlot: order.pickupSlot?.label,
-          pickupTime: formatPickup(order.pickupTime),
-          pickupLocation: order.pickupSlot?.location ?? null,
-          items: notificationItems(order.items),
-          // Paid, so the customer gets the exact address
-          pickupAddress: order.type === "DROP" ? pickupAddressFor(order.pickupSlot, await getSiteSettings()) : null,
-        }
-      );
-    }
-  } else if (event.type === "payment_intent.payment_failed") {
-    const paymentIntent = event.data.object;
-    await prisma.order.updateMany({
-      where: { stripePaymentIntentId: paymentIntent.id },
-      data: { status: "PENDING" },
-    });
+    await markCardOrderPaid(event.data.object.id);
   }
 
   return NextResponse.json({ received: true });

@@ -50,7 +50,8 @@ export default function HomeClient() {
         if (!res.ok) { setDrops([]); return; }
         const data = await res.json();
         if (Array.isArray(data)) {
-          setDrops(data.filter((d: Drop) => d.status === "OPEN" || d.status === "DRAFT"));
+          // Published drops that haven't closed yet (ones opening later show as Coming Soon)
+          setDrops(data.filter((d: Drop) => d.status === "OPEN" && new Date(d.orderCloseAt) > new Date()));
         }
       } catch (e) {
         console.error(e);
@@ -189,7 +190,7 @@ export default function HomeClient() {
         ) : (
           <div className="space-y-6">
             {drops.map((drop) => {
-              const isOpen = drop.status === "OPEN";
+              const isOpen = new Date(drop.orderOpenAt) <= new Date();
               return (
                 <div
                   key={drop.id}
@@ -221,9 +222,9 @@ export default function HomeClient() {
                       </div>
                       <div className="text-right text-xs text-stone-400">
                         <div>
-                          {text("home.closes")}{" "}
+                          {isOpen ? text("home.closes") : text("home.opens")}{" "}
                           <span className="font-medium text-stone-600">
-                            {formatDate(drop.orderCloseAt)}
+                            {formatDate(isOpen ? drop.orderCloseAt : drop.orderOpenAt)}
                           </span>
                         </div>
                       </div>
@@ -247,7 +248,7 @@ export default function HomeClient() {
                     {/* Product Preview Grid */}
                     {drop.dropProducts.length > 0 && (
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                        {drop.dropProducts.slice(0, 4).map((dp) => (
+                        {drop.dropProducts.map((dp) => (
                           <div
                             key={dp.id}
                             className="bg-[#FAFAF8] rounded-xl p-3 text-center"

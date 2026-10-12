@@ -12,6 +12,7 @@ export interface ReviewData {
   products: string | null;
   reply: string | null;
   reviewDate: string;
+  images?: string[];
 }
 
 const LONG = 180;
@@ -20,6 +21,7 @@ const LONG = 180;
 export default function ReviewCard({ review }: { review: ReviewData }) {
   const site = useSite();
   const [expanded, setExpanded] = useState(false);
+  const [bigPhoto, setBigPhoto] = useState<string | null>(null);
   const isLong = review.body.length > LONG;
   const text = isLong && !expanded ? `${review.body.slice(0, LONG).trimEnd()}…` : review.body;
   const products = (review.products ?? "")
@@ -53,6 +55,22 @@ export default function ReviewCard({ review }: { review: ReviewData }) {
           </button>
         )}
       </blockquote>
+      {!!review.images?.length && (
+        <div className="flex flex-wrap gap-2">
+          {review.images.map((src) => (
+            <button key={src} type="button" onClick={() => setBigPhoto(src)} className="w-20 h-20 rounded-lg overflow-hidden border border-stone-200">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt={`Photo from ${review.name}`} className="w-full h-full object-cover" loading="lazy" />
+            </button>
+          ))}
+        </div>
+      )}
+      {bigPhoto && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" onClick={() => setBigPhoto(null)}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={bigPhoto} alt="" className="max-w-full max-h-full rounded-xl" />
+        </div>
+      )}
       {review.reply && (
         <div className="border-l-2 border-stone-200 pl-3 space-y-1">
           <div className="flex items-center gap-1.5 text-xs font-medium text-stone-700">

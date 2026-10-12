@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Stars from "@/components/Stars";
 import { useText } from "@/components/SiteProvider";
+import ReviewPhotoPicker from "@/components/ReviewPhotoPicker";
 
 /** The customer's review form (from their emailed link). Their products come pre-tagged from the order. */
 export default function ReviewForm({
@@ -27,6 +28,7 @@ export default function ReviewForm({
   const [body, setBody] = useState("");
   const [name, setName] = useState(defaultName);
   const [tags, setTags] = useState<string[]>(products);
+  const [images, setImages] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState<{ code: string | null; percent: number } | null>(null);
@@ -43,7 +45,7 @@ export default function ReviewForm({
       const res = await fetch("/api/reviews/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, rating, body, name, products: tags }),
+        body: JSON.stringify({ token, rating, body, name, products: tags, images }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Something went wrong");
@@ -123,6 +125,13 @@ export default function ReviewForm({
           </div>
         </div>
       )}
+      <ReviewPhotoPicker
+        images={images}
+        onChange={setImages}
+        reviewToken={token}
+        preview={preview}
+        label={text("review.photos")}
+      />
       <label className="block">
         <span className="block text-xs font-medium text-stone-600 mb-1">{text("review.name")}</span>
         <input

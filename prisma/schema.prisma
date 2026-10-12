@@ -290,6 +290,7 @@ model Review {
   source     String?  // e.g. "Hotplate"
   products   String?  // products it's about, comma-separated, e.g. "Mini Cinnamon Rolls, The Sunday Roll"
   reply      String?  // the owner's public reply
+  images     String[] @default([]) // photos, e.g. "/uploads/123-abc.jpg" (up to 4)
   // Left by a customer through the emailed review link (owner-added reviews have none)
   email      String?  // stored lowercase; never shown publicly
   orderId    String?  @unique // one review per order

@@ -47,6 +47,15 @@ interface Drop {
 }
 
 /** For each box (choices) or product with add-ons in the drop: how many of each to make. */
+/** Where a drop stands, in words: drafts are hidden; published ones open and close on their times. */
+function dropLabel(drop: Drop) {
+  const now = new Date();
+  if (drop.status === "DRAFT") return "Draft (hidden from customers)";
+  if (drop.status === "CLOSED" || new Date(drop.orderCloseAt) < now) return "Closed";
+  if (new Date(drop.orderOpenAt) > now) return `Scheduled: opens ${formatDate(drop.orderOpenAt)}`;
+  return "Ordering Open";
+}
+
 function boxTally(drop: Drop) {
   const tally = new Map<string, Map<string, number>>();
   const add = (dpId: string, label: string, n: number) => {
@@ -231,8 +240,12 @@ export default function AdminDropsPage() {
       [productId]: { ...(pf[productId] ?? emptyProductForm), ...patch },
     }));
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Which button: "draft" saves without showing customers, "publish" puts it live
+    const action = ((e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null)?.value;
+    const editing = drops.find((d) => d.id === editingId);
+    const status = action === "draft" ? "DRAFT" : action === "publish" ? "OPEN" : editing?.status;
     const pickupSlots = windows
       .filter((w) => w.date && w.start)
       .map((w) => {
@@ -278,7 +291,7 @@ export default function AdminDropsPage() {
           orderOpenAt: new Date(orderOpenAt).toISOString(),
           orderCloseAt: new Date(orderCloseAt).toISOString(),
           maxOrders: maxOrders || null,
-          ...(editingId ? {} : { status: "OPEN" }),
+          ...(status ? { status } : {}),
           pickupSlots,
           products: dropProducts,
         }),
@@ -363,7 +376,7 @@ export default function AdminDropsPage() {
                           : "bg-amber-50 text-amber-700"
                       }`}
                     >
-                      {drop.status === "OPEN" ? "Ordering Open" : drop.status}
+                      {dropLabel(drop)}
                     </span>
                     <span className="text-xs text-stone-500">
                       {totalOrders} {totalOrders === 1 ? "order" : "orders"}
@@ -436,17 +449,23 @@ export default function AdminDropsPage() {
                     </button>
                     {drop.status === "OPEN" ? (
                       <button
-                        onClick={() => updateDropStatus(drop.id, "CLOSED")}
+                        onClick={() => confirm("Close this drop? Customers won't be able to order.") && updateDropStatus(drop.id, "CLOSED")}
                         className="text-xs font-medium px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg"
                       >
                         Close Orders
                       </button>
                     ) : (
                       <button
-                        onClick={() => updateDropStatus(drop.id, "OPEN")}
+                        onClick={() =>
+                          confirm(
+                            new Date(drop.orderOpenAt) > new Date()
+                              ? `Publish? Customers can see the menu now, ordering and the drop alert start ${formatDate(drop.orderOpenAt)}.`
+                              : "Publish now? Ordering opens and the drop alert goes out (once) to everyone on the list."
+                          ) && updateDropStatus(drop.id, "OPEN")
+                        }
                         className="text-xs font-semibold px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
                       >
-                        Open Orders
+                        {drop.status === "DRAFT" ? "Publish" : "Reopen Orders"}
                       </button>
                     )}
                   </div>
@@ -637,12 +656,37 @@ export default function AdminDropsPage() {
                 )}
               </div>
 
+              <p className="text-[11px] text-stone-500">
+                <b>Save as draft</b> keeps it hidden so you can finish it later. <b>Publish</b> shows it to customers; ordering
+                and the drop alert (email and text) start at the &quot;Orders open&quot; time.
+              </p>
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 border border-stone-200 py-2 rounded-lg font-medium text-sm text-stone-600 hover:bg-stone-50">
                   Cancel
                 </button>
-                <button type="submit" disabled={saving} className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold py-2 rounded-lg text-sm">
-                  {saving ? "Saving..." : editingId ? "Save Changes" : "Publish Drop"}
+                {(!editingId || drops.find((d) => d.id === editingId)?.status === "DRAFT") && (
+                  <button
+                    type="submit"
+                    value="draft"
+                    disabled={saving}
+                    className="flex-1 border border-amber-600 text-amber-700 hover:bg-amber-50 disabled:opacity-50 font-semibold py-2 rounded-lg text-sm"
+                  >
+                    Save as draft
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  value={editingId && drops.find((d) => d.id === editingId)?.status !== "DRAFT" ? "save" : "publish"}
+                  disabled={saving}
+                  className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold py-2 rounded-lg text-sm"
+                >
+                  {saving
+                    ? "Saving..."
+                    : editingId && drops.find((d) => d.id === editingId)?.status !== "DRAFT"
+                      ? "Save Changes"
+                      : orderOpenAt && new Date(orderOpenAt) > new Date()
+                        ? "Publish (opens later)"
+                        : "Publish now"}
                 </button>
               </div>
             </form>

@@ -6,14 +6,14 @@ A self-hosted replacement for Hotplate built for small makers, home bakers, farm
 
 ## Features
 
-- **Weekly Pre-Order Drops**: Configure order windows (e.g., Monday–Wednesday) and multiple pickup slots (e.g., Friday 2–6 PM, Saturday 9 AM–1 PM) with per-drop batch quantity limits.
+- **Weekly Pre-Order Drops**: Save drops as drafts, or publish them ahead of time; customers see the menu right away, and ordering and the drop alert start at the opening time. Configure order windows (e.g., Monday–Wednesday) and multiple pickup slots (e.g., Friday 2–6 PM, Saturday 9 AM–1 PM) with per-drop batch quantity limits.
 - **Farmstand Honor Box Kiosk (`/farmstand`)**: Walk-up customers scan a QR code at your stand, choose what they took from live extra inventory, and pay instantly without creating an account.
 - **Three Payment Methods for Both Drops & Farmstand**:
   1. **Stripe**: Embedded checkout directly on page (Card, Apple Pay, Google Pay).
   2. **Venmo**: Pre-filled deep link (`venmo.com/...`) with order total and Order ID note.
   3. **PayPal.me**: Pre-filled link (`paypal.me/...`) with pre-calculated amount.
 - **Automated & Manual Order Confirmation**:
-  - Stripe payments automatically mark orders as `PAID` via webhook and decrement inventory.
+  - Stripe payments automatically mark orders as `PAID` and decrement inventory: confirmed with Stripe right after checkout, by the webhook, and by a once-a-minute check as a backstop.
   - Venmo / PayPal orders enter an `Awaiting Confirmation` state in the Admin Dashboard with a one-click "Confirm Payment Received" button.
 - **Notifications via n8n, SMS Gate & SMTP**: an importable n8n workflow sends order confirmations, payment instructions, cancellations, gift cards, drop alerts and review requests by email, and texts through an Android phone running **SMS Gate** (throttled, with STOP/START handling). See [n8n & SMS Gate Automation](#n8n--sms-gate-automation).
 - **Text inbox (Admin → Messages)**: customers' texts to the shop phone appear as conversations (with their names), and you reply from the admin.
@@ -114,7 +114,7 @@ All emails and texts go out through one n8n workflow: `n8n/shop-notifications-wo
 | Card order paid | Owner: new paid order | Owner: new order |
 | Order cancelled / refunded | Customer | — |
 | Gift card activated | Code to the recipient, receipt to the buyer | — |
-| Drop opens (once per drop) | Everyone on Drop Alerts with an email (with unsubscribe link) | Phone-only subscribers, **one text every 8 seconds** so carriers don't block you |
+| Drop opens (once per drop, at its "Orders open" time) | Everyone on Drop Alerts with an email (with unsubscribe link) | Everyone on Drop Alerts with a phone, **one text every 8 seconds** so carriers don't block you (also shown in Admin → Messages) |
 | Order picked up | "How was it?" review request (at most once per customer every N days; "don't ask me" link) | — |
 | First review | Single-use thank-you discount code | — |
 | Customer texts the shop phone | Shows up in **Admin → Messages**; you reply from there | STOP/START handled automatically, with confirmation |

@@ -3,6 +3,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 
@@ -18,20 +19,35 @@ const EXTENSIONS: Record<string, string> = {
   'image/svg+xml': '.svg',
 };
 const ALLOWED_TYPES = Object.keys(EXTENSIONS);
+// What customers may upload (review photos): ordinary photos only
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+
+/** A customer adding photos to a review: their review link must be valid and not used yet. */
+async function canUploadReviewPhoto(token: string) {
+  if (!token) return false;
+  const order = await prisma.order.findUnique({ where: { reviewToken: token }, select: { id: true } });
+  return !!order && !(await prisma.review.findUnique({ where: { orderId: order.id }, select: { id: true } }));
+}
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (session?.user?.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const admin = session?.user?.role === 'ADMIN';
 
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
 
+    if (!admin && !(await canUploadReviewPhoto(String(formData.get('reviewToken') ?? '')))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    }
+
+    if (!admin && !PHOTO_TYPES.includes(file.type)) {
+      return NextResponse.json({ error: 'Please choose a photo (JPEG, PNG, WebP or GIF)' }, { status: 400 });
     }
 
     if (!ALLOWED_TYPES.includes(file.type)) {

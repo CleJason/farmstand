@@ -373,6 +373,18 @@ jobs:
           echo "check without email: $chk"; echo "$chk" | grep -q '"valid":false' || exit 1
           echo "$chk" | grep -q '"needsEmail":true' || { echo "checkout should ask for the email"; exit 1; }
 
+      - name: Draft drops, review photos, card check
+        env:
+          PGURL: postgresql://farmstand:smoketest@localhost:5432/farmstand
+        run: |
+          psql "$PGURL" -c "INSERT INTO \"Drop\" (id, title, \"orderOpenAt\", \"orderCloseAt\", status, \"updatedAt\") VALUES ('dd', 'Secret Draft', now(), now() + interval '1 day', 'DRAFT', now())"
+          c=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/drops/dd); echo "draft drop signed out -> $c"; [ "$c" = "404" ] || exit 1
+          curl -s http://localhost:3000/api/drops | grep -q "Secret Draft" && { echo "draft listed publicly"; exit 1; }
+          c=$(curl -s -o /dev/null -w '%{http_code}' -F "file=@/dev/null;type=image/png" http://localhost:3000/api/upload); echo "upload without login or review link -> $c"; [ "$c" = "401" ] || exit 1
+          c=$(curl -s -o /dev/null -w '%{http_code}' -F "file=@/dev/null;type=image/png" -F "reviewToken=bogus" http://localhost:3000/api/upload); echo "upload with bad review link -> $c"; [ "$c" = "401" ] || exit 1
+          r=$(curl -s -X POST http://localhost:3000/api/orders/nope/card-paid); echo "card check unknown order -> $r"; echo "$r" | grep -q '"paid":false' || exit 1
+          n=$(psql "$PGURL" -tAc "SELECT count(*) FROM information_schema.columns WHERE table_name = 'Review' AND column_name = 'images'"); [ "$n" = "1" ] || { echo "images column missing"; exit 1; }
+
       - name: Editable text and walk-up page address
         env:
           PGURL: postgresql://farmstand:smoketest@localhost:5432/farmstand

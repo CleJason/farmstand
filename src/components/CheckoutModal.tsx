@@ -24,9 +24,11 @@ interface CheckoutModalProps {
 }
 
 function StripeCheckoutForm({
+  orderId,
   total,
   onSuccess,
 }: {
+  orderId: string;
   total: number;
   onSuccess: () => void;
 }) {
@@ -54,9 +56,11 @@ function StripeCheckoutForm({
     if (error) {
       setErrorMessage(error.message || "An error occurred with your payment.");
       setLoading(false);
-    } else if (paymentIntent && paymentIntent.status === "succeeded") {
-      onSuccess();
     } else {
+      // Have the shop confirm with Stripe now, so the order and receipt don't wait on the webhook
+      if (paymentIntent?.status === "succeeded") {
+        await fetch(`/api/orders/${orderId}/card-paid`, { method: "POST" }).catch(() => {});
+      }
       onSuccess();
     }
   };
@@ -120,7 +124,7 @@ export default function CheckoutModal({
             stripe={stripePromise}
             options={{ clientSecret, appearance: { theme: "stripe" } }}
           >
-            <StripeCheckoutForm total={total} onSuccess={onSuccess} />
+            <StripeCheckoutForm orderId={orderId} total={total} onSuccess={onSuccess} />
           </Elements>
         ) : paymentMethod === "PAYPAL" ? (
           <div className="space-y-4 text-center">

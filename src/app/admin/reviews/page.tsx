@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Stars from "@/components/Stars";
 import ReviewCard from "@/components/ReviewCard";
+import ReviewPhotoPicker from "@/components/ReviewPhotoPicker";
 
 interface Review {
   id: string;
@@ -17,6 +18,7 @@ interface Review {
   email: string | null;
   orderId: string | null;
   rewardCode: string | null;
+  images: string[];
 }
 
 /** Ask-for-review frequency and the first-review thank-you discount. */
@@ -92,6 +94,7 @@ type Form = {
   reply: string;
   reviewDate: string;
   email: string; // the customer who wrote it (optional)
+  images: string[];
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -104,6 +107,7 @@ const emptyForm = (): Form => ({
   reply: "",
   reviewDate: today(),
   email: "",
+  images: [],
 });
 
 const inputClass =
@@ -158,6 +162,7 @@ export default function AdminReviewsPage() {
       reply: r.reply ?? "",
       reviewDate: r.reviewDate.slice(0, 10),
       email: r.email ?? "",
+      images: r.images ?? [],
     });
     setError(null);
     setShowModal(true);
@@ -326,6 +331,7 @@ export default function AdminReviewsPage() {
                   Links the review to their profile, so they aren&apos;t offered the first-review discount again.
                 </span>
               </label>
+              <ReviewPhotoPicker images={form.images} onChange={(images) => set({ images })} label="Photos (optional, up to 4)" />
               <label className="block">
                 <span className="block text-xs font-medium text-stone-600 mb-1">Your reply (optional)</span>
                 <textarea

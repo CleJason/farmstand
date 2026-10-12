@@ -10,6 +10,8 @@ export async function GET() {
   const session = await auth();
   const isAdmin = session?.user?.role === "ADMIN";
   const drops = await prisma.drop.findMany({
+    // Drafts are only visible in the admin
+    where: isAdmin ? {} : { status: { not: "DRAFT" } },
     include: {
       pickupSlots: { orderBy: { pickupDate: "asc" } },
       dropProducts: {
@@ -76,7 +78,7 @@ export async function POST(req: Request) {
     },
   });
 
-  // Published straight away: alert the subscribers
+  // Published and already open: alert the subscribers now (otherwise when it opens)
   if (drop.status === "OPEN") await announceDrop(drop.id);
   return NextResponse.json(drop);
 }

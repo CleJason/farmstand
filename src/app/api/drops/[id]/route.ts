@@ -35,7 +35,8 @@ export async function GET(
     },
   });
 
-  if (!drop) {
+  // Drafts are only visible in the admin
+  if (!drop || (drop.status === "DRAFT" && !isAdmin)) {
     return NextResponse.json({ error: "Drop not found" }, { status: 404 });
   }
 

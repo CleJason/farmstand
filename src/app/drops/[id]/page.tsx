@@ -13,6 +13,7 @@ import GiftCardInput, { type AppliedGift } from "@/components/GiftCardInput";
 import LegalFooter from "@/components/LegalFooter";
 import BoxBuilder from "@/components/BoxBuilder";
 import AddOnPicker from "@/components/AddOnPicker";
+import ProductDetails from "@/components/ProductDetails";
 import { addOnsKey, productAddOns } from "@/lib/addons";
 import SpamHint from "@/components/SpamHint";
 import { type BoxPick, describePicks, dropBoxOptions, isBox, picksKey } from "@/lib/box";
@@ -111,8 +112,8 @@ export default function DropDetailPage() {
         const dropData = await dropRes.json();
         const settingsData = await settingsRes.json();
 
-        setDrop(dropData);
-        if (dropData.pickupSlots?.length === 1) {
+        setDrop(dropRes.ok ? dropData : null);
+        if (dropRes.ok && dropData.pickupSlots?.length === 1) {
           selectSlot(dropData.pickupSlots[0]);
         }
 
@@ -176,6 +177,7 @@ export default function DropDetailPage() {
     return dp ? sum + unitPrice(dp, l.addOns) * l.quantity : sum;
   }, 0);
   const [addingTo, setAddingTo] = useState<string | null>(null); // product with add-ons being added
+  const [detailsFor, setDetailsFor] = useState<string | null>(null); // product whose full description is open
   const addOnProduct = drop?.dropProducts.find((p) => p.id === addingTo);
 
   const totalItemsCount = cart.reduce((a, l) => a + l.quantity, 0);
@@ -304,6 +306,19 @@ export default function DropDetailPage() {
     );
   }
 
+  // Published drops can be browsed before they open; ordering only works while open
+  const now = new Date();
+  const phase =
+    drop.status === "DRAFT"
+      ? "draft"
+      : drop.status !== "OPEN" || now > new Date(drop.orderCloseAt)
+        ? "closed"
+        : now < new Date(drop.orderOpenAt)
+          ? "soon"
+          : "open";
+  const canOrder = phase === "open";
+  const detailProduct = drop.dropProducts.find((p) => p.id === detailsFor);
+
   return (
     <div className="min-h-screen bg-[#FAF6F0] pb-44 text-[#2D1E18]">
       {/* Top Banner */}
@@ -321,16 +336,18 @@ export default function DropDetailPage() {
             </h1>
             <span
               className={`text-xs font-bold px-3 py-1 rounded-full ${
-                drop.status === "OPEN"
+                phase === "open"
                   ? "bg-[#EBF2EA] text-[#2E6B38] border border-[#D1E3D0]"
                   : "bg-[#FEF5E7] text-[#B86B1E] border border-[#FAD7A0]"
               }`}
             >
-              {drop.status === "OPEN"
+              {phase === "open"
                 ? text("home.badgeOpen")
-                : drop.status === "DRAFT"
+                : phase === "soon"
                   ? text("home.badgeSoon")
-                  : text("home.badgeClosed")}
+                  : phase === "draft"
+                    ? "Draft (only admins can see this)"
+                    : text("home.badgeClosed")}
             </span>
           </div>
           {drop.description && (
@@ -342,6 +359,14 @@ export default function DropDetailPage() {
               {formatDate(drop.orderCloseAt)}
             </span>
           </div>
+          {(phase === "soon" || phase === "draft") && (
+            <p className="text-sm font-semibold text-[#2D1E18] bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              {text("drop.opensAt", { date: formatDate(drop.orderOpenAt) })}
+            </p>
+          )}
+          {phase === "closed" && (
+            <p className="text-sm font-semibold text-[#2D1E18] bg-stone-100 rounded-xl px-3 py-2">{text("drop.closedNote")}</p>
+          )}
         </div>
       </div>
 
@@ -407,7 +432,8 @@ export default function DropDetailPage() {
         {/* Step 2: Food Menu */}
         <section className="space-y-4">
           <h2 className="font-bold text-lg text-[#2D1E18]">{text("drop.step2")}</h2>
-          <div className="grid gap-4">
+          {/* grid-cols-1 (minmax 0) keeps long names/descriptions from widening the page on phones */}
+          <div className="grid grid-cols-1 gap-4">
             {drop.dropProducts.map((dp) => {
               const qty = qtyInCart(dp.id);
               const price = priceOf(dp);
@@ -424,11 +450,17 @@ export default function DropDetailPage() {
               return (
                 <div
                   key={dp.id}
-                  className="bg-white rounded-2xl p-5 border border-stone-200 shadow-sm hover:border-[#E8DFD5] transition duration-150"
+                  className="min-w-0 bg-white rounded-2xl p-4 sm:p-5 border border-stone-200 shadow-sm hover:border-[#E8DFD5] transition duration-150"
                 >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  {/* Tap the photo or name for the full description */}
+                  <button
+                    type="button"
+                    onClick={() => setDetailsFor(dp.id)}
+                    className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 text-left"
+                  >
                   {dp.product.imageUrl ? (
-                    <div className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0 bg-[#FAF6F0]">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shrink-0 bg-[#FAF6F0]">
                       <Image
                         src={dp.product.imageUrl}
                         alt={dp.product.name}
@@ -438,13 +470,13 @@ export default function DropDetailPage() {
                       />
                     </div>
                   ) : (
-                    <div className="w-20 h-20 rounded-xl bg-[#FAF6F0] text-amber-600 flex items-center justify-center shrink-0 font-bold text-2xl border border-[#E8DFD5]">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-[#FAF6F0] text-amber-600 flex items-center justify-center shrink-0 font-bold text-2xl border border-[#E8DFD5]">
                       🛍️
                     </div>
                   )}
 
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-[#2D1E18] truncate text-base">
+                    <h3 className="font-bold text-[#2D1E18] text-base leading-snug">
                       {dp.product.name}
                     </h3>
                     {dp.product.description && (
@@ -472,12 +504,16 @@ export default function DropDetailPage() {
                           {isSoldOut ? text("drop.soldOut") : text("drop.left", { count: remaining })}
                         </span>
                       )}
+                      <span className="text-[11px] font-semibold text-amber-700 underline underline-offset-2">
+                        {text("drop.details")}
+                      </span>
                     </div>
                   </div>
+                  </button>
 
                   {box ? (
                     <button
-                      disabled={(remaining !== null && qty >= remaining) || isSoldOut}
+                      disabled={(remaining !== null && qty >= remaining) || isSoldOut || !canOrder}
                       onClick={() => setBuildingBoxFor(dp.id)}
                       className="shrink-0 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed transition shadow-xs"
                     >
@@ -485,7 +521,7 @@ export default function DropDetailPage() {
                     </button>
                   ) : extras.length > 0 ? (
                     <button
-                      disabled={(remaining !== null && qty >= remaining) || isSoldOut}
+                      disabled={(remaining !== null && qty >= remaining) || isSoldOut || !canOrder}
                       onClick={() => setAddingTo(dp.id)}
                       className="shrink-0 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed transition shadow-xs"
                     >
@@ -506,7 +542,7 @@ export default function DropDetailPage() {
                     </span>
                     <button
                       disabled={
-                        (remaining !== null && qty >= remaining) || isSoldOut
+                        (remaining !== null && qty >= remaining) || isSoldOut || !canOrder
                       }
                       onClick={() => updateLine(dp.id, 1)}
                       className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition shadow-xs"
@@ -564,7 +600,7 @@ export default function DropDetailPage() {
         </section>
 
         {/* Step 3: Discount, gift card & payment method (contact details come in checkout) */}
-        {totalItemsCount > 0 && (
+        {canOrder && totalItemsCount > 0 && (
           <section className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm space-y-4">
             <h2 className="font-bold text-lg text-[#2D1E18]">{text("drop.step3")}</h2>
 
@@ -640,7 +676,7 @@ export default function DropDetailPage() {
       <LegalFooter />
 
       {/* Floating Checkout Bar */}
-      {totalItemsCount > 0 && (
+      {canOrder && totalItemsCount > 0 && (
         <div className="fixed bottom-0 inset-x-0 bg-white border-t border-stone-200 p-4 shadow-2xl z-40 max-w-3xl mx-auto rounded-t-2xl">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -661,6 +697,16 @@ export default function DropDetailPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {detailProduct && (
+        <ProductDetails
+          name={detailProduct.product.name}
+          description={detailProduct.product.description}
+          imageUrl={detailProduct.product.imageUrl}
+          price={formatPrice(priceOf(detailProduct))}
+          onClose={() => setDetailsFor(null)}
+        />
       )}
 
       {boxProduct && (
