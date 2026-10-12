@@ -106,6 +106,7 @@ model Drop {
   status        String     @default("DRAFT")
   maxOrders     Int?       // optional cap on total orders
   announcedAt   DateTime?  // when the "new drop" alert went to subscribers (sent once)
+  reminderSentAt DateTime? // when the "closing soon" reminder went out (sent once)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 

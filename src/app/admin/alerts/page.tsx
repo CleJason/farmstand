@@ -19,6 +19,28 @@ export default function AdminAlertsPage() {
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [adding, setAdding] = useState(false);
+  const [reminder, setReminder] = useState<{ enabled: boolean; hours: number } | null>(null);
+  const [reminderMsg, setReminderMsg] = useState("");
+
+  useEffect(() => {
+    fetch("/api/settings/reminders")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setReminder)
+      .catch(() => {});
+  }, []);
+
+  const saveReminder = async (next: { enabled: boolean; hours: number }) => {
+    setReminder(next);
+    setReminderMsg("");
+    const res = await fetch("/api/settings/reminders", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    });
+    const data = await res.json().catch(() => ({}));
+    setReminderMsg(res.ok ? "Saved." : data.error || "Couldn't save");
+    if (res.ok) setReminder(data);
+  };
 
   const load = () =>
     fetch("/api/subscribers")
@@ -93,6 +115,37 @@ export default function AdminAlertsPage() {
           Export CSV
         </button>
       </div>
+
+      {reminder && (
+        <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-2">
+          <h2 className="text-sm font-semibold text-stone-900">⏰ &quot;Last call&quot; reminder</h2>
+          <label className="flex flex-wrap items-center gap-2 text-sm text-stone-700">
+            <input
+              type="checkbox"
+              checked={reminder.enabled}
+              onChange={(e) => saveReminder({ ...reminder, enabled: e.target.checked })}
+              className="h-4 w-4 accent-amber-600"
+            />
+            Send it automatically
+            <input
+              type="number"
+              min={1}
+              max={72}
+              value={reminder.hours}
+              onChange={(e) => setReminder({ ...reminder, hours: Number(e.target.value) })}
+              onBlur={() => saveReminder(reminder)}
+              className="w-16 text-sm px-2 py-1 border border-stone-200 rounded-lg"
+            />
+            hours before orders close
+            {reminderMsg && <span className="text-xs text-stone-400">{reminderMsg}</span>}
+          </label>
+          <p className="text-[11px] text-stone-500">
+            Once per drop, to people on this list who haven&apos;t ordered from that drop yet: a text if they gave a phone
+            number (one every 8 seconds), otherwise an email. You can also send it any time from the drop in Admin → Drops.
+            Leave enough time for the texts to go out, e.g. 100 people ≈ 14 minutes.
+          </p>
+        </div>
+      )}
 
       <form onSubmit={add} className="bg-white rounded-xl border border-stone-200 p-4 flex flex-wrap items-end gap-2">
         <label className="flex-1 min-w-[180px]">

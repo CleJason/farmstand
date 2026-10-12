@@ -115,6 +115,7 @@ All emails and texts go out through one n8n workflow: `n8n/shop-notifications-wo
 | Order cancelled / refunded | Customer | — |
 | Gift card activated | Code to the recipient, receipt to the buyer | — |
 | Drop opens (once per drop, at its "Orders open" time) | Everyone on Drop Alerts with an email (with unsubscribe link), one every 3 seconds | Everyone on Drop Alerts with a phone, **one text every 8 seconds** so carriers don't block you (also shown in Admin → Messages) |
+| Drop closes soon (once per drop, N hours before close; on/off and hours in Admin → Drop Alerts, or "Send reminder now" on the drop) | Drop Alerts people who haven't ordered and have no phone (or replied STOP) | Drop Alerts people who haven't ordered, one text every 8 seconds |
 | Order picked up | "How was it?" review request (at most once per customer every N days; "don't ask me" link) | — |
 | First review | Single-use thank-you discount code | — |
 | Customer texts the shop phone | Shows up in **Admin → Messages**; you reply from there | STOP/START handled automatically, with confirmation |
@@ -151,6 +152,6 @@ All emails and texts go out through one n8n workflow: `n8n/shop-notifications-wo
 2. Open **Run Once: Connect Incoming Texts** and click **Execute step** (one time). This tells SMS Gate to forward incoming texts to n8n.
 3. Test: place an order, text the shop phone (it appears in Admin → Messages), reply from Admin, then text STOP and START.
 
-**Events the app sends** (each to `<n8n URL>/<event>`, with the `x-webhook-secret` header): `order.confirmed`, `farmstand.purchased`, `order.awaiting_payment`, `order.cancelled`, `gift.activated`, `drop.announced`, `review.requested`, `review.thanks`, `sms.send` (a reply from Admin → Messages). Incoming texts come back to the shop at `POST /api/sms/inbound` (same secret).
+**Events the app sends** (each to `<n8n URL>/<event>`, with the `x-webhook-secret` header): `order.confirmed`, `farmstand.purchased`, `order.awaiting_payment`, `order.cancelled`, `gift.activated`, `drop.announced`, `drop.reminder`, `review.requested`, `review.thanks`, `sms.send` (a reply from Admin → Messages). Incoming texts come back to the shop at `POST /api/sms/inbound` (same secret).
 
 **Texting rules built in:** a STOP reply blocks all texts to that number (order texts, drop alerts and replies) until they reply START, removes phone-only people from Drop Alerts, and re-imports never add them back.

@@ -1087,6 +1087,152 @@
         "unit": "seconds"
       },
       "webhookId": "554e1ba4-4163-4ea8-9fe8-b09ad396f356"
+    },
+    {
+      "id": "8fea9ae3-4ce6-4a3b-9e78-6e6b097a9d6d",
+      "name": "Drop Closing Soon",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        2656
+      ],
+      "webhookId": "bd23dd43-df4d-4560-9b6e-0b18c2ca3481",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "drop.reminder",
+        "responseMode": "onReceived",
+        "options": {
+          "onlyRunIf": "={{ $json.headers['x-webhook-secret'] === 'CHANGE_ME' }}"
+        }
+      }
+    },
+    {
+      "id": "8c733195-f1bd-4680-944b-b10a7c4cb233",
+      "name": "Reminder Texts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        2656
+      ],
+      "parameters": {
+        "jsCode": "// The shop lists who gets a text (people who haven't ordered, didn't reply STOP)\nconst b = $input.first().json.body || {};\nreturn (b.texts || []).map((t) => {\n  const d = String(t.phone).replace(/\\D/g, '');\n  const phone = d.length === 10 ? '+1' + d : d.length === 11 && d.startsWith('1') ? '+' + d : '+' + d;\n  return { json: { phone, message: b.smsMessage } };\n});"
+      }
+    },
+    {
+      "id": "9de28a1d-ee94-4a84-915a-81e74626a675",
+      "name": "One Reminder Text At A Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        528,
+        2656
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "93768970-927e-427c-be39-2ca5a5109a6a",
+      "name": "Text Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        784,
+        2736
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-SMS-GATE-SERVER/api/3rdparty/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phoneNumbers: [$json.phone], message: $json.message }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "f7d95887-7376-4268-8be4-4e5ae0582f01",
+      "name": "Pause 8s Between Reminder Texts",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        2736
+      ],
+      "webhookId": "6c9b9500-2d51-4692-bb90-1e8bf268c9ef",
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 8,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "e24e59fd-a66d-462f-a827-a87a76d392b5",
+      "name": "Reminder Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        2880
+      ],
+      "parameters": {
+        "jsCode": "// People with no phone (or who replied STOP to texts) get an email instead\nconst b = $input.first().json.body || {};\nreturn (b.emails || []).map((e) => ({\n  json: {\n    email: e.email,\n    unsubscribeUrl: e.unsubscribeUrl,\n    shop: b.businessName || 'our shop',\n    title: b.title || 'This drop',\n    orderCloseAt: b.orderCloseAt || '',\n    dropUrl: b.dropUrl || '',\n  },\n}));"
+      }
+    },
+    {
+      "id": "9443f123-3a78-46f1-80f3-ab7d186e1a20",
+      "name": "One Reminder Email At A Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        528,
+        2880
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "b89d5223-6918-4d2a-9aa1-64c48925cb69",
+      "name": "Email Reminder",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        784,
+        2960
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "fromEmail": "Your Shop <hello@example.com>",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=Last call: {{ $json.title }} closes {{ $json.orderCloseAt }}",
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1c1917\"><h2 style=\"margin-bottom:4px\">Last call!</h2><p>Orders for <b>{{ $json.title }}</b> close {{ $json.orderCloseAt }}. Quantities are limited.</p><p style=\"margin:24px 0\"><a href=\"{{ $json.dropUrl }}\" style=\"background:#d97706;color:#ffffff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:bold\">Order now</a></p><p style=\"color:#a8a29e;font-size:12px\">You're getting this because you signed up for drop alerts from {{ $json.shop }}. <a href=\"{{ $json.unsubscribeUrl }}\" style=\"color:#a8a29e\">Unsubscribe</a></p></div>",
+        "options": {
+          "appendAttribution": false
+        }
+      }
+    },
+    {
+      "id": "3b34effa-7c23-4403-aa16-7eed6c012e14",
+      "name": "Pause 3s Between Reminder Emails",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        2960
+      ],
+      "webhookId": "f8a2bb18-7091-4b0d-aada-2de838eaa4e6",
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 3,
+        "unit": "seconds"
+      }
     }
   ],
   "connections": {
@@ -1456,6 +1602,112 @@
         [
           {
             "node": "One Email At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drop Closing Soon": {
+      "main": [
+        [
+          {
+            "node": "Reminder Texts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Reminder Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reminder Texts": {
+      "main": [
+        [
+          {
+            "node": "One Reminder Text At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Reminder Text At A Time": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Text Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Reminder": {
+      "main": [
+        [
+          {
+            "node": "Pause 8s Between Reminder Texts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pause 8s Between Reminder Texts": {
+      "main": [
+        [
+          {
+            "node": "One Reminder Text At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reminder Emails": {
+      "main": [
+        [
+          {
+            "node": "One Reminder Email At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Reminder Email At A Time": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Email Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Reminder": {
+      "main": [
+        [
+          {
+            "node": "Pause 3s Between Reminder Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pause 3s Between Reminder Emails": {
+      "main": [
+        [
+          {
+            "node": "One Reminder Email At A Time",
             "type": "main",
             "index": 0
           }

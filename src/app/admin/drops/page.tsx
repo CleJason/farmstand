@@ -28,6 +28,7 @@ interface Drop {
   status: string;
   maxOrders: number | null;
   announcedAt: string | null;
+  reminderSentAt: string | null;
   pickupSlots: PickupSlot[];
   dropProducts: {
     id: string;
@@ -322,6 +323,15 @@ export default function AdminDropsPage() {
     }
   };
 
+  const sendReminder = async (drop: Drop) => {
+    if (!confirm(`Send the "last call" reminder for "${drop.title}" now? Everyone on Drop Alerts who hasn't ordered gets a text (or an email if they have no phone). It only goes out once per drop.`)) return;
+    const res = await fetch(`/api/drops/${drop.id}/remind`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return alert(data.error || "Couldn't send the reminder");
+    alert(`Reminder sent: ${data.texts} ${data.texts === 1 ? "text" : "texts"} and ${data.emails} ${data.emails === 1 ? "email" : "emails"} (spread out over the next few minutes).`);
+    loadData();
+  };
+
   const deleteDrop = async (drop: Drop) => {
     if (!confirm(`Delete "${drop.title}"? This can't be undone.`)) return;
     const res = await fetch(`/api/drops/${drop.id}`, { method: "DELETE" });
@@ -386,6 +396,11 @@ export default function AdminDropsPage() {
                         · 📣 alert sent
                       </span>
                     )}
+                    {drop.reminderSentAt && (
+                      <span className="text-xs text-stone-400" title="The closing-soon reminder went out">
+                        · ⏰ reminder sent
+                      </span>
+                    )}
                   </div>
 
                   <h3 className="text-lg font-bold text-stone-900">{drop.title}</h3>
@@ -439,7 +454,7 @@ export default function AdminDropsPage() {
                   ))}
                 </div>
 
-                <div className="pt-3 mt-auto border-t border-stone-100 flex items-center justify-between gap-2">
+                <div className="pt-3 mt-auto border-t border-stone-100 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex gap-2">
                     <button
                       onClick={() => openEdit(drop)}
@@ -469,6 +484,15 @@ export default function AdminDropsPage() {
                       </button>
                     )}
                   </div>
+                  {dropLabel(drop) === "Ordering Open" && !drop.reminderSentAt && (
+                    <button
+                      onClick={() => sendReminder(drop)}
+                      className="text-xs font-medium px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg"
+                      title="Text (or email, if no phone) everyone on Drop Alerts who hasn't ordered yet"
+                    >
+                      ⏰ Send reminder now
+                    </button>
+                  )}
                   <div className="flex items-center gap-3">
                     <button onClick={() => deleteDrop(drop)} className="text-xs text-stone-400 hover:text-red-600">
                       Delete

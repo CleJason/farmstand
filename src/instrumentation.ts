@@ -1,6 +1,7 @@
 /**
  * Runs once when the server starts. Starts a once-a-minute background check:
  * - announce drops that were published for later, when their ordering time starts
+ * - send the "closing soon" reminder before a drop's ordering closes
  * - confirm card payments whose Stripe webhook never arrived
  */
 export async function register() {
