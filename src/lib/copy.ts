@@ -17,6 +17,13 @@ export const COPY = {
   "nav.myOrders": { group: "Menu & footer", label: "My orders link", default: "My Orders" },
   "nav.admin": { group: "Menu & footer", label: "Admin button", default: "Admin" },
   "nav.signOut": { group: "Menu & footer", label: "Sign out", default: "Sign out" },
+  "inapp.text": {
+    group: "Menu & footer",
+    label: "Facebook/Instagram banner",
+    default: "For the smoothest checkout, open this page in your browser.",
+  },
+  "inapp.safari": { group: "Menu & footer", label: "Banner button (iPhone)", default: "Open in Safari" },
+  "inapp.chrome": { group: "Menu & footer", label: "Banner button (Android)", default: "Open in Chrome" },
   "footer.home": { group: "Menu & footer", label: "Footer: home link", default: "Home" },
   "footer.privacy": { group: "Menu & footer", label: "Privacy policy link / title", default: "Privacy Policy" },
   "footer.terms": { group: "Menu & footer", label: "Terms link / title", default: "Terms" },

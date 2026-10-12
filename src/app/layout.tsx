@@ -4,6 +4,7 @@ import { Geist } from "next/font/google";
 import { getSetting } from "@/lib/settings";
 import { getSiteSettings, isHexColor, isOn, publicSite } from "@/lib/site";
 import { SiteProvider } from "@/components/SiteProvider";
+import InAppBrowserEscape from "@/components/InAppBrowserEscape";
 import { auth } from "@/lib/auth";
 import "./globals.css";
 
@@ -77,6 +78,7 @@ export default async function RootLayout({
     >
       <body className={`${geistSans.variable} font-sans antialiased`}>
         <SiteProvider site={publicSite(site)} viewer={viewer}>
+          <InAppBrowserEscape />
           {children}
         </SiteProvider>
       </body>
