@@ -63,25 +63,27 @@ export async function fireNotification(
   // n8n only texts a customer when this is true (they haven't replied STOP)
   if (payload.customerPhone) payload = { ...payload, customerCanText: !(await isOptedOut(String(payload.customerPhone))) };
 
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(secret ? { "x-webhook-secret": secret } : {}),
-      },
-      body: JSON.stringify({ event, businessName: await businessName(), ...payload }),
-      // Don't block the response waiting on n8n
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (!res.ok) {
-      console.error(`[n8n] Webhook ${event} returned ${res.status}`);
+  const body = JSON.stringify({ event, businessName: await businessName(), ...payload });
+  // n8n can be briefly unavailable (restarting, or the workflow being re-published): try 3 times
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(secret ? { "x-webhook-secret": secret } : {}),
+        },
+        body,
+        // Don't block the response waiting on n8n
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.ok) return true; // n8n took it
+      console.error(`[n8n] Webhook ${event} returned ${res.status} (attempt ${attempt})`);
+    } catch (err) {
+      // Never throw — notification failure should not break the order flow
+      console.error(`[n8n] Failed to fire ${event} (attempt ${attempt}):`, err);
     }
-    return res.ok; // true = n8n took it
-  } catch (err) {
-    // Never throw — notification failure should not break the order flow
-    console.error(`[n8n] Failed to fire ${event}:`, err);
-    return false;
+    if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 2000));
   }
+  return false;
 }

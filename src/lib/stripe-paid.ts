@@ -40,14 +40,32 @@ export async function markCardOrderPaid(paymentIntentId: string): Promise<boolea
     return true;
   }
 
-  await fireNotification(order.type === "FARMSTAND" ? "farmstand.purchased" : "order.confirmed", {
+  await sendOrderConfirmation(order.id, { toOwner: true });
+  return true;
+}
+
+/**
+ * The "order confirmed" email/text for a paid order. Admin → Orders can send it
+ * again (toOwner false, so the owner isn't alerted twice).
+ */
+export async function sendOrderConfirmation(orderId: string, { toOwner }: { toOwner: boolean }): Promise<boolean> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: itemsWithNames, pickupSlot: true, user: true },
+  });
+  if (!order || !countsStock(order.status) || order.type === "GIFT") return false;
+  return fireNotification(order.type === "FARMSTAND" ? "farmstand.purchased" : "order.confirmed", {
     orderId: order.id,
     type: order.type,
     status: "PAID",
-    paymentMethod: "STRIPE",
+    paymentMethod: order.paymentMethod,
     // So the owner hears about card orders too (they confirm themselves)
-    ownerEmail: await getSetting("ADMIN_EMAIL"),
-    adminUrl: `${await getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || "")}/admin`,
+    ...(toOwner
+      ? {
+          ownerEmail: await getSetting("ADMIN_EMAIL"),
+          adminUrl: `${await getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || "")}/admin`,
+        }
+      : {}),
     total: order.total,
     customerName: order.guestName || order.user?.name || null,
     customerEmail: order.guestEmail || order.user?.email,
@@ -59,7 +77,6 @@ export async function markCardOrderPaid(paymentIntentId: string): Promise<boolea
     // Paid, so the customer gets the exact address
     pickupAddress: order.type === "DROP" ? pickupAddressFor(order.pickupSlot, await getSiteSettings()) : null,
   });
-  return true;
 }
 
 /** Ask Stripe whether this order's card payment went through; mark it Paid if so. */

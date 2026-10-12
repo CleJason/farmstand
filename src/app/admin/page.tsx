@@ -42,7 +42,8 @@ const statusConfig: Record<string, { label: string; classes: string }> = {
   AWAITING_CONFIRM: { label: "Awaiting Confirm", classes: "bg-amber-50 text-amber-700" },
   READY: { label: "Ready", classes: "bg-blue-50 text-blue-700" },
   PICKED_UP: { label: "Picked Up", classes: "bg-stone-100 text-stone-600" },
-  PENDING: { label: "Pending", classes: "bg-stone-100 text-stone-500" },
+  // A card checkout that hasn't been paid (yet): the shop checks with Stripe every minute
+  PENDING: { label: "Card not paid (yet)", classes: "bg-stone-100 text-stone-500" },
   CANCELLED: { label: "Cancelled", classes: "bg-red-50 text-red-600" },
   REFUNDED: { label: "Refunded", classes: "bg-purple-50 text-purple-600" },
 };
@@ -357,6 +358,19 @@ export default function AdminDashboardPage() {
                       className="bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-colors"
                     >
                       Mark Ready
+                    </button>
+                  )}
+                  {["PAID", "READY"].includes(order.status) && order.type !== "GIFT" && (
+                    <button
+                      onClick={async () => {
+                        if (!confirm("Send the order confirmation (email, and text if they gave a phone) again?")) return;
+                        const res = await fetch(`/api/orders/${order.id}/resend`, { method: "POST" });
+                        const data = await res.json().catch(() => ({}));
+                        alert(res.ok ? "Sent." : data.error || "Couldn't send it");
+                      }}
+                      className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Resend confirmation
                     </button>
                   )}
                   {order.status === "READY" && (
