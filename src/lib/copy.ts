@@ -167,7 +167,23 @@ export const COPY = {
     group: "Checkout",
     label: "Card: form didn't load",
     default:
-      "The card form didn't load. If you have an ad or content blocker, turn it off for this site, or open this page in Safari or Chrome (not inside Facebook or Instagram). You can also close this and pay with Venmo or PayPal.",
+      "The card form didn't load on this phone. Tap the button below to pay on Stripe's secure page instead, or close this and pay with Venmo or PayPal.",
+    long: true,
+  },
+  "checkout.hosted": { group: "Checkout", label: "Card: backup link", default: "Trouble with the card form? Pay on Stripe's secure page instead" },
+  "checkout.hostedGo": { group: "Checkout", label: "Card: backup button", default: "Pay on Stripe's secure page →" },
+  "paid.checking": { group: "Checkout", label: "Back from Stripe: checking", default: "Confirming your payment…" },
+  "paid.title": { group: "Checkout", label: "Back from Stripe: title", default: "Payment received!" },
+  "paid.text": {
+    group: "Checkout",
+    label: "Back from Stripe: text",
+    default: "Thank you! Your order is confirmed, and a confirmation is on its way.",
+  },
+  "paid.notYet": {
+    group: "Checkout",
+    label: "Back from Stripe: not confirmed yet",
+    default:
+      "Stripe hasn't confirmed your payment yet. You'll get a confirmation as soon as it does. If you were charged, there's nothing else you need to do.",
     long: true,
   },
   "checkout.processing": { group: "Checkout", label: "Card: processing", default: "Processing..." },

@@ -23,6 +23,42 @@ interface CheckoutModalProps {
   onClose: () => void;
 }
 
+/** Backup: finish paying on Stripe's own checkout page (works when the card form here won't load). */
+function HostedCheckoutButton({ orderId, prominent }: { orderId: string; prominent: boolean }) {
+  const text = useText();
+  const [going, setGoing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const go = async () => {
+    setGoing(true);
+    setError(null);
+    const res = await fetch(`/api/orders/${orderId}/hosted-checkout`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.url) {
+      window.location.href = data.url;
+      return;
+    }
+    setError(data.error || "Couldn't open the payment page");
+    setGoing(false);
+  };
+  return (
+    <div className="text-center">
+      <button
+        type="button"
+        onClick={go}
+        disabled={going}
+        className={
+          prominent
+            ? "w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-xl disabled:opacity-50"
+            : "text-xs text-stone-500 underline hover:text-stone-800 disabled:opacity-50"
+        }
+      >
+        {going ? "…" : prominent ? text("checkout.hostedGo") : text("checkout.hosted")}
+      </button>
+      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+    </div>
+  );
+}
+
 function StripeCheckoutForm({
   orderId,
   total,
@@ -87,9 +123,12 @@ function StripeCheckoutForm({
       />
       {!ready && !stuck && <p className="text-sm text-stone-500 text-center py-6">{text("checkout.cardLoading")}</p>}
       {stuck && !ready && (
-        <div className="p-3 bg-amber-50 text-amber-900 text-sm rounded-lg border border-amber-200">
-          {text("checkout.cardTrouble")}
-        </div>
+        <>
+          <div className="p-3 bg-amber-50 text-amber-900 text-sm rounded-lg border border-amber-200">
+            {text("checkout.cardTrouble")}
+          </div>
+          <HostedCheckoutButton orderId={orderId} prominent />
+        </>
       )}
       {errorMessage && (
         <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
@@ -103,6 +142,7 @@ function StripeCheckoutForm({
       >
         {loading ? text("checkout.processing") : text("checkout.payCard", { total: formatPrice(total) })}
       </button>
+      {!(stuck && !ready) && <HostedCheckoutButton orderId={orderId} prominent={false} />}
     </form>
   );
 }
@@ -197,8 +237,11 @@ export default function CheckoutModal({
             </button>
           </div>
         ) : (
-          <div className="p-3 bg-amber-50 text-amber-900 text-sm rounded-lg border border-amber-200">
-            {text("checkout.cardTrouble")}
+          <div className="space-y-3">
+            <div className="p-3 bg-amber-50 text-amber-900 text-sm rounded-lg border border-amber-200">
+              {text("checkout.cardTrouble")}
+            </div>
+            {paymentMethod === "STRIPE" && <HostedCheckoutButton orderId={orderId} prominent />}
           </div>
         )}
       </div>

@@ -14,7 +14,14 @@ import { getSiteSettings } from "@/lib/site";
  * the customer's browser and the background check may all report the same
  * payment, and only the first one does anything.
  */
-export async function markCardOrderPaid(paymentIntentId: string): Promise<boolean> {
+export async function markCardOrderPaid(paymentIntentId: string, orderIdHint?: string): Promise<boolean> {
+  // Paid on Stripe's own checkout page: that payment is new, so point the order at it first
+  if (orderIdHint) {
+    await prisma.order.updateMany({
+      where: { id: orderIdHint, status: "PENDING", paymentMethod: "STRIPE", NOT: { stripePaymentIntentId: paymentIntentId } },
+      data: { stripePaymentIntentId: paymentIntentId, stripeClientSecret: null },
+    });
+  }
   const order = await prisma.order.findFirst({
     where: { stripePaymentIntentId: paymentIntentId },
     include: { items: itemsWithNames, pickupSlot: true, user: true },
@@ -112,4 +119,31 @@ export async function sweepCardPayments(): Promise<void> {
       console.error("Card payment check failed", o.id, err);
     }
   }
+  if (pending.length) await sweepHostedCheckouts(new Set(pending.map((o) => o.id)));
+}
+
+/** Orders paid on Stripe's own checkout page whose customer never came back to the site. */
+async function sweepHostedCheckouts(pendingIds: Set<string>) {
+  const stripe = await getStripe();
+  if (!stripe) return;
+  const sessions = await stripe.checkout.sessions.list({
+    limit: 50,
+    created: { gt: Math.floor(Date.now() / 1000) - 2 * 24 * 60 * 60 },
+  });
+  for (const s of sessions.data) {
+    const orderId = s.metadata?.orderId;
+    if (orderId && pendingIds.has(orderId) && s.payment_status === "paid" && typeof s.payment_intent === "string") {
+      await markCardOrderPaid(s.payment_intent, orderId);
+    }
+  }
+}
+
+/** Back from Stripe's checkout page: check that session really paid for this order. */
+export async function checkHostedCheckout(orderId: string, sessionId: string): Promise<boolean> {
+  const stripe = await getStripe();
+  if (!stripe) return false;
+  const s = await stripe.checkout.sessions.retrieve(sessionId);
+  if (s.metadata?.orderId !== orderId || s.payment_status !== "paid" || typeof s.payment_intent !== "string") return false;
+  await markCardOrderPaid(s.payment_intent, orderId);
+  return true;
 }

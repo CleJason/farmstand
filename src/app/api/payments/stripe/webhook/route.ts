@@ -34,7 +34,8 @@ export async function POST(req: Request) {
 
   // A failed attempt leaves the order Pending (the customer can retry), so only success matters
   if (event.type === "payment_intent.succeeded") {
-    await markCardOrderPaid(event.data.object.id);
+    // Payments made on Stripe's own checkout page carry the order id
+    await markCardOrderPaid(event.data.object.id, event.data.object.metadata?.orderId || undefined);
   }
 
   return NextResponse.json({ received: true });

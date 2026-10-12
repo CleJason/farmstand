@@ -81,7 +81,7 @@ export function isHexColor(v: string) {
 
 /** Built-in pages the walk-up page's address can't take over. */
 export const RESERVED_PATHS = [
-  "admin", "api", "drops", "gift", "login", "my-orders", "privacy", "pwa-icon", "review",
+  "admin", "api", "drops", "gift", "login", "my-orders", "order-paid", "privacy", "pwa-icon", "review",
   "setup", "terms", "unsubscribe", "uploads", "manifest.webmanifest", "_next", "icon.png",
   "icon.svg", "offline.html", "sw.js", "favicon.ico",
 ];

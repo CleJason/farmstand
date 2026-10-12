@@ -386,6 +386,8 @@ jobs:
           c=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/drops/d1/remind); echo "send reminder signed out -> $c"; [ "$c" = "401" ] || exit 1
           c=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/settings/reminders); echo "reminder settings signed out -> $c"; [ "$c" = "401" ] || exit 1
           n=$(psql "$PGURL" -tAc "SELECT count(*) FROM information_schema.columns WHERE table_name = 'Drop' AND column_name = 'reminderSentAt'"); [ "$n" = "1" ] || { echo "reminderSentAt column missing"; exit 1; }
+          c=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/orders/nope/hosted-checkout); echo "Stripe page for unknown order -> $c"; [ "$c" = "404" ] || exit 1
+          c=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:3000/order-paid?order=nope&session=cs_x"); echo "/order-paid -> $c"; [ "$c" = "200" ] || exit 1
           r=$(curl -s -X POST http://localhost:3000/api/orders/nope/card-paid); echo "card check unknown order -> $r"; echo "$r" | grep -q '"paid":false' || exit 1
           n=$(psql "$PGURL" -tAc "SELECT count(*) FROM information_schema.columns WHERE table_name = 'Review' AND column_name = 'images'"); [ "$n" = "1" ] || { echo "images column missing"; exit 1; }
 
