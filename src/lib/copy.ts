@@ -120,6 +120,7 @@ export const COPY = {
   "drop.backHome": { group: "Pre-order page", label: "Order placed: button", default: "Back to Home" },
 
   // ── Walk-up (porch pickup) page
+  "stand.back": { group: "Walk-up page", label: "Back link", default: "← Back to the shop" },
   "stand.loading": { group: "Walk-up page", label: "Loading", default: "Loading..." },
   "stand.empty": { group: "Walk-up page", label: "Nothing out: title", default: "No extras out right now." },
   "stand.emptyHint": { group: "Walk-up page", label: "Nothing out: text", default: "Check back soon!" },

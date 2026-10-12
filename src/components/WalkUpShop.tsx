@@ -211,6 +211,11 @@ export default function WalkUpShop() {
       <StoreHeader />
       {/* Header */}
       <header className="bg-white border-b border-stone-200 px-4 py-4 text-center shadow-xs">
+        <div className="max-w-xl mx-auto text-left mb-2">
+          <Link href="/" className="text-xs text-[#8A756C] hover:text-amber-600 font-medium">
+            {text("stand.back")}
+          </Link>
+        </div>
         <span className="text-xs font-bold text-amber-600 uppercase tracking-widest">
           {site.SITE_NAME}
         </span>
