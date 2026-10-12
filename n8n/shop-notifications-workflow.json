@@ -1057,6 +1057,36 @@
         "jsonBody": "={{ JSON.stringify({ phoneNumbers: [$json.body.phone], message: $json.body.message }) }}",
         "options": {}
       }
+    },
+    {
+      "id": "81ae28eb-1866-40c3-a3ba-d51bb0b47f45",
+      "name": "One Email At A Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        400,
+        1200
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "d167e2bb-c298-4ec7-8a48-c0b8b3999772",
+      "name": "Pause 3s Between Emails",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        784,
+        1200
+      ],
+      "parameters": {
+        "amount": 3,
+        "resume": "timeInterval",
+        "unit": "seconds"
+      },
+      "webhookId": "554e1ba4-4163-4ea8-9fe8-b09ad396f356"
     }
   ],
   "connections": {
@@ -1242,7 +1272,7 @@
       "main": [
         [
           {
-            "node": "Email New Drop Alert",
+            "node": "One Email At A Time",
             "type": "main",
             "index": 0
           }
@@ -1392,6 +1422,40 @@
         [
           {
             "node": "One Text At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Email At A Time": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Email New Drop Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email New Drop Alert": {
+      "main": [
+        [
+          {
+            "node": "Pause 3s Between Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pause 3s Between Emails": {
+      "main": [
+        [
+          {
+            "node": "One Email At A Time",
             "type": "main",
             "index": 0
           }

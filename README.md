@@ -114,7 +114,7 @@ All emails and texts go out through one n8n workflow: `n8n/shop-notifications-wo
 | Card order paid | Owner: new paid order | Owner: new order |
 | Order cancelled / refunded | Customer | — |
 | Gift card activated | Code to the recipient, receipt to the buyer | — |
-| Drop opens (once per drop, at its "Orders open" time) | Everyone on Drop Alerts with an email (with unsubscribe link) | Everyone on Drop Alerts with a phone, **one text every 8 seconds** so carriers don't block you (also shown in Admin → Messages) |
+| Drop opens (once per drop, at its "Orders open" time) | Everyone on Drop Alerts with an email (with unsubscribe link), one every 3 seconds | Everyone on Drop Alerts with a phone, **one text every 8 seconds** so carriers don't block you (also shown in Admin → Messages) |
 | Order picked up | "How was it?" review request (at most once per customer every N days; "don't ask me" link) | — |
 | First review | Single-use thank-you discount code | — |
 | Customer texts the shop phone | Shows up in **Admin → Messages**; you reply from there | STOP/START handled automatically, with confirmation |
