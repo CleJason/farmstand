@@ -89,6 +89,8 @@ export async function remindDrop(dropId: string, { now: sendNow = false } = {}):
     dropId: drop.id,
     title: drop.title,
     orderCloseAt: closes,
+    // Texts expire then (SMS Gate validUntil), so a late "last call" never goes out
+    orderCloseAtIso: drop.orderCloseAt.toISOString(),
     dropUrl,
     smsMessage,
     texts: [...texts].map((phone) => ({ phone })),

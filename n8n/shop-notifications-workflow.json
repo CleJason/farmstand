@@ -840,21 +840,7 @@
         1424
       ],
       "parameters": {
-        "jsCode": "// Everyone on the list with a phone gets the drop alert by text (email people get the email too).\n// The shop marks canText false for anyone who replied STOP and for repeat numbers.\nconst b = $input.first().json.body || {};\nconst shop = b.businessName || 'our shop';\nreturn (b.subscribers || [])\n  .filter((s) => s && s.phone && s.canText)\n  .map((s) => {\n    const d = String(s.phone).replace(/\\D/g, '');\n    const phone = d.length === 10 ? '+1' + d : d.length === 11 && d.startsWith('1') ? '+' + d : '+' + d;\n    const message = b.smsMessage || (shop + ': ' + (b.title || 'A new drop') + ' is open for orders! ' + (b.dropUrl || '') + (b.orderCloseAt ? ' Orders close ' + b.orderCloseAt + '.' : '') + ' Reply STOP to opt out.');\n    return { json: { phone, message } };\n  });"
-      }
-    },
-    {
-      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d22",
-      "name": "One Text At A Time",
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 3,
-      "position": [
-        528,
-        1424
-      ],
-      "parameters": {
-        "batchSize": 1,
-        "options": {}
+        "jsCode": "// Everyone on the list with a phone gets the drop alert by text (email people get the email too).\n// The shop marks canText false for anyone who replied STOP and for repeat numbers.\n// One SMS Gate message with every number: one wake-up push to the phone, which then sends them one by one.\nconst b = $input.first().json.body || {};\nconst shop = b.businessName || 'our shop';\nconst phones = (b.subscribers || [])\n  .filter((s) => s && s.phone && s.canText)\n  .map((t) => {\n    const d = String(t.phone).replace(/\\D/g, '');\n    return d.length === 10 ? '+1' + d : d.length === 11 && d.startsWith('1') ? '+' + d : '+' + d;\n  });\nif (!phones.length) return [];\nconst message = b.smsMessage || (shop + ': ' + (b.title || 'A new drop') + ' is open for orders! ' + (b.dropUrl || '') + (b.orderCloseAt ? ' Orders close ' + b.orderCloseAt + '.' : '') + ' Reply STOP to opt out.');\nreturn [{ json: { phones, message, validUntil: b.orderCloseAtIso || null } }];"
       }
     },
     {
@@ -874,23 +860,8 @@
         "genericAuthType": "httpBasicAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ phoneNumbers: [$json.phone], message: $json.message }) }}",
+        "jsonBody": "={{ JSON.stringify(Object.assign({ phoneNumbers: $json.phones, message: $json.message }, $json.validUntil ? { validUntil: $json.validUntil } : {})) }}",
         "options": {}
-      }
-    },
-    {
-      "id": "5c1d2a40-7b7e-4d55-9a51-0f2a9e6b1d24",
-      "name": "Pause 8s Between Texts",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        1040,
-        1504
-      ],
-      "parameters": {
-        "resume": "timeInterval",
-        "amount": 8,
-        "unit": "seconds"
       }
     },
     {
@@ -1117,21 +1088,7 @@
         2656
       ],
       "parameters": {
-        "jsCode": "// The shop lists who gets a text (people who haven't ordered, didn't reply STOP)\nconst b = $input.first().json.body || {};\nreturn (b.texts || []).map((t) => {\n  const d = String(t.phone).replace(/\\D/g, '');\n  const phone = d.length === 10 ? '+1' + d : d.length === 11 && d.startsWith('1') ? '+' + d : '+' + d;\n  return { json: { phone, message: b.smsMessage } };\n});"
-      }
-    },
-    {
-      "id": "9de28a1d-ee94-4a84-915a-81e74626a675",
-      "name": "One Reminder Text At A Time",
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 3,
-      "position": [
-        528,
-        2656
-      ],
-      "parameters": {
-        "batchSize": 1,
-        "options": {}
+        "jsCode": "// One SMS Gate message with every number: one wake-up push to the phone, which then sends them one by one.\n// validUntil = the drop's closing time, so a late 'last call' is never sent.\nconst b = $input.first().json.body || {};\nconst phones = (b.texts || []).map((t) => {\n  const d = String(t.phone).replace(/\\D/g, '');\n  return d.length === 10 ? '+1' + d : d.length === 11 && d.startsWith('1') ? '+' + d : '+' + d;\n});\nif (!phones.length) return [];\nreturn [{ json: { phones, message: b.smsMessage, validUntil: b.orderCloseAtIso || null } }];"
       }
     },
     {
@@ -1151,24 +1108,8 @@
         "genericAuthType": "httpBasicAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ phoneNumbers: [$json.phone], message: $json.message }) }}",
+        "jsonBody": "={{ JSON.stringify(Object.assign({ phoneNumbers: $json.phones, message: $json.message }, $json.validUntil ? { validUntil: $json.validUntil } : {})) }}",
         "options": {}
-      }
-    },
-    {
-      "id": "f7d95887-7376-4268-8be4-4e5ae0582f01",
-      "name": "Pause 8s Between Reminder Texts",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        1040,
-        2736
-      ],
-      "webhookId": "6c9b9500-2d51-4692-bb90-1e8bf268c9ef",
-      "parameters": {
-        "resume": "timeInterval",
-        "amount": 8,
-        "unit": "seconds"
       }
     },
     {
@@ -1474,40 +1415,6 @@
         ]
       ]
     },
-    "One Text At A Time": {
-      "main": [
-        [],
-        [
-          {
-            "node": "Text Drop Alert",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Text Drop Alert": {
-      "main": [
-        [
-          {
-            "node": "Pause 8s Between Texts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Pause 8s Between Texts": {
-      "main": [
-        [
-          {
-            "node": "One Text At A Time",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Incoming Text (SMS Gate)": {
       "main": [
         [
@@ -1567,7 +1474,7 @@
       "main": [
         [
           {
-            "node": "One Text At A Time",
+            "node": "Text Drop Alert",
             "type": "main",
             "index": 0
           }
@@ -1628,41 +1535,7 @@
       "main": [
         [
           {
-            "node": "One Reminder Text At A Time",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "One Reminder Text At A Time": {
-      "main": [
-        [],
-        [
-          {
             "node": "Text Reminder",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Text Reminder": {
-      "main": [
-        [
-          {
-            "node": "Pause 8s Between Reminder Texts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Pause 8s Between Reminder Texts": {
-      "main": [
-        [
-          {
-            "node": "One Reminder Text At A Time",
             "type": "main",
             "index": 0
           }

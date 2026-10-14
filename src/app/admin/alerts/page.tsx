@@ -141,8 +141,8 @@ export default function AdminAlertsPage() {
           </label>
           <p className="text-[11px] text-stone-500">
             Once per drop, to people on this list who haven&apos;t ordered from that drop yet: a text if they gave a phone
-            number (one every 8 seconds), otherwise an email. You can also send it any time from the drop in Admin → Drops.
-            Leave enough time for the texts to go out, e.g. 100 people ≈ 14 minutes.
+            number, otherwise an email. You can also send it any time from the drop in Admin → Drops. Texts go out one by one
+            at the pace set in the SMS Gate app, so leave enough time; any not sent by closing time are dropped.
           </p>
         </div>
       )}

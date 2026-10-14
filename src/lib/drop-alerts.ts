@@ -67,6 +67,8 @@ export async function announceDrop(dropId: string): Promise<void> {
     title: drop.title,
     description: drop.description,
     orderCloseAt: closes,
+    // Texts expire then (SMS Gate validUntil), so an alert never goes out after the drop closed
+    orderCloseAtIso: drop.orderCloseAt.toISOString(),
     pickupWindows: drop.pickupSlots.map((s) => s.label),
     pickupArea: drop.pickupSlots.find((s) => s.location)?.location ?? null,
     products: drop.dropProducts.map((dp) => dp.product.name),

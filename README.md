@@ -114,8 +114,8 @@ All emails and texts go out through one n8n workflow: `n8n/shop-notifications-wo
 | Card order paid | Owner: new paid order | Owner: new order |
 | Order cancelled / refunded | Customer | — |
 | Gift card activated | Code to the recipient, receipt to the buyer | — |
-| Drop opens (once per drop, at its "Orders open" time) | Everyone on Drop Alerts with an email (with unsubscribe link), one every 3 seconds | Everyone on Drop Alerts with a phone, **one text every 8 seconds** so carriers don't block you (also shown in Admin → Messages) |
-| Drop closes soon (once per drop, N hours before close; on/off and hours in Admin → Drop Alerts, or "Send reminder now" on the drop) | Drop Alerts people who haven't ordered and have no phone (or replied STOP) | Drop Alerts people who haven't ordered, one text every 8 seconds |
+| Drop opens (once per drop, at its "Orders open" time) | Everyone on Drop Alerts with an email (with unsubscribe link), one every 3 seconds | Everyone on Drop Alerts with a phone, sent as **one batched SMS Gate message** (the phone paces them; see below) (also shown in Admin → Messages) |
+| Drop closes soon (once per drop, N hours before close; on/off and hours in Admin → Drop Alerts, or "Send reminder now" on the drop) | Drop Alerts people who haven't ordered and have no phone (or replied STOP) | Drop Alerts people who haven't ordered (one batched message; expires when the drop closes) |
 | Order picked up | "How was it?" review request (at most once per customer every N days; "don't ask me" link) | — |
 | First review | Single-use thank-you discount code | — |
 | Customer texts the shop phone | Shows up in **Admin → Messages**; you reply from there | STOP/START handled automatically, with confirmation |
@@ -144,7 +144,8 @@ All emails and texts go out through one n8n workflow: `n8n/shop-notifications-wo
 3. Replace `YOUR-SMS-GATE-SERVER` in those nodes with your address (keep the `/api/3rdparty/v1/...` part for cloud/private server).
 4. On **Text Owners: New Order**, replace the example numbers with the owners' cell numbers (`+1` and 10 digits).
 5. On **Incoming Text (SMS Gate)**, change the path `sms-in-CHANGE-ME` to something long and random. Use the same path inside **Register Webhook In SMS Gate**, along with your n8n domain. On **Check STOP / START (shop)**, replace `YOUR-SHOP-DOMAIN`.
-6. In the SMS Gate app, consider a sending limit (e.g. 10/minute) as a backstop.
+6. In the SMS Gate app's settings, set a **delay between messages** (e.g. 5–10 seconds) and a sending limit, so big batches (drop alerts) go out slowly and carriers don't block the number. Set the app's battery usage to **Unrestricted** so Android doesn't put it to sleep. The first time Android warns that the app is "sending a large number of messages", choose **Always allow**.
+   - Why batched: the private server wakes the phone with a push notification per queued message. Dozens of separate messages get the push rate-limited (HTTP 429) and the phone never wakes, so drop alerts are sent as one message with all the numbers.
 
 ### 4. Turn it on
 
