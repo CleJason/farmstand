@@ -153,6 +153,14 @@ export default function AdminDropsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // When the automatic "last call" reminder goes out (Admin → Drop Alerts)
+  const [reminderCfg, setReminderCfg] = useState<{ enabled: boolean; hours: number } | null>(null);
+  useEffect(() => {
+    fetch("/api/settings/reminders")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setReminderCfg)
+      .catch(() => {});
+  }, []);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -324,7 +332,7 @@ export default function AdminDropsPage() {
   };
 
   const sendReminder = async (drop: Drop) => {
-    if (!confirm(`Send the "last call" reminder for "${drop.title}" now? Everyone on Drop Alerts who hasn't ordered gets a text (or an email if they have no phone). It only goes out once per drop.`)) return;
+    if (!confirm(`Send the "last call" reminder for "${drop.title}" NOW instead of automatically later? Everyone on Drop Alerts who hasn't ordered gets a text (or an email if they have no phone). It only goes out once per drop, so it won't send again at the automatic time.`)) return;
     const res = await fetch(`/api/drops/${drop.id}/remind`, { method: "POST" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return alert(data.error || "Couldn't send the reminder");
@@ -485,13 +493,23 @@ export default function AdminDropsPage() {
                     )}
                   </div>
                   {dropLabel(drop) === "Ordering Open" && !drop.reminderSentAt && (
-                    <button
-                      onClick={() => sendReminder(drop)}
-                      className="text-xs font-medium px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg"
-                      title="Text (or email, if no phone) everyone on Drop Alerts who hasn't ordered yet"
-                    >
-                      ⏰ Send reminder now
-                    </button>
+                    <div className="basis-full flex flex-wrap items-center gap-2 text-[11px] text-stone-500">
+                      <span>
+                        ⏰{" "}
+                        {reminderCfg?.enabled
+                          ? `Last-call reminder goes out automatically ${formatDate(
+                              new Date(new Date(drop.orderCloseAt).getTime() - reminderCfg.hours * 3600_000).toISOString()
+                            )}`
+                          : "Automatic last-call reminder is off (Drop Alerts page)"}
+                      </span>
+                      <button
+                        onClick={() => sendReminder(drop)}
+                        className="font-medium px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg"
+                        title="Text (or email, if no phone) everyone on Drop Alerts who hasn't ordered yet"
+                      >
+                        Send it now instead
+                      </button>
+                    </div>
                   )}
                   <div className="flex items-center gap-3">
                     <button onClick={() => deleteDrop(drop)} className="text-xs text-stone-400 hover:text-red-600">
