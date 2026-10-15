@@ -11,6 +11,7 @@ import SocialLinks from "@/components/SocialLinks";
 import ReviewsSection from "@/components/ReviewsSection";
 import LegalFooter from "@/components/LegalFooter";
 import DropAlertsSignup from "@/components/DropAlertsSignup";
+import StandHours from "@/components/StandHours";
 
 interface Drop {
   id: string;
@@ -139,6 +140,7 @@ export default function HomeClient() {
               {site.SITE_FARMSTAND_HEADING}
             </Link>
           </div>
+          <StandHours compact />
           <SocialLinks className="mt-7" />
         </div>
       </header>

@@ -1174,6 +1174,122 @@
         "amount": 3,
         "unit": "seconds"
       }
+    },
+    {
+      "id": "27e42242-00c9-4f62-b116-3e93ddac3005",
+      "name": "Broadcast To A List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        3136
+      ],
+      "webhookId": "d80f8abf-33fa-45df-b163-aa1f87255ba1",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "broadcast",
+        "responseMode": "onReceived",
+        "options": {
+          "onlyRunIf": "={{ $json.headers['x-webhook-secret'] === 'CHANGE_ME' }}"
+        }
+      }
+    },
+    {
+      "id": "98479da0-c7f1-4123-abe1-aa2138682708",
+      "name": "Broadcast Texts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        3136
+      ],
+      "parameters": {
+        "jsCode": "// One SMS Gate message with every number (one wake-up push); the phone sends them one by one\nconst b = $input.first().json.body || {};\nconst phones = (b.texts || []).map((t) => {\n  const d = String(t.phone).replace(/\\D/g, '');\n  return d.length === 10 ? '+1' + d : d.length === 11 && d.startsWith('1') ? '+' + d : '+' + d;\n});\nif (!phones.length) return [];\nreturn [{ json: { phones, message: b.smsMessage, validUntil: b.validUntil || null } }];"
+      }
+    },
+    {
+      "id": "0f50c69e-fc7b-4569-8364-536476926b5f",
+      "name": "Text Broadcast",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        528,
+        3136
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-SMS-GATE-SERVER/api/3rdparty/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(Object.assign({ phoneNumbers: $json.phones, message: $json.message }, $json.validUntil ? { validUntil: $json.validUntil } : {})) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "fe7c159c-68a6-4794-857c-0522cd708dab",
+      "name": "Broadcast Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        3360
+      ],
+      "parameters": {
+        "jsCode": "// People with no phone (or who replied STOP to texts) get an email\nconst b = $input.first().json.body || {};\nreturn (b.emails || []).map((e) => ({\n  json: {\n    email: e.email,\n    unsubscribeUrl: e.unsubscribeUrl,\n    shop: b.businessName || 'our shop',\n    subject: b.emailSubject || '',\n    heading: b.emailHeading || '',\n    lines: b.emailLines || [],\n    buttonText: b.buttonText || '',\n    buttonUrl: b.buttonUrl || '',\n  },\n}));"
+      }
+    },
+    {
+      "id": "ffaed169-78b7-4a06-b632-60d54eba83ae",
+      "name": "One Broadcast Email At A Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        528,
+        3360
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "261fc847-8e5c-4166-a22f-5ad76c25f814",
+      "name": "Email Broadcast",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        784,
+        3440
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "fromEmail": "Your Shop <hello@example.com>",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "html": "={{ '<div style=\"font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1c1917\"><h2 style=\"margin-bottom:4px\">' + $json.heading + '</h2><p style=\"line-height:1.7\">' + $json.lines.join('<br>') + '</p>' + ($json.buttonUrl ? '<p style=\"margin:24px 0\"><a href=\"' + $json.buttonUrl + '\" style=\"background:#d97706;color:#ffffff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:bold\">' + $json.buttonText + '</a></p>' : '') + '<p style=\"color:#a8a29e;font-size:12px\">You asked ' + $json.shop + ' to let you know. <a href=\"' + $json.unsubscribeUrl + '\" style=\"color:#a8a29e\">Unsubscribe</a></p></div>' }}",
+        "options": {
+          "appendAttribution": false
+        }
+      }
+    },
+    {
+      "id": "6ee8ee61-5f2c-42b3-a437-cd1c7a34f568",
+      "name": "Pause 3s Between Broadcast Emails",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        3440
+      ],
+      "webhookId": "cce62f73-eafa-4d15-bb07-6b3044df37e5",
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 3,
+        "unit": "seconds"
+      }
     }
   ],
   "connections": {
@@ -1581,6 +1697,78 @@
         [
           {
             "node": "One Reminder Email At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Broadcast To A List": {
+      "main": [
+        [
+          {
+            "node": "Broadcast Texts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Broadcast Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Broadcast Texts": {
+      "main": [
+        [
+          {
+            "node": "Text Broadcast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Broadcast Emails": {
+      "main": [
+        [
+          {
+            "node": "One Broadcast Email At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Broadcast Email At A Time": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Email Broadcast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Broadcast": {
+      "main": [
+        [
+          {
+            "node": "Pause 3s Between Broadcast Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pause 3s Between Broadcast Emails": {
+      "main": [
+        [
+          {
+            "node": "One Broadcast Email At A Time",
             "type": "main",
             "index": 0
           }

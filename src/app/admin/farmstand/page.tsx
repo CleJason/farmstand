@@ -7,6 +7,7 @@ import ImageUpload from "@/components/ImageUpload";
 import FarmstandQrCode from "@/components/FarmstandQrCode";
 import { useSite } from "@/components/SiteProvider";
 import ImagePositioner from "@/components/ImagePositioner";
+import StandHoursEditor from "@/components/StandHoursEditor";
 
 interface FarmstandItem {
   id: string;
@@ -172,6 +173,8 @@ export default function AdminFarmstandPage() {
           </button>
         </div>
       </div>
+
+      <StandHoursEditor />
 
       {loading ? (
         <div className="text-center py-16">

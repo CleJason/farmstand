@@ -20,7 +20,8 @@ type NotificationEvent =
   | "farmstand.purchased"
   | "review.requested"
   | "review.thanks"
-  | "sms.send";
+  | "sms.send"
+  | "broadcast"; // a one-off text/email to a list (e.g. Porch Pickup open hours)
 
 /** Business name for emails/texts, or "" if the owner turned that off in Admin → Site. */
 async function businessName() {

@@ -12,6 +12,8 @@ import GiftCardInput, { type AppliedGift } from "@/components/GiftCardInput";
 import LegalFooter from "@/components/LegalFooter";
 import SpamHint from "@/components/SpamHint";
 import { StoreHeader } from "@/components/StoreChrome";
+import StandHours from "@/components/StandHours";
+import StandAlertsSignup from "@/components/StandAlertsSignup";
 
 interface FarmstandItem {
   id: string;
@@ -46,6 +48,7 @@ export default function WalkUpShop() {
     notes: "",
   });
   const [showDetails, setShowDetails] = useState(false);
+  const [standOptIn, setStandOptIn] = useState(false); // "text me when it's open" at checkout
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"STRIPE" | "PAYPAL" | "VENMO">("STRIPE");
 
@@ -150,6 +153,13 @@ export default function WalkUpShop() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create order");
       setShowDetails(false);
+      if (standOptIn && (details.phone || details.email)) {
+        fetch("/api/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ list: "stand", phone: details.phone || undefined, email: details.email || undefined }),
+        }).catch(() => {});
+      }
 
       // Fully paid by gift card: nothing more to pay
       if (data.status === "PAID") {
@@ -225,6 +235,7 @@ export default function WalkUpShop() {
         <p className="text-xs text-[#735D54] mt-0.5">
           {site.SITE_FARMSTAND_BLURB}
         </p>
+        <StandHours />
       </header>
 
       {/* Item List */}
@@ -313,6 +324,7 @@ export default function WalkUpShop() {
         )}
       </main>
 
+      <StandAlertsSignup />
       <LegalFooter />
 
       {/* Floating Bottom Drawer: payment method, codes, then checkout (details come next) */}
@@ -404,6 +416,17 @@ export default function WalkUpShop() {
           error={detailsError}
           onSubmit={placeOrder}
           onClose={() => setShowDetails(false)}
+          extra={
+            <label className="flex items-center gap-2 text-sm text-[#2D1E18]">
+              <input
+                type="checkbox"
+                checked={standOptIn}
+                onChange={(e) => setStandOptIn(e.target.checked)}
+                className="h-4 w-4 accent-amber-600"
+              />
+              {text("checkout.standOptIn", { stand: site.SITE_FARMSTAND_HEADING })}
+            </label>
+          }
         />
       )}
 

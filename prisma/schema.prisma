@@ -354,9 +354,21 @@ model Subscriber {
   email       String?  @unique // stored lowercase; null = phone only (text alerts)
   phone       String?          // digits, for text alerts
   unsubscribeToken String @unique @default(cuid())
+  dropAlerts  Boolean  @default(true)  // "drop is open" and "last call" alerts
+  standAlerts Boolean  @default(false) // "Porch Pickup is open" alerts (walk-up page)
   createdAt   DateTime @default(now())
 
   @@index([phone])
+}
+
+// When the walk-up (Porch Pickup) stand is open, set week by week in the admin
+model StandHours {
+  id        String   @id @default(cuid())
+  startsAt  DateTime
+  endsAt    DateTime
+  createdAt DateTime @default(now())
+
+  @@index([endsAt])
 }
 
 // ─────────────────────────────────────────────

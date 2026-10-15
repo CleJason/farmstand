@@ -18,6 +18,7 @@ A self-hosted replacement for Hotplate built for small makers, home bakers, farm
 - **Notifications via n8n, SMS Gate & SMTP**: an importable n8n workflow sends order confirmations, payment instructions, cancellations, gift cards, drop alerts and review requests by email, and texts through an Android phone running **SMS Gate** (throttled, with STOP/START handling). See [n8n & SMS Gate Automation](#n8n--sms-gate-automation).
 - **Text inbox (Admin → Messages)**: customers' texts to the shop phone appear as conversations (with their names), and you reply from the admin.
 - **Mix & match boxes and add-ons**: e.g. a 12-cookie box where customers pick flavors (choices can change each drop), and per-item extras like "Extra icing +$1". The drop page shows a "what to make" tally.
+- **Walk-up open hours**: set the days and times the walk-up page (e.g. Porch Pickup) is open, week by week; shown on that page and the home page. Customers can ask to be texted when it's open (sign-up box, or a checkbox at checkout), and you notify that list with one tap.
 - **Drop Alerts**: a "Never miss a drop" sign-up (email or phone); everyone is notified once when a drop opens.
 - **Gift cards, discount codes and personal codes**: codes can be limited to specific customers.
 - **Customer reviews**: a review request after pickup, reviews tagged with what they ordered, owner approval, and an optional first-review discount.
@@ -116,6 +117,7 @@ All emails and texts go out through one n8n workflow: `n8n/shop-notifications-wo
 | Gift card activated | Code to the recipient, receipt to the buyer | — |
 | Drop opens (once per drop, at its "Orders open" time) | Everyone on Drop Alerts with an email (with unsubscribe link), one every 3 seconds | Everyone on Drop Alerts with a phone, sent as **one batched SMS Gate message** (the phone paces them; see below) (also shown in Admin → Messages) |
 | Drop closes soon (once per drop, N hours before close; on/off and hours in Admin → Drop Alerts, or "Send reminder now" on the drop) | Drop Alerts people who haven't ordered and have no phone (or replied STOP) | Drop Alerts people who haven't ordered (one batched message; expires when the drop closes) |
+| You tap "Notify" in Admin → Porch Pickup (walk-up page) | People on the walk-up alert list with no phone | People on the walk-up alert list (open days/times; one batched message) |
 | Order picked up | "How was it?" review request (at most once per customer every N days; "don't ask me" link) | — |
 | First review | Single-use thank-you discount code | — |
 | Customer texts the shop phone | Shows up in **Admin → Messages**; you reply from there | STOP/START handled automatically, with confirmation |
@@ -153,6 +155,6 @@ All emails and texts go out through one n8n workflow: `n8n/shop-notifications-wo
 2. Open **Run Once: Connect Incoming Texts** and click **Execute step** (one time). This tells SMS Gate to forward incoming texts to n8n.
 3. Test: place an order, text the shop phone (it appears in Admin → Messages), reply from Admin, then text STOP and START.
 
-**Events the app sends** (each to `<n8n URL>/<event>`, with the `x-webhook-secret` header): `order.confirmed`, `farmstand.purchased`, `order.awaiting_payment`, `order.cancelled`, `gift.activated`, `drop.announced`, `drop.reminder`, `review.requested`, `review.thanks`, `sms.send` (a reply from Admin → Messages). Incoming texts come back to the shop at `POST /api/sms/inbound` (same secret).
+**Events the app sends** (each to `<n8n URL>/<event>`, with the `x-webhook-secret` header): `order.confirmed`, `farmstand.purchased`, `order.awaiting_payment`, `order.cancelled`, `gift.activated`, `drop.announced`, `drop.reminder`, `broadcast`, `review.requested`, `review.thanks`, `sms.send` (a reply from Admin → Messages). Incoming texts come back to the shop at `POST /api/sms/inbound` (same secret).
 
 **Texting rules built in:** a STOP reply blocks all texts to that number (order texts, drop alerts and replies) until they reply START, removes phone-only people from Drop Alerts, and re-imports never add them back.

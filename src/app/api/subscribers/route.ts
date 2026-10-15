@@ -3,17 +3,25 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { phoneKey } from "@/lib/phone";
 import { cleanEmail, cleanPhone } from "@/lib/drop-alerts";
+import { addSubscriber, type AlertList } from "@/lib/subscribers";
+
+/** ?list=stand is the Porch Pickup list; anything else is Drop Alerts. */
+const listOf = (v: unknown): AlertList => (v === "stand" ? "stand" : "drop");
+const flagOf = (list: AlertList) => (list === "drop" ? "dropAlerts" : "standAlerts");
+const otherFlagOf = (list: AlertList) => (list === "drop" ? "standAlerts" : "dropAlerts");
 
 async function isAdmin() {
   const session = await auth();
   return session?.user?.role === "ADMIN";
 }
 
-/** The drop-alert list, for the admin only. */
-export async function GET() {
+/** An alert list (Drop Alerts, or ?list=stand for Porch Pickup), for the admin only. */
+export async function GET(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const list = listOf(new URL(req.url).searchParams.get("list"));
   const [subscribers, contacts, users, orders] = await Promise.all([
     prisma.subscriber.findMany({
+      where: { [flagOf(list)]: true },
       orderBy: { createdAt: "desc" },
       select: { id: true, email: true, phone: true, createdAt: true },
     }),
@@ -56,26 +64,24 @@ export async function POST(req: Request) {
   if (data.phone && !phone) return NextResponse.json({ error: "That phone number doesn't look right" }, { status: 400 });
   if (!email && !phone) return NextResponse.json({ error: "Add an email, a phone number, or both" }, { status: 400 });
 
-  if (email) {
-    await prisma.subscriber.upsert({ where: { email }, create: { email, phone }, update: phone ? { phone } : {} });
-  } else {
-    // Phone only: skip if that number is already on the list
-    const all = await prisma.subscriber.findMany({ where: { phone: { not: null } }, select: { phone: true } });
-    if (!all.some((s) => phoneKey(s.phone) === phoneKey(phone))) await prisma.subscriber.create({ data: { phone } });
-  }
+  await addSubscriber({ email, phone, list: listOf(data.list) });
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const params = new URL(req.url).searchParams;
-  // ?all=1 empties the whole list (e.g. before re-importing a cleaned-up file)
-  if (params.get("all") === "1") {
-    const { count } = await prisma.subscriber.deleteMany({});
-    return NextResponse.json({ ok: true, removed: count });
-  }
+  const list = listOf(params.get("list"));
+  const flag = flagOf(list);
+  const other = otherFlagOf(list);
+  // Taken off this list only; people still on the other list stay on it
   const id = params.get("id");
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-  await prisma.subscriber.deleteMany({ where: { id } });
-  return NextResponse.json({ ok: true });
+  // ?all=1 empties the whole list (e.g. before re-importing a cleaned-up file)
+  const scope = params.get("all") === "1" ? {} : id ? { id } : null;
+  if (!scope) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  const [{ count: removed }, { count: kept }] = await prisma.$transaction([
+    prisma.subscriber.deleteMany({ where: { ...scope, [flag]: true, [other]: false } }),
+    prisma.subscriber.updateMany({ where: { ...scope, [flag]: true, [other]: true }, data: { [flag]: false } }),
+  ]);
+  return NextResponse.json({ ok: true, removed: removed + kept });
 }

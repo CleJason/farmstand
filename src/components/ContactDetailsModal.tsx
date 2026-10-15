@@ -22,7 +22,9 @@ export default function ContactDetailsModal({
   error,
   onSubmit,
   onClose,
+  extra,
 }: {
+  extra?: React.ReactNode; // e.g. the walk-up page's "text me when it's open" checkbox
   details: ContactDetails;
   onChange: (d: ContactDetails) => void;
   required: boolean; // pre-orders need name + email; walk-up purchases don't
@@ -119,6 +121,7 @@ export default function ContactDetailsModal({
               />
             </label>
           )}
+          {extra}
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             disabled={submitting}

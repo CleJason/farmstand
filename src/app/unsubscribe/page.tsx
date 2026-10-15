@@ -33,10 +33,17 @@ export default async function UnsubscribePage({
   let body: string;
   if (done) {
     heading = "You're unsubscribed";
-    body = `You won't get any more drop alerts from ${site.SITE_NAME}.`;
+    body = `You won't get any more alerts from ${site.SITE_NAME}.`;
   } else if (subscriber) {
-    heading = "Stop drop alerts?";
-    body = `${subscriber.email ?? subscriber.phone ?? "You"} will no longer hear about new drops from ${site.SITE_NAME}.`;
+    // Drop alerts, Porch Pickup alerts, or both
+    const what = [
+      subscriber.dropAlerts ? "new drops" : null,
+      subscriber.standAlerts ? `when ${site.SITE_FARMSTAND_HEADING} is open` : null,
+    ]
+      .filter(Boolean)
+      .join(" or ");
+    heading = subscriber.standAlerts && !subscriber.dropAlerts ? "Stop alerts?" : "Stop drop alerts?";
+    body = `${subscriber.email ?? subscriber.phone ?? "You"} will no longer hear about ${what || "new drops"} from ${site.SITE_NAME}.`;
   } else {
     heading = "Already unsubscribed";
     body = "This link has already been used, or the address isn't on the list.";

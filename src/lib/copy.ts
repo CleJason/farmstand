@@ -141,6 +141,27 @@ export const COPY = {
   "drop.backHome": { group: "Pre-order page", label: "Order placed: button", default: "Back to Home" },
 
   // ── Walk-up (porch pickup) page
+  "stand.hoursTitle": { group: "Walk-up page", label: "Open hours: heading", default: "Open" },
+  "stand.openNow": { group: "Walk-up page", label: "Open hours: heading while open", default: "Open now" },
+  "stand.noHours": {
+    group: "Walk-up page",
+    label: "Open hours: none scheduled",
+    default: "No {stand} scheduled right now. Check back soon!",
+  },
+  "stand.alertsTitle": { group: "Walk-up page", label: "Alert sign-up: heading", default: "Get a text when {stand} is open" },
+  "stand.alertsPlaceholder": { group: "Walk-up page", label: "Alert sign-up: box", default: "Phone number (or email)" },
+  "stand.alertsButton": { group: "Walk-up page", label: "Alert sign-up: button", default: "Notify me" },
+  "stand.alertsDone": {
+    group: "Walk-up page",
+    label: "Alert sign-up: thank you",
+    default: "You're on the list! We'll let you know when {stand} is open.",
+  },
+  "stand.alertsFine": {
+    group: "Walk-up page",
+    label: "Alert sign-up: fine print",
+    default: "Msg & data rates may apply. Reply STOP to opt out anytime.",
+  },
+  "checkout.standOptIn": { group: "Checkout", label: "Walk-up: alert checkbox", default: "Text me when {stand} is open" },
   "stand.back": { group: "Walk-up page", label: "Back link", default: "← Back to the shop" },
   "stand.loading": { group: "Walk-up page", label: "Loading", default: "Loading..." },
   "stand.empty": { group: "Walk-up page", label: "Nothing out: title", default: "No extras out right now." },

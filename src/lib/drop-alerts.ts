@@ -40,7 +40,7 @@ export async function announceDrop(dropId: string): Promise<void> {
         dropProducts: { include: { product: true } },
       },
     }),
-    prisma.subscriber.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.subscriber.findMany({ where: { dropAlerts: true }, orderBy: { createdAt: "asc" } }),
     getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || ""),
   ]);
   if (!drop || subscribers.length === 0) return;
