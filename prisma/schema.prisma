@@ -356,6 +356,7 @@ model Subscriber {
   unsubscribeToken String @unique @default(cuid())
   dropAlerts  Boolean  @default(true)  // "drop is open" and "last call" alerts
   standAlerts Boolean  @default(false) // "Porch Pickup is open" alerts (walk-up page)
+  standVia    String   @default("text") // how they want those: text | email | both
   createdAt   DateTime @default(now())
 
   @@index([phone])

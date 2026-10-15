@@ -157,7 +157,13 @@ export default function WalkUpShop() {
         fetch("/api/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ list: "stand", phone: details.phone || undefined, email: details.email || undefined }),
+          // Text if they gave a phone at checkout, otherwise email
+          body: JSON.stringify({
+            list: "stand",
+            via: details.phone ? "text" : "email",
+            phone: details.phone || undefined,
+            email: details.email || undefined,
+          }),
         }).catch(() => {});
       }
 

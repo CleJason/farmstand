@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { cleanEmail, cleanPhone } from "@/lib/drop-alerts";
-import { addSubscriber } from "@/lib/subscribers";
+import { addSubscriber, viaFor } from "@/lib/subscribers";
 
 /**
  * Sign-ups: the home page "get drop alerts" form (email required), and the
- * Porch Pickup "tell me when it's open" form (`list: "stand"`, phone or email).
- * The reply is the same whether or not they were already on the list, so it
- * can't be used to check who signed up.
+ * Porch Pickup "tell me when it's open" form (`list: "stand"`; text, email or
+ * both, via `via`). The reply is the same whether or not they were already on
+ * the list, so it can't be used to check who signed up.
  */
 export async function POST(req: Request) {
   const data = await req.json().catch(() => ({}));
@@ -20,6 +20,13 @@ export async function POST(req: Request) {
   if (list === "drop" && !email) return NextResponse.json({ error: "Please enter a valid email" }, { status: 400 });
   if (!email && !phone) return NextResponse.json({ error: "Please enter a phone number or email" }, { status: 400 });
 
-  await addSubscriber({ email, phone, list });
+  const via = list === "stand" ? viaFor(phone, email, data.via) : undefined;
+  if (via === "text" && !phone) return NextResponse.json({ error: "Please enter a phone number for texts" }, { status: 400 });
+  if (via === "email" && !email) return NextResponse.json({ error: "Please enter an email" }, { status: 400 });
+  if (via === "both" && (!phone || !email)) {
+    return NextResponse.json({ error: "Please enter both a phone number and an email" }, { status: 400 });
+  }
+
+  await addSubscriber({ email, phone, list, via });
   return NextResponse.json({ ok: true });
 }

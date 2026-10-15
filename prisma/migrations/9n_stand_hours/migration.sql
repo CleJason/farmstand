@@ -1,6 +1,7 @@
 -- AlterTable
 ALTER TABLE "Subscriber" ADD COLUMN     "dropAlerts" BOOLEAN NOT NULL DEFAULT true,
-ADD COLUMN     "standAlerts" BOOLEAN NOT NULL DEFAULT false;
+ADD COLUMN     "standAlerts" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "standVia" TEXT NOT NULL DEFAULT 'text';
 
 -- CreateTable
 CREATE TABLE "StandHours" (

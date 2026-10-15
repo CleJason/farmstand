@@ -45,9 +45,13 @@ export async function notifyStandList(): Promise<{ sent: boolean; texts: number;
   const emails: { email: string; unsubscribeUrl: string }[] = [];
   const emailed = new Set<string>();
   for (const s of subscribers) {
+    // Each person picked text, email or both; someone who replied STOP gets the email instead
     const key = phoneKey(s.phone);
-    if (key && !optedOut.has(key)) texts.add(key);
-    else if (s.email && !emailed.has(s.email)) {
+    const canText = !!key && !optedOut.has(key);
+    const wantsText = s.standVia !== "email";
+    const wantsEmail = s.standVia !== "text";
+    if (wantsText && canText) texts.add(key);
+    if (s.email && !emailed.has(s.email) && (wantsEmail || !canText)) {
       emailed.add(s.email);
       emails.push({ email: s.email, unsubscribeUrl: `${appUrl}/unsubscribe?token=${s.unsubscribeToken}` });
     }
