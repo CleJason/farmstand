@@ -8,7 +8,12 @@ interface Subscriber {
   email: string | null; // null = phone only
   phone: string | null;
   createdAt: string;
+  dropVia: string | null; // text | email | both; empty = signed up before there was a choice
 }
+
+/** How they get drop alerts, for the list. */
+const getsLabel = (s: Subscriber) =>
+  s.dropVia === "text" ? "Text" : s.dropVia === "email" ? "Email" : s.dropVia === "both" ? "Text + email" : s.email && s.phone ? "Email + text" : s.email ? "Email" : "Text";
 
 const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -193,8 +198,8 @@ export default function AdminAlertsPage() {
           <div className="px-4 py-3 text-sm text-stone-600 border-b border-stone-100 flex flex-wrap items-center justify-between gap-2">
             <span>
               <b className="text-stone-900">{subscribers.length}</b> {subscribers.length === 1 ? "person" : "people"} on the
-              list · {subscribers.filter((s) => s.email).length} get emails,{" "}
-              {subscribers.filter((s) => s.phone).length} have a phone number (texts)
+              list · {subscribers.filter((s) => /mail/i.test(getsLabel(s))).length} get emails,{" "}
+              {subscribers.filter((s) => /text/i.test(getsLabel(s))).length} get texts
             </span>
             <button onClick={removeAll} className="text-xs text-stone-400 hover:text-red-600">
               Remove all
@@ -207,6 +212,7 @@ export default function AdminAlertsPage() {
                   <td className="px-4 py-3 text-stone-900 font-medium">{s.name ?? <span className="text-stone-300 font-normal">—</span>}</td>
                   <td className="px-4 py-3 text-stone-700">{s.email ?? <span className="text-stone-400">text only</span>}</td>
                   <td className="px-4 py-3 text-stone-600 whitespace-nowrap">{s.phone || "—"}</td>
+                  <td className="px-4 py-3 text-stone-500 whitespace-nowrap text-xs">{getsLabel(s)}</td>
                   <td className="px-4 py-3 text-stone-500 whitespace-nowrap">{shortDate(s.createdAt)}</td>
                   <td className="px-4 py-3 text-right">
                     <button onClick={() => remove(s)} className="text-xs text-stone-400 hover:text-red-600">

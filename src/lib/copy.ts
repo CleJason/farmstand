@@ -70,13 +70,16 @@ export const COPY = {
   "reviews.panelTitle": { group: "Home page", label: "Reviews: side panel title", default: "Reviews" },
   "alerts.heading": { group: "Home page", label: "Alerts sign-up: heading", default: "Never miss a drop" },
   "alerts.intro": { group: "Home page", label: "Alerts sign-up: text", default: "Get a heads-up as soon as ordering opens." },
-  "alerts.phonePlaceholder": { group: "Home page", label: "Alerts sign-up: phone box", default: "Phone for texts (optional)" },
+  "alerts.viaText": { group: "Home page", label: "Alerts sign-up: Text choice", default: "Text" },
+  "alerts.viaEmail": { group: "Home page", label: "Alerts sign-up: Email choice", default: "Email" },
+  "alerts.viaBoth": { group: "Home page", label: "Alerts sign-up: Both choice", default: "Both" },
+  "alerts.phonePlaceholder": { group: "Home page", label: "Alerts sign-up: phone box", default: "Phone number" },
   "alerts.button": { group: "Home page", label: "Alerts sign-up: button", default: "Notify me" },
   "alerts.sending": { group: "Home page", label: "Alerts sign-up: sending", default: "Signing up…" },
   "alerts.done": {
     group: "Home page",
     label: "Alerts sign-up: thank you",
-    default: "You're on the list! We'll email you when the next drop opens. 🎉",
+    default: "You're on the list! We'll let you know when the next drop opens. 🎉",
   },
   "alerts.doneSpam": {
     group: "Home page",
@@ -88,7 +91,7 @@ export const COPY = {
     group: "Home page",
     label: "Alerts sign-up: fine print",
     default:
-      "Unsubscribe anytime from any alert. If you add a phone number, you agree to get texts about new drops; msg & data rates may apply, reply STOP to opt out. See our",
+      "Unsubscribe anytime from any alert. If you choose texts, you agree to get texts about new drops; msg & data rates may apply, reply STOP to opt out. See our",
     long: true,
   },
 

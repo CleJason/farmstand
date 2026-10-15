@@ -11,10 +11,28 @@ export function viaFor(phone: string | null, email: string | null, asked?: unkno
 }
 
 /**
+ * Which way(s) to reach someone, from their choice. If they picked texts but
+ * can't get them (replied STOP), they get the email instead, and the other way
+ * around. `legacy` is for people who signed up before there was a choice:
+ * "both" = email plus a text if they have a phone; "textFirst" = a text, or an
+ * email if they have no phone.
+ */
+export function channelsFor(
+  via: string | null | undefined,
+  { hasEmail, canText }: { hasEmail: boolean; canText: boolean },
+  legacy: "both" | "textFirst"
+): { text: boolean; email: boolean } {
+  const choice = via === "text" || via === "email" || via === "both" ? via : legacy === "both" ? "both" : "text";
+  const text = canText && (choice !== "email" || !hasEmail);
+  const email = hasEmail && (choice !== "text" || !canText);
+  return { text, email };
+}
+
+/**
  * Put someone on an alert list (drop alerts or Porch Pickup alerts). The same
  * email, or the same phone for phone-only people, is one subscriber who can be
  * on both lists. Email/phone must already be cleaned (cleanEmail/cleanPhone).
- * `via` is how they want walk-up alerts (text, email or both).
+ * `via` is how they want alerts from that list (text, email or both).
  */
 export async function addSubscriber({
   email,
@@ -27,12 +45,15 @@ export async function addSubscriber({
   list: AlertList;
   via?: AlertVia;
 }) {
-  const flag = list === "drop" ? { dropAlerts: true } : { standAlerts: true, standVia: via ?? viaFor(phone, email) };
+  const flag =
+    list === "drop"
+      ? { dropAlerts: true, ...(via ? { dropVia: via } : {}) }
+      : { standAlerts: true, standVia: via ?? viaFor(phone, email) };
   const lists = { dropAlerts: list === "drop", standAlerts: list === "stand" };
   if (email) {
     await prisma.subscriber.upsert({
       where: { email },
-      create: { email, phone, ...lists, ...(list === "stand" ? flag : {}) },
+      create: { email, phone, ...lists, ...flag },
       update: { ...flag, ...(phone ? { phone } : {}) },
     });
     return;
@@ -42,5 +63,5 @@ export async function addSubscriber({
   const withPhone = await prisma.subscriber.findMany({ where: { phone: { not: null } }, select: { id: true, phone: true } });
   const existing = withPhone.find((s) => phoneKey(s.phone) === phoneKey(phone));
   if (existing) await prisma.subscriber.update({ where: { id: existing.id }, data: flag });
-  else await prisma.subscriber.create({ data: { phone, ...lists, ...(list === "stand" ? flag : {}) } });
+  else await prisma.subscriber.create({ data: { phone, ...lists, ...flag } });
 }

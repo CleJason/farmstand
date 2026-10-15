@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     prisma.subscriber.findMany({
       where: { [flagOf(list)]: true },
       orderBy: { createdAt: "desc" },
-      select: { id: true, email: true, phone: true, createdAt: true },
+      select: { id: true, email: true, phone: true, createdAt: true, dropVia: true, standVia: true },
     }),
     prisma.contact.findMany({ where: { name: { not: null } }, select: { name: true, email: true, phone: true, otherEmails: true, otherPhones: true } }),
     prisma.user.findMany({ where: { name: { not: null } }, select: { name: true, email: true, phone: true } }),

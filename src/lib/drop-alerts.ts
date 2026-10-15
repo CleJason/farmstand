@@ -5,6 +5,7 @@ import { formatPickup } from "@/lib/pickup";
 import { phoneKey } from "@/lib/phone";
 import { optedOutSet } from "@/lib/sms-opt-out";
 import { getSiteSettings, isOn } from "@/lib/site";
+import { channelsFor } from "@/lib/subscribers";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -54,12 +55,13 @@ export async function announceDrop(dropId: string): Promise<void> {
     `${shop ? `${shop}: ` : ""}${drop.title} is open for orders! ${dropUrl}` +
     `${closes ? ` Orders close ${closes}.` : ""} Reply STOP to opt out.`;
 
-  // One text per number, even if it's on the list twice
-  const textKeys = new Set<string>();
-  for (const s of subscribers) {
+  // Text, email or both, as each person chose (people from before the choice: email plus a text)
+  const reach = subscribers.map((s) => {
     const key = phoneKey(s.phone);
-    if (key && !optedOut.has(key)) textKeys.add(key);
-  }
+    return { s, key, ...channelsFor(s.dropVia, { hasEmail: !!s.email, canText: !!key && !optedOut.has(key) }, "both") };
+  });
+  // One text per number, even if it's on the list twice
+  const textKeys = new Set<string>(reach.filter((r) => r.text).map((r) => r.key));
 
   const sent = await fireNotification("drop.announced", {
     smsMessage,
@@ -73,13 +75,12 @@ export async function announceDrop(dropId: string): Promise<void> {
     pickupArea: drop.pickupSlots.find((s) => s.location)?.location ?? null,
     products: drop.dropProducts.map((dp) => dp.product.name),
     dropUrl,
-    subscribers: subscribers.map((s) => {
-      const key = phoneKey(s.phone);
-      // Everyone with a phone gets a text (email too if they gave one), unless they replied STOP.
+    subscribers: reach.map(({ s, key, text, email }) => {
+      // n8n emails everyone with an email here and texts everyone marked canText.
       // Only the first entry for a number is marked, so nobody gets the same text twice.
-      const canText = !!key && textKeys.delete(key);
+      const canText = text && textKeys.delete(key);
       return {
-        email: s.email,
+        email: email ? s.email : null,
         phone: s.phone,
         canText,
         unsubscribeUrl: `${appUrl}/unsubscribe?token=${s.unsubscribeToken}`,
@@ -88,7 +89,7 @@ export async function announceDrop(dropId: string): Promise<void> {
   });
 
   // Show the alert texts in Admin → Messages, like any other text the shop sends
-  const texted = subscribers.map((s) => phoneKey(s.phone)).filter((k) => k && !optedOut.has(k));
+  const texted = reach.filter((r) => r.text).map((r) => r.key);
   if (sent && texted.length) {
     await prisma.smsMessage.createMany({
       data: [...new Set(texted)].map((phone) => ({ phone, direction: "OUT", body: smsMessage, read: true })),

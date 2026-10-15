@@ -405,6 +405,9 @@ jobs:
           c=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"list":"stand","via":"both","phone":"5558881213"}' http://localhost:3000/api/subscribe); echo "both without email -> $c"; [ "$c" = "400" ] || exit 1
           c=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"list":"stand","via":"email","email":"porch@example.com"}' http://localhost:3000/api/subscribe); echo "email only -> $c"; [ "$c" = "200" ] || exit 1
           c=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"phone":"5558881212"}' http://localhost:3000/api/subscribe); echo "drop alerts without email -> $c"; [ "$c" = "400" ] || exit 1
+          c=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"via":"text","phone":"5558881299"}' http://localhost:3000/api/subscribe); echo "drop alerts by text only -> $c"; [ "$c" = "200" ] || exit 1
+          f=$(psql "$PGURL" -tAc "SELECT \"dropAlerts\"::text || ' ' || \"dropVia\" FROM \"Subscriber\" WHERE phone = '5558881299'"); echo "drop choice: $f"; [ "$f" = "true text" ] || exit 1
+          c=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"via":"both","email":"both@example.com"}' http://localhost:3000/api/subscribe); echo "drop both without phone -> $c"; [ "$c" = "400" ] || exit 1
 
       - name: Editable text and walk-up page address
         env:

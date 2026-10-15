@@ -6,6 +6,7 @@ import { phoneKey } from "@/lib/phone";
 import { optedOutSet } from "@/lib/sms-opt-out";
 import { getSiteSettings, isOn } from "@/lib/site";
 import { countsStock } from "@/lib/stock";
+import { channelsFor } from "@/lib/subscribers";
 
 /** Admin → Drop Alerts: the "closing soon" reminder is on/off, and how many hours before close. */
 export async function reminderSettings() {
@@ -76,9 +77,10 @@ export async function remindDrop(dropId: string, { now: sendNow = false } = {}):
     const key = phoneKey(s.phone);
     const email = s.email?.toLowerCase() ?? null;
     if ((email && orderedEmails.has(email)) || (key && orderedPhones.has(key))) continue;
-    if (key && !optedOut.has(key)) {
-      texts.add(key); // a text, not an email too
-    } else if (email && !emailed.has(email)) {
+    // As each person chose; people from before the choice get a text, or an email if they have no phone
+    const reach = channelsFor(s.dropVia, { hasEmail: !!email, canText: !!key && !optedOut.has(key) }, "textFirst");
+    if (reach.text) texts.add(key);
+    if (reach.email && email && !emailed.has(email)) {
       emailed.add(email);
       emails.push({ email, unsubscribeUrl: `${appUrl}/unsubscribe?token=${s.unsubscribeToken}` });
     }

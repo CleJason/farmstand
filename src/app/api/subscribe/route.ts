@@ -3,9 +3,9 @@ import { cleanEmail, cleanPhone } from "@/lib/drop-alerts";
 import { addSubscriber, viaFor } from "@/lib/subscribers";
 
 /**
- * Sign-ups: the home page "get drop alerts" form (email required), and the
- * Porch Pickup "tell me when it's open" form (`list: "stand"`; text, email or
- * both, via `via`). The reply is the same whether or not they were already on
+ * Sign-ups: the home page "get drop alerts" form, and the Porch Pickup "tell
+ * me when it's open" form (`list: "stand"`). Both let people pick text, email
+ * or both (`via`). The reply is the same whether or not they were already on
  * the list, so it can't be used to check who signed up.
  */
 export async function POST(req: Request) {
@@ -17,10 +17,11 @@ export async function POST(req: Request) {
   if (data.phone && !phone) {
     return NextResponse.json({ error: "Please enter a valid phone number, or leave it blank" }, { status: 400 });
   }
-  if (list === "drop" && !email) return NextResponse.json({ error: "Please enter a valid email" }, { status: 400 });
   if (!email && !phone) return NextResponse.json({ error: "Please enter a phone number or email" }, { status: 400 });
 
-  const via = list === "stand" ? viaFor(phone, email, data.via) : undefined;
+  // Drop alerts from before the Text/Email/Both choice don't send `via`: email (plus a text if a phone was given)
+  const via = list === "stand" || data.via ? viaFor(phone, email, data.via) : undefined;
+  if (list === "drop" && !via && !email) return NextResponse.json({ error: "Please enter a valid email" }, { status: 400 });
   if (via === "text" && !phone) return NextResponse.json({ error: "Please enter a phone number for texts" }, { status: 400 });
   if (via === "email" && !email) return NextResponse.json({ error: "Please enter an email" }, { status: 400 });
   if (via === "both" && (!phone || !email)) {
