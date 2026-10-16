@@ -42,7 +42,7 @@ export default async function UnsubscribePage({
     ]
       .filter(Boolean)
       .join(" or ");
-    heading = "Stop alerts?";
+    heading = "Stop drop alerts?";
     body = `${subscriber.email ?? subscriber.phone ?? "You"} will no longer hear about ${what || "new drops"} from ${site.SITE_NAME}.`;
   } else {
     heading = "Already unsubscribed";
