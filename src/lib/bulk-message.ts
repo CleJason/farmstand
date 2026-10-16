@@ -128,7 +128,9 @@ export async function bulkMessage({
   if (!to.people) return { sent: false, ...counts, error: "Nobody to send it to" };
 
   const shop = isOn(site.SITE_NAME_IN_NOTIFICATIONS) ? site.SITE_NAME : "";
-  const smsMessage = `${shop ? `${shop}: ` : ""}${text}${/\bSTOP\b/.test(text) ? "" : " Reply STOP to opt out."}`;
+  // "…first come first serve" + "." so the opt-out reads as its own sentence
+  const ended = /[.!?)"']$/.test(text) ? text : `${text}.`;
+  const smsMessage = `${shop ? `${shop}: ` : ""}${/\bSTOP\b/.test(text) ? text : `${ended} Reply STOP to opt out.`}`;
   const heading = subject?.trim().slice(0, 150) || (shop ? `News from ${shop}` : "News from us");
   const homeUrl = appUrl.replace(/\/+$/, "");
 
