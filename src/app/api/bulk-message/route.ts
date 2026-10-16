@@ -11,7 +11,7 @@ export async function GET() {
 }
 
 /**
- * Admin → Bulk Message. `{ message, subject?, skipDropId?, confirm }`:
+ * Admin → Bulk Message. `{ message, subject?, skipDropId?, by?, confirm }`:
  * without `confirm: true` it only counts who would get it.
  */
 export async function POST(req: Request) {
@@ -21,6 +21,7 @@ export async function POST(req: Request) {
     message: String(body.message ?? ""),
     subject: String(body.subject ?? ""),
     skipDropId: body.skipDropId ? String(body.skipDropId) : null,
+    by: body.by === "text" || body.by === "email" ? body.by : "choice",
     send: body.confirm === true,
   });
   if (result.error) return NextResponse.json(result, { status: 400 });

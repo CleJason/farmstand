@@ -25,6 +25,7 @@ export default function AdminBulkMessagePage() {
   const [subject, setSubject] = useState("");
   const [audience, setAudience] = useState<"all" | "skip">("all");
   const [dropId, setDropId] = useState("");
+  const [by, setBy] = useState<"choice" | "text" | "email">("choice");
   const [preview, setPreview] = useState<Counts | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -56,7 +57,7 @@ export default function AdminBulkMessagePage() {
     const res = await fetch("/api/bulk-message", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, subject, skipDropId, confirm }),
+      body: JSON.stringify({ message, subject, skipDropId, by, confirm }),
     });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
@@ -88,8 +89,8 @@ export default function AdminBulkMessagePage() {
       <div>
         <h1 className="text-xl font-bold text-stone-900">Bulk Message</h1>
         <p className="text-sm text-stone-500 mt-0.5">
-          One message to everyone on Drop Alerts and the Porch Pickup list. Each person gets it the way they chose (text,
-          email or both). Anyone who replied STOP gets the email instead, or nothing if they have no email.
+          One message to everyone on Drop Alerts and the Porch Pickup list, by text, email, or the way each person chose.
+          Anyone who replied STOP never gets a text.
         </p>
       </div>
 
@@ -157,6 +158,27 @@ export default function AdminBulkMessagePage() {
               ))}
             </select>
           </label>
+        </fieldset>
+
+        <fieldset className="space-y-2">
+          <legend className="text-xs font-medium text-stone-600 mb-1">Send as</legend>
+          {(
+            [
+              ["choice", "Each person's choice (text, email or both)"],
+              ["text", "Texts only (everyone with a phone who hasn't replied STOP)"],
+              ["email", "Emails only (everyone with an email)"],
+            ] as const
+          ).map(([value, label]) => (
+            <label key={value} className="flex items-center gap-2 text-sm text-stone-700">
+              <input
+                type="radio"
+                checked={by === value}
+                onChange={() => edit(setBy)(value)}
+                className="h-4 w-4 accent-amber-600"
+              />
+              {label}
+            </label>
+          ))}
         </fieldset>
 
         {error && <p className="text-sm text-red-600">{error}</p>}

@@ -33,11 +33,14 @@ export async function bulkMessage({
   message,
   subject,
   skipDropId,
+  by = "choice",
   send,
 }: {
   message: string;
   subject?: string;
   skipDropId?: string | null;
+  /** "choice" = each person's text/email/both; "text" / "email" = only that way, to everyone who can get it */
+  by?: "choice" | "text" | "email";
   send: boolean;
 }): Promise<{ sent: boolean; people: number; texts: number; emails: number; skipped: number; error?: string }> {
   const text = message.trim();
@@ -81,7 +84,13 @@ export async function bulkMessage({
     }
     // Their Drop Alerts choice if they're on that list, otherwise their Porch Pickup choice
     const via = s.dropAlerts ? s.dropVia : s.standVia;
-    const reach = channelsFor(via, { hasEmail: !!email, canText: !!key && !optedOut.has(key) }, "both");
+    const canText = !!key && !optedOut.has(key);
+    const reach =
+      by === "text"
+        ? { text: canText, email: false }
+        : by === "email"
+          ? { text: false, email: !!email }
+          : channelsFor(via, { hasEmail: !!email, canText }, "both");
     let reached = false;
     if (reach.text && !texts.has(key)) {
       texts.add(key);
