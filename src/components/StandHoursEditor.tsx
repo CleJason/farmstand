@@ -104,7 +104,12 @@ export default function StandHoursEditor() {
     const counts = await check.json().catch(() => ({}));
     setBusy(false);
     if (!check.ok) return alert(counts.error || "Couldn't count the subscribers");
-    const skipped = skipDropId ? `\n(${counts.skipped} who ordered from that drop are left out.)` : "";
+    const orders: { name: string; subscribed: boolean }[] = counts.orders ?? [];
+    const skipped = skipDropId
+      ? `\n\nOrders in that drop:\n${
+          orders.map((o) => `• ${o.name}: ${o.subscribed ? "left out" : "not on the subscriber list"}`).join("\n") || "none"
+        }`
+      : "";
     if (
       !confirm(
         `Tell ${counts.people} ${counts.people === 1 ? "person" : "people"} (${counts.texts} texts, ${counts.emails} emails) that ${site.SITE_FARMSTAND_HEADING} is open:\n\n${hours

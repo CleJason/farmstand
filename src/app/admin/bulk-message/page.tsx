@@ -13,6 +13,7 @@ interface Counts {
   texts: number;
   emails: number;
   skipped: number;
+  orders?: { name: string; subscribed: boolean }[];
 }
 
 const MAX = 1000;
@@ -197,8 +198,27 @@ export default function AdminBulkMessagePage() {
             <p className="text-sm text-stone-800">
               This goes to <b>{preview.people}</b> {preview.people === 1 ? "person" : "people"}:{" "}
               <b>{preview.texts}</b> texts and <b>{preview.emails}</b> emails.
-              {audience === "skip" && ` ${preview.skipped} who preordered are left out.`}
             </p>
+            {audience === "skip" && preview.orders && (
+              <div className="text-xs text-stone-600">
+                <p>
+                  {preview.orders.length} {preview.orders.length === 1 ? "order" : "orders"} in that drop (paid or
+                  awaiting payment):
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {preview.orders.map((o, i) => (
+                    <li key={i}>
+                      {o.name}:{" "}
+                      {o.subscribed ? (
+                        <span className="text-green-700">left out</span>
+                      ) : (
+                        <span className="text-stone-500">not on the subscriber list (by that phone or email)</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={send}

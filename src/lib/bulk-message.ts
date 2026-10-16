@@ -38,25 +38,48 @@ export async function recipients({
   by?: SendBy;
   legacy: "both" | "textFirst";
 }) {
-  const [subscribers, optedOut, appUrl, orders] = await Promise.all([
+  const [subscribers, optedOut, appUrl, orders, contacts] = await Promise.all([
     prisma.subscriber.findMany({ orderBy: { createdAt: "asc" } }),
     optedOutSet(),
     getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || ""),
     skipDropId
       ? prisma.order.findMany({
           where: { dropId: skipDropId },
-          select: { status: true, guestEmail: true, guestPhone: true, user: { select: { email: true, phone: true } } },
+          orderBy: { createdAt: "asc" },
+          select: {
+            status: true,
+            guestName: true,
+            guestEmail: true,
+            guestPhone: true,
+            user: { select: { name: true, email: true, phone: true } },
+          },
         })
+      : Promise.resolve([]),
+    skipDropId
+      ? prisma.contact.findMany({ select: { email: true, phone: true, otherEmails: true, otherPhones: true } })
       : Promise.resolve([]),
   ]);
 
-  const orderedEmails = new Set<string>();
-  const orderedPhones = new Set<string>();
-  for (const o of orders) {
-    if (!countsStock(o.status)) continue;
-    for (const e of [o.guestEmail, o.user?.email]) if (e) orderedEmails.add(e.toLowerCase());
-    for (const p of [o.guestPhone, o.user?.phone]) if (phoneKey(p)) orderedPhones.add(phoneKey(p));
-  }
+  // Each order's customer, by every email/phone we know for them (customer
+  // records keep older ones), so someone who signed up with their phone but
+  // ordered with their email is still left out
+  const orderers = orders
+    .filter((o) => countsStock(o.status))
+    .map((o) => {
+      const emails = new Set([o.guestEmail, o.user?.email].filter(Boolean).map((e) => e!.toLowerCase()));
+      const phones = new Set([o.guestPhone, o.user?.phone].map(phoneKey).filter(Boolean));
+      for (const c of contacts) {
+        const cEmails = [c.email, ...c.otherEmails].filter(Boolean).map((e) => e!.toLowerCase());
+        const cPhones = [c.phone, ...c.otherPhones].map(phoneKey).filter(Boolean);
+        if (cEmails.some((e) => emails.has(e)) || cPhones.some((p) => phones.has(p))) {
+          cEmails.forEach((e) => emails.add(e));
+          cPhones.forEach((p) => phones.add(p));
+        }
+      }
+      return { name: o.guestName || o.user?.name || o.guestEmail || o.user?.email || o.guestPhone || "Someone", emails, phones, matched: false };
+    });
+  const orderedBy = (email: string | null, key: string) =>
+    orderers.filter((o) => (email && o.emails.has(email)) || (key && o.phones.has(key)));
 
   const texts = new Set<string>();
   const emails: { email: string; unsubscribeUrl: string }[] = [];
@@ -66,7 +89,9 @@ export async function recipients({
   for (const s of subscribers) {
     const key = phoneKey(s.phone);
     const email = s.email?.toLowerCase() ?? null;
-    if ((email && orderedEmails.has(email)) || (key && orderedPhones.has(key))) {
+    const ordered = orderedBy(email, key);
+    if (ordered.length) {
+      ordered.forEach((o) => (o.matched = true));
       skipped++;
       continue;
     }
@@ -89,8 +114,29 @@ export async function recipients({
     }
     if (reached) people++;
   }
-  return { texts: [...texts], emails, people, skipped };
+  // Who ordered from that drop, and whether they were on the list (to show before sending)
+  const orderList = orderers.map((o) => ({ name: o.name, subscribed: o.matched }));
+  return { texts: [...texts], emails, people, skipped, orders: orderList };
 }
+
+export type SendResult = {
+  sent: boolean;
+  people: number;
+  texts: number;
+  emails: number;
+  skipped: number;
+  orders?: { name: string; subscribed: boolean }[];
+  error?: string;
+};
+
+/** What the confirm step shows. */
+export const sendCounts = (to: Awaited<ReturnType<typeof recipients>>) => ({
+  people: to.people,
+  texts: to.texts.length,
+  emails: to.emails.length,
+  skipped: to.skipped,
+  orders: to.orders,
+});
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -112,7 +158,7 @@ export async function bulkMessage({
   skipDropId?: string | null;
   by?: SendBy;
   send: boolean;
-}): Promise<{ sent: boolean; people: number; texts: number; emails: number; skipped: number; error?: string }> {
+}): Promise<SendResult> {
   const text = message.trim();
   const empty = { sent: false, people: 0, texts: 0, emails: 0, skipped: 0 };
   if (send && !text) return { ...empty, error: "Write the message first" };
@@ -123,7 +169,7 @@ export async function bulkMessage({
     getSiteSettings(),
     getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || ""),
   ]);
-  const counts = { people: to.people, texts: to.texts.length, emails: to.emails.length, skipped: to.skipped };
+  const counts = sendCounts(to);
   if (!send) return { sent: false, ...counts };
   if (!to.people) return { sent: false, ...counts, error: "Nobody to send it to" };
 

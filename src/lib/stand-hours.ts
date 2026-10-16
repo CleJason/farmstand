@@ -3,7 +3,7 @@ import { getSetting } from "@/lib/settings";
 import { fireNotification } from "@/lib/notifications";
 import { formatPickup } from "@/lib/pickup";
 import { getSiteSettings, isOn, standHref } from "@/lib/site";
-import { recipients } from "@/lib/bulk-message";
+import { recipients, sendCounts, type SendResult } from "@/lib/bulk-message";
 
 /** Upcoming (or happening now) Porch Pickup open hours, soonest first. */
 export function upcomingStandHours() {
@@ -32,7 +32,7 @@ export async function notifyStandList({
 }: {
   skipDropId?: string | null;
   send: boolean;
-}): Promise<{ sent: boolean; people: number; texts: number; emails: number; skipped: number; error?: string }> {
+}): Promise<SendResult> {
   const hours = await upcomingStandHours();
   const none = { sent: false, people: 0, texts: 0, emails: 0, skipped: 0 };
   if (!hours.length) return { ...none, error: "Add the open days and times first" };
@@ -42,7 +42,7 @@ export async function notifyStandList({
     getSiteSettings(),
     getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || ""),
   ]);
-  const counts = { people: to.people, texts: to.texts.length, emails: to.emails.length, skipped: to.skipped };
+  const counts = sendCounts(to);
   if (!send) return { sent: false, ...counts };
   if (!to.people) return { sent: false, ...counts, error: "Nobody to send it to" };
   const shop = isOn(site.SITE_NAME_IN_NOTIFICATIONS) ? site.SITE_NAME : "";
