@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Message = { id: string; phone: string; direction: "IN" | "OUT"; body: string; createdAt: string };
 type Thread = { phone: string; name: string | null; last: Message; unread: number };
@@ -26,13 +27,22 @@ export default function AdminMessagesPage() {
   const [error, setError] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
 
+  const router = useRouter();
+  const unreadShown = useRef<number | null>(null);
   const loadThreads = useCallback(
     () =>
       fetch("/api/messages")
         .then((r) => (r.ok ? r.json() : []))
-        .then((d) => setThreads(Array.isArray(d) ? d : []))
+        .then((d) => {
+          const list: Thread[] = Array.isArray(d) ? d : [];
+          setThreads(list);
+          // The sidebar's "Messages (n)" comes from the server: refresh it when the unread count changes
+          const unread = list.reduce((n, t) => n + t.unread, 0);
+          if (unreadShown.current !== unread) router.refresh();
+          unreadShown.current = unread;
+        })
         .catch(() => {}),
-    []
+    [router]
   );
   const loadConvo = useCallback(
     (phone: string) =>
