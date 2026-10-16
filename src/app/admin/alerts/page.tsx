@@ -59,7 +59,7 @@ export default function AdminAlertsPage() {
   }, []);
 
   const remove = async (s: Subscriber) => {
-    if (!confirm(`Remove ${s.name ?? s.email ?? s.phone} from drop alerts?`)) return;
+    if (!confirm(`Remove ${s.name ?? s.email ?? s.phone} from the list? (No more drop alerts or Porch Pickup notices.)`)) return;
     const res = await fetch(`/api/subscribers?id=${encodeURIComponent(s.id)}`, { method: "DELETE" });
     if (res.ok) load();
     else alert("Couldn't remove them");
@@ -108,8 +108,8 @@ export default function AdminAlertsPage() {
         <div>
           <h1 className="text-xl font-bold text-stone-900">Drop Alerts</h1>
           <p className="text-sm text-stone-500 mt-0.5">
-            People who signed up on the home page (or you added). When a drop opens they get one email, and one text if
-            they gave a phone number.
+            Everyone who signed up on the home page, the Porch Pickup page or at checkout (or you added). They all get
+            drop alerts and Porch Pickup notices, the way they chose (text, email or both).
           </p>
         </div>
         <button

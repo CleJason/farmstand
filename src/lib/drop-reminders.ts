@@ -44,7 +44,7 @@ export async function remindDrop(dropId: string, { now: sendNow = false } = {}):
 
   const [drop, subscribers, orders, appUrl, optedOut, site] = await Promise.all([
     prisma.drop.findUnique({ where: { id: dropId } }),
-    prisma.subscriber.findMany({ where: { dropAlerts: true }, orderBy: { createdAt: "asc" } }),
+    prisma.subscriber.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.order.findMany({
       where: { dropId },
       select: { status: true, guestEmail: true, guestPhone: true, user: { select: { email: true, phone: true } } },

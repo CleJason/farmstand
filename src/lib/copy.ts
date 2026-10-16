@@ -91,7 +91,7 @@ export const COPY = {
     group: "Home page",
     label: "Alerts sign-up: fine print",
     default:
-      "Unsubscribe anytime from any alert. If you choose texts, you agree to get texts about new drops; msg & data rates may apply, reply STOP to opt out. See our",
+      "Unsubscribe anytime from any alert. If you choose texts, you agree to get texts about new drops, pickup days and shop news; msg & data rates may apply, reply STOP to opt out. See our",
     long: true,
   },
 
@@ -161,12 +161,12 @@ export const COPY = {
   "stand.alertsDone": {
     group: "Walk-up page",
     label: "Alert sign-up: thank you",
-    default: "You're on the list! We'll let you know when {stand} is open.",
+    default: "You're on the list! We'll let you know when {stand} is open and when new drops open.",
   },
   "stand.alertsFine": {
     group: "Walk-up page",
     label: "Alert sign-up: fine print",
-    default: "Unsubscribe anytime. For texts, msg & data rates may apply; reply STOP to opt out.",
+    default: "You'll also get new drop alerts. Unsubscribe anytime. For texts, msg & data rates may apply; reply STOP to opt out.",
   },
   "checkout.standOptIn": { group: "Checkout", label: "Walk-up: alert checkbox", default: "Let me know when {stand} is open" },
   "stand.back": { group: "Walk-up page", label: "Back link", default: "← Back to the shop" },

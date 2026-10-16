@@ -30,6 +30,8 @@ export default function StandHoursEditor() {
   const site = useSite();
   const [hours, setHours] = useState<Hours[]>([]);
   const [listCount, setListCount] = useState<number | null>(null);
+  const [drops, setDrops] = useState<{ id: string; title: string }[]>([]);
+  const [skipDropId, setSkipDropId] = useState(""); // "" = everyone
   const [editing, setEditing] = useState<string | null>(null); // id, or "new"
   const [date, setDate] = useState("");
   const [from, setFrom] = useState("09:00");
@@ -41,12 +43,18 @@ export default function StandHoursEditor() {
       .then((r) => r.json())
       .then((d) => setHours(Array.isArray(d) ? d : []))
       .catch(() => {});
-    fetch("/api/subscribers?list=stand")
+    fetch("/api/subscribers")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setListCount(Array.isArray(d) ? d.length : 0))
       .catch(() => {});
   };
   useEffect(load, []);
+  useEffect(() => {
+    fetch("/api/bulk-message")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setDrops(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
 
   const startNew = () => {
     setEditing("new");
@@ -84,16 +92,29 @@ export default function StandHoursEditor() {
   };
 
   const notify = async () => {
+    const post = (confirm: boolean) =>
+      fetch("/api/stand-hours/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skipDropId: skipDropId || null, confirm }),
+      });
+    setBusy(true);
+    // Count first, so the confirm says exactly who gets it
+    const check = await post(false);
+    const counts = await check.json().catch(() => ({}));
+    setBusy(false);
+    if (!check.ok) return alert(counts.error || "Couldn't count the subscribers");
+    const skipped = skipDropId ? `\n(${counts.skipped} who ordered from that drop are left out.)` : "";
     if (
       !confirm(
-        `Text everyone on the ${site.SITE_FARMSTAND_HEADING} list (email if they gave no phone) that you're open:\n\n${hours
+        `Tell ${counts.people} ${counts.people === 1 ? "person" : "people"} (${counts.texts} texts, ${counts.emails} emails) that ${site.SITE_FARMSTAND_HEADING} is open:\n\n${hours
           .map(hoursLabel)
-          .join("\n")}\n\nSend it?`
+          .join("\n")}${skipped}\n\nSend it?`
       )
     )
       return;
     setBusy(true);
-    const res = await fetch("/api/stand-hours/notify", { method: "POST" });
+    const res = await post(true);
     const data = await res.json().catch(() => ({}));
     setBusy(false);
     alert(
@@ -169,15 +190,28 @@ export default function StandHoursEditor() {
 
       <div className="border-t border-stone-100 pt-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11px] text-stone-500">
-          {listCount === null ? "…" : `${listCount} ${listCount === 1 ? "person" : "people"}`} asked to hear when{" "}
-          {site.SITE_FARMSTAND_HEADING} is open (sign-up box on that page, or at checkout).
+          {listCount === null ? "…" : `${listCount} ${listCount === 1 ? "subscriber" : "subscribers"}`} (anyone who signed
+          up on the home page, the {site.SITE_FARMSTAND_HEADING} page, or at checkout).
         </p>
+        <select
+          value={skipDropId}
+          onChange={(e) => setSkipDropId(e.target.value)}
+          className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg max-w-full"
+        >
+          <option value="">Everyone</option>
+          {drops.map((d, i) => (
+            <option key={d.id} value={d.id}>
+              Everyone except people who ordered from {d.title}
+              {i === 0 ? " (latest)" : ""}
+            </option>
+          ))}
+        </select>
         <button
           onClick={notify}
           disabled={busy || hours.length === 0 || !listCount}
           className="text-xs font-semibold px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg disabled:opacity-50"
         >
-          📣 Notify the {site.SITE_FARMSTAND_HEADING} list
+          📣 Notify subscribers
         </button>
       </div>
     </section>

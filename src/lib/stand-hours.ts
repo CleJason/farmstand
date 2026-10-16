@@ -2,9 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { getSetting } from "@/lib/settings";
 import { fireNotification } from "@/lib/notifications";
 import { formatPickup } from "@/lib/pickup";
-import { phoneKey } from "@/lib/phone";
-import { optedOutSet } from "@/lib/sms-opt-out";
 import { getSiteSettings, isOn, standHref } from "@/lib/site";
+import { recipients } from "@/lib/bulk-message";
 
 /** Upcoming (or happening now) Porch Pickup open hours, soonest first. */
 export function upcomingStandHours() {
@@ -22,46 +21,40 @@ export function formatHours(h: { startsAt: Date; endsAt: Date }) {
 }
 
 /**
- * Admin → Porch Pickup → "Notify the Porch Pickup list": one text per number
- * (email for people without a phone) listing the upcoming open hours.
+ * Admin → Porch Pickup → "Notify subscribers": the upcoming open hours to every
+ * subscriber, or everyone except people who ordered from `skipDropId` (this
+ * week's drop). Each gets it the way they chose; people from before the choice
+ * get a text, or an email if they have no phone. `send: false` only counts.
  */
-export async function notifyStandList(): Promise<{ sent: boolean; texts: number; emails: number; error?: string }> {
+export async function notifyStandList({
+  skipDropId,
+  send,
+}: {
+  skipDropId?: string | null;
+  send: boolean;
+}): Promise<{ sent: boolean; people: number; texts: number; emails: number; skipped: number; error?: string }> {
   const hours = await upcomingStandHours();
-  if (!hours.length) return { sent: false, texts: 0, emails: 0, error: "Add the open days and times first" };
+  const none = { sent: false, people: 0, texts: 0, emails: 0, skipped: 0 };
+  if (!hours.length) return { ...none, error: "Add the open days and times first" };
 
-  const [subscribers, optedOut, site, appUrl] = await Promise.all([
-    prisma.subscriber.findMany({ where: { standAlerts: true }, orderBy: { createdAt: "asc" } }),
-    optedOutSet(),
+  const [to, site, appUrl] = await Promise.all([
+    recipients({ skipDropId, legacy: "textFirst" }),
     getSiteSettings(),
     getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || ""),
   ]);
+  const counts = { people: to.people, texts: to.texts.length, emails: to.emails.length, skipped: to.skipped };
+  if (!send) return { sent: false, ...counts };
+  if (!to.people) return { sent: false, ...counts, error: "Nobody to send it to" };
   const shop = isOn(site.SITE_NAME_IN_NOTIFICATIONS) ? site.SITE_NAME : "";
   const name = site.SITE_FARMSTAND_HEADING;
   const url = `${appUrl.replace(/\/+$/, "")}${standHref(site)}`;
   const when = hours.map(formatHours);
   const smsMessage = `${shop ? `${shop}: ` : ""}${name} is open ${when.join("; ")}. ${url} Reply STOP to opt out.`;
 
-  const texts = new Set<string>();
-  const emails: { email: string; unsubscribeUrl: string }[] = [];
-  const emailed = new Set<string>();
-  for (const s of subscribers) {
-    // Each person picked text, email or both; someone who replied STOP gets the email instead
-    const key = phoneKey(s.phone);
-    const canText = !!key && !optedOut.has(key);
-    const wantsText = s.standVia !== "email";
-    const wantsEmail = s.standVia !== "text";
-    if (wantsText && canText) texts.add(key);
-    if (s.email && !emailed.has(s.email) && (wantsEmail || !canText)) {
-      emailed.add(s.email);
-      emails.push({ email: s.email, unsubscribeUrl: `${appUrl}/unsubscribe?token=${s.unsubscribeToken}` });
-    }
-  }
-  if (!texts.size && !emails.length) return { sent: false, texts: 0, emails: 0, error: "Nobody is on the Porch Pickup list yet" };
-
   const sent = await fireNotification("broadcast", {
     smsMessage,
-    texts: [...texts].map((phone) => ({ phone })),
-    emails,
+    texts: to.texts.map((phone) => ({ phone })),
+    emails: to.emails,
     emailSubject: `${shop ? `${shop}: ` : ""}${name} is open`,
     emailHeading: `${name} is open!`,
     emailLines: when,
@@ -70,11 +63,11 @@ export async function notifyStandList(): Promise<{ sent: boolean; texts: number;
     // Texts that can't go out before the last open window ends are dropped
     validUntil: hours[hours.length - 1].endsAt.toISOString(),
   });
-  if (!sent) return { sent: false, texts: 0, emails: 0, error: "Couldn't send it. Check that n8n is running and the workflow is published." };
-  if (texts.size) {
+  if (!sent) return { sent: false, ...counts, error: "Couldn't send it. Check that n8n is running and the workflow is published." };
+  if (to.texts.length) {
     await prisma.smsMessage.createMany({
-      data: [...texts].map((phone) => ({ phone, direction: "OUT", body: smsMessage, read: true })),
+      data: to.texts.map((phone) => ({ phone, direction: "OUT", body: smsMessage, read: true })),
     });
   }
-  return { sent: true, texts: texts.size, emails: emails.length };
+  return { sent: true, ...counts };
 }

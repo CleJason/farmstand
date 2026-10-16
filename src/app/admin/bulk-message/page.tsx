@@ -89,7 +89,7 @@ export default function AdminBulkMessagePage() {
       <div>
         <h1 className="text-xl font-bold text-stone-900">Bulk Message</h1>
         <p className="text-sm text-stone-500 mt-0.5">
-          One message to everyone on Drop Alerts and the Porch Pickup list, by text, email, or the way each person chose.
+          One message to every subscriber, by text, email, or the way each person chose.
           Anyone who replied STOP never gets a text.
         </p>
       </div>

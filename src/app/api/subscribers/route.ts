@@ -5,23 +5,19 @@ import { phoneKey } from "@/lib/phone";
 import { cleanEmail, cleanPhone } from "@/lib/drop-alerts";
 import { addSubscriber, type AlertList } from "@/lib/subscribers";
 
-/** ?list=stand is the Porch Pickup list; anything else is Drop Alerts. */
+/** Where someone was added from (?list=stand = Porch Pickup); it's all one list. */
 const listOf = (v: unknown): AlertList => (v === "stand" ? "stand" : "drop");
-const flagOf = (list: AlertList) => (list === "drop" ? "dropAlerts" : "standAlerts");
-const otherFlagOf = (list: AlertList) => (list === "drop" ? "standAlerts" : "dropAlerts");
 
 async function isAdmin() {
   const session = await auth();
   return session?.user?.role === "ADMIN";
 }
 
-/** An alert list (Drop Alerts, or ?list=stand for Porch Pickup), for the admin only. */
-export async function GET(req: Request) {
+/** Everyone subscribed (drop alerts and Porch Pickup notices), for the admin only. */
+export async function GET() {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const list = listOf(new URL(req.url).searchParams.get("list"));
   const [subscribers, contacts, users, orders] = await Promise.all([
     prisma.subscriber.findMany({
-      where: { [flagOf(list)]: true },
       orderBy: { createdAt: "desc" },
       select: { id: true, email: true, phone: true, createdAt: true, dropVia: true, standVia: true },
     }),
@@ -71,17 +67,11 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const params = new URL(req.url).searchParams;
-  const list = listOf(params.get("list"));
-  const flag = flagOf(list);
-  const other = otherFlagOf(list);
-  // Taken off this list only; people still on the other list stay on it
+  // One list: removing someone stops drop alerts and Porch Pickup notices
   const id = params.get("id");
   // ?all=1 empties the whole list (e.g. before re-importing a cleaned-up file)
   const scope = params.get("all") === "1" ? {} : id ? { id } : null;
   if (!scope) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-  const [{ count: removed }, { count: kept }] = await prisma.$transaction([
-    prisma.subscriber.deleteMany({ where: { ...scope, [flag]: true, [other]: false } }),
-    prisma.subscriber.updateMany({ where: { ...scope, [flag]: true, [other]: true }, data: { [flag]: false } }),
-  ]);
-  return NextResponse.json({ ok: true, removed: removed + kept });
+  const { count: removed } = await prisma.subscriber.deleteMany({ where: scope });
+  return NextResponse.json({ ok: true, removed });
 }

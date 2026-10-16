@@ -29,10 +29,11 @@ export function channelsFor(
 }
 
 /**
- * Put someone on an alert list (drop alerts or Porch Pickup alerts). The same
- * email, or the same phone for phone-only people, is one subscriber who can be
- * on both lists. Email/phone must already be cleaned (cleanEmail/cleanPhone).
- * `via` is how they want alerts from that list (text, email or both).
+ * Add someone to the subscriber list. There's one list: signing up on the home
+ * page or the Porch Pickup page gets drop alerts and Porch Pickup notices
+ * (`list` is only where they signed up). The same email, or the same phone for
+ * phone-only people, is one subscriber. Email/phone must already be cleaned
+ * (cleanEmail/cleanPhone). `via` is how they want them (text, email or both).
  */
 export async function addSubscriber({
   email,
@@ -45,23 +46,21 @@ export async function addSubscriber({
   list: AlertList;
   via?: AlertVia;
 }) {
-  const flag =
-    list === "drop"
-      ? { dropAlerts: true, ...(via ? { dropVia: via } : {}) }
-      : { standAlerts: true, standVia: via ?? viaFor(phone, email) };
-  const lists = { dropAlerts: list === "drop", standAlerts: list === "stand" };
+  // Home-page sign-ups from before the Text/Email/Both choice send no `via` (left empty: email plus a text)
+  const choice = via ?? (list === "stand" ? viaFor(phone, email) : undefined);
+  const flag = { dropAlerts: true, standAlerts: true, ...(choice ? { dropVia: choice, standVia: choice } : {}) };
   if (email) {
     await prisma.subscriber.upsert({
       where: { email },
-      create: { email, phone, ...lists, ...flag },
+      create: { email, phone, ...flag },
       update: { ...flag, ...(phone ? { phone } : {}) },
     });
     return;
   }
   if (!phone) return;
-  // Phone only: the same number already on a list just gets this list added
+  // Phone only: the same number already on the list just gets updated
   const withPhone = await prisma.subscriber.findMany({ where: { phone: { not: null } }, select: { id: true, phone: true } });
   const existing = withPhone.find((s) => phoneKey(s.phone) === phoneKey(phone));
   if (existing) await prisma.subscriber.update({ where: { id: existing.id }, data: flag });
-  else await prisma.subscriber.create({ data: { phone, ...lists, ...flag } });
+  else await prisma.subscriber.create({ data: { phone, ...flag } });
 }
