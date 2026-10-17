@@ -13,7 +13,18 @@ if [ "$(id -u)" = "0" ]; then
 fi
 
 echo "⚙️  Running Prisma migrations..."
-node node_modules/prisma/build/index.js migrate deploy
+# The database may still be starting (e.g. everything restarted together after
+# a backup): keep trying for about 3 minutes instead of exiting on the first try.
+tries=0
+until node node_modules/prisma/build/index.js migrate deploy; do
+  tries=$((tries + 1))
+  if [ "$tries" -ge 36 ]; then
+    echo "❌ Database still not reachable, giving up"
+    exit 1
+  fi
+  echo "⏳ Database not ready, retrying in 5s ($tries/36)..."
+  sleep 5
+done
 
 echo "🚀 Starting server..."
 exec node server.js
