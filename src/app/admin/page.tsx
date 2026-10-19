@@ -22,10 +22,10 @@ interface Order {
   guestPhone: string | null;
   manualPaymentRef: string | null;
   createdAt: string;
-  pickupSlot: { label: string; location: string | null } | null;
+  pickupSlot: { label: string; location: string | null; pickupDate: string; endDate: string | null } | null;
   pickupTime: string | null;
   user: { name: string | null; email: string; phone: string | null } | null;
-  drop: { title: string } | null;
+  drop: { title: string; orderCloseAt: string } | null;
   items: {
     id: string;
     quantity: number;
@@ -48,11 +48,26 @@ const statusConfig: Record<string, { label: string; classes: string }> = {
   REFUNDED: { label: "Refunded", classes: "bg-purple-50 text-purple-600" },
 };
 
+/**
+ * Current or past: a drop order is past once its pickup day is over; walk-up
+ * and gift card orders after a week. Ones waiting on a Venmo/PayPal check
+ * always stay current.
+ */
+function isCurrent(o: Order, startOfToday: number) {
+  if (o.status === "AWAITING_CONFIRM") return true;
+  if (o.type === "DROP") {
+    const pickup = o.pickupTime ?? o.pickupSlot?.endDate ?? o.pickupSlot?.pickupDate ?? o.drop?.orderCloseAt ?? o.createdAt;
+    return new Date(pickup).getTime() >= startOfToday;
+  }
+  return new Date(o.createdAt).getTime() >= startOfToday - 6 * 86_400_000;
+}
+
 export default function AdminDashboardPage() {
   const site = useSite();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>("ALL");
+  const [when, setWhen] = useState<"current" | "past">("current");
   const [search, setSearch] = useState("");
   const [isUnauthorized, setIsUnauthorized] = useState(false);
 
@@ -67,6 +82,9 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       if (Array.isArray(data)) {
         setOrders(data);
+        // A link to an older order (/admin#order-<id> from Customers) opens the Past list
+        const linked = data.find((o: Order) => window.location.hash === `#order-${o.id}`);
+        if (linked && !isCurrent(linked, new Date().setHours(0, 0, 0, 0))) setWhen("past");
         setIsUnauthorized(false);
       } else {
         setOrders([]);
@@ -122,7 +140,15 @@ export default function AdminDashboardPage() {
     [o.guestName, o.user?.name, o.guestEmail, o.user?.email, o.id.slice(-6)].some((v) => v?.toLowerCase().includes(q)) ||
     (qDigits.length >= 4 &&
       [o.guestPhone, o.user?.phone].some((p) => p?.replace(/\D/g, "").includes(qDigits.slice(-10))));
-  const filteredOrders = safeOrders.filter((o) => (filterType === "ALL" || o.type === filterType) && matches(o));
+  const startOfToday = new Date().setHours(0, 0, 0, 0);
+  const currentCount = safeOrders.filter((o) => isCurrent(o, startOfToday)).length;
+  // A search looks through current and past orders
+  const filteredOrders = safeOrders.filter(
+    (o) =>
+      (filterType === "ALL" || o.type === filterType) &&
+      matches(o) &&
+      (q || isCurrent(o, startOfToday) === (when === "current"))
+  );
 
   const totalRevenue = safeOrders
     .filter((o) => o.status === "PAID")
@@ -195,6 +221,24 @@ export default function AdminDashboardPage() {
         className="w-full sm:w-72 border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
       />
       <div className="flex gap-1 bg-stone-100 p-1 rounded-lg w-fit">
+        {(
+          [
+            { key: "current", label: `Current (${currentCount})` },
+            { key: "past", label: `Past (${safeOrders.length - currentCount})` },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setWhen(tab.key)}
+            className={`px-3.5 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              when === tab.key && !q ? "bg-white text-stone-900 shadow-sm" : "text-stone-500 hover:text-stone-700"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-1 bg-stone-100 p-1 rounded-lg w-fit">
         {[
           { key: "ALL", label: "All" },
           { key: "DROP", label: "Drops" },
@@ -223,8 +267,14 @@ export default function AdminDashboardPage() {
         </div>
       ) : filteredOrders.length === 0 ? (
         <div className="bg-white rounded-xl p-10 border border-stone-200 text-center">
-          <p className="text-stone-500 font-medium">{q ? "No orders match your search" : "No orders yet"}</p>
-          {!q && (
+          <p className="text-stone-500 font-medium">
+            {q
+              ? "No orders match your search"
+              : safeOrders.length
+                ? `No ${when} orders${filterType === "ALL" ? "" : " of this kind"}`
+                : "No orders yet"}
+          </p>
+          {!q && !safeOrders.length && (
             <p className="text-xs text-stone-400 mt-1">
               Orders will appear here as customers place them.
             </p>
