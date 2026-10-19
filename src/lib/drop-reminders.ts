@@ -42,6 +42,18 @@ export async function remindDrop(dropId: string, { now: sendNow = false } = {}):
   });
   if (count !== 1) return none;
 
+  try {
+    return await sendReminder(dropId);
+  } catch (err) {
+    // Something broke before it went to n8n: allow another try
+    console.error(`[drop-reminders] Reminder for drop ${dropId} failed:`, err);
+    await prisma.drop.update({ where: { id: dropId }, data: { reminderSentAt: null } });
+    return none;
+  }
+}
+
+async function sendReminder(dropId: string): Promise<{ sent: boolean; texts: number; emails: number }> {
+  const none = { sent: false, texts: 0, emails: 0 };
   const [drop, subscribers, orders, appUrl, optedOut, site] = await Promise.all([
     prisma.drop.findUnique({ where: { id: dropId } }),
     prisma.subscriber.findMany({ orderBy: { createdAt: "asc" } }),
@@ -103,10 +115,11 @@ export async function remindDrop(dropId: string, { now: sendNow = false } = {}):
     await prisma.drop.update({ where: { id: dropId }, data: { reminderSentAt: null } });
     return none;
   }
+  // (It's already sent: a hiccup saving these must not send it again)
   if (texts.size) {
-    await prisma.smsMessage.createMany({
-      data: [...texts].map((phone) => ({ phone, direction: "OUT", body: smsMessage, read: true })),
-    });
+    await prisma.smsMessage
+      .createMany({ data: [...texts].map((phone) => ({ phone, direction: "OUT", body: smsMessage, read: true })) })
+      .catch((err) => console.error("[drop-reminders] Couldn't save the texts to Messages:", err));
   }
   return { sent: true, texts: texts.size, emails: emails.length };
 }

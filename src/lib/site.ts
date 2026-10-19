@@ -5,8 +5,13 @@ import { SITE_DEFAULTS, SITE_KEYS, type SiteKey, type SiteSettings } from "@/lib
 export * from "@/lib/site-defaults";
 
 export async function getSiteSettings(): Promise<SiteSettings> {
-  // Request-time only; never query the database while building pages
-  await connection();
+  // Request-time only; never query the database while building pages. The
+  // background jobs (drop alerts, reminders) run outside any request: fine there.
+  try {
+    await connection();
+  } catch (e) {
+    if (!(e instanceof Error && /outside a request scope/.test(e.message))) throw e;
+  }
   const site: SiteSettings = { ...SITE_DEFAULTS };
   try {
     const rows = await prisma.setting.findMany({ where: { key: { in: SITE_KEYS } } });

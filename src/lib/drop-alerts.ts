@@ -33,6 +33,20 @@ export async function announceDrop(dropId: string): Promise<void> {
   });
   if (count !== 1) return;
 
+  let done = false;
+  try {
+    done = await sendAnnouncement(dropId);
+  } catch (err) {
+    console.error(`[drop-alerts] Announcing drop ${dropId} failed:`, err);
+  }
+  if (!done) {
+    // n8n didn't take it (down, wrong address) or something broke: the next background check tries again
+    await prisma.drop.update({ where: { id: dropId }, data: { announcedAt: null } });
+  }
+}
+
+/** The alert itself. True once it's handed to n8n (or there's nobody to tell). */
+async function sendAnnouncement(dropId: string): Promise<boolean> {
   const [drop, subscribers, appUrl] = await Promise.all([
     prisma.drop.findUnique({
       where: { id: dropId },
@@ -44,7 +58,7 @@ export async function announceDrop(dropId: string): Promise<void> {
     prisma.subscriber.findMany({ orderBy: { createdAt: "asc" } }),
     getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || ""),
   ]);
-  if (!drop || subscribers.length === 0) return;
+  if (!drop || subscribers.length === 0) return true;
   const optedOut = await optedOutSet();
   const site = await getSiteSettings();
   const shop = isOn(site.SITE_NAME_IN_NOTIFICATIONS) ? site.SITE_NAME : "";
@@ -89,19 +103,19 @@ export async function announceDrop(dropId: string): Promise<void> {
   });
 
   if (!sent) {
-    // n8n didn't take it (down, restarting, wrong address): let the next background check try again
-    console.error(`[drop-alerts] Couldn't announce drop ${drop.id}; will retry`);
-    await prisma.drop.update({ where: { id: drop.id }, data: { announcedAt: null } });
-    return;
+    console.error(`[drop-alerts] n8n didn't take the alert for drop ${drop.id}; will retry`);
+    return false;
   }
 
   // Show the alert texts in Admin → Messages, like any other text the shop sends
   const texted = reach.filter((r) => r.text).map((r) => r.key);
-  if (sent && texted.length) {
-    await prisma.smsMessage.createMany({
-      data: [...new Set(texted)].map((phone) => ({ phone, direction: "OUT", body: smsMessage, read: true })),
-    });
+  // (It's already sent: a hiccup saving these must not send it again)
+  if (texted.length) {
+    await prisma.smsMessage
+      .createMany({ data: [...new Set(texted)].map((phone) => ({ phone, direction: "OUT", body: smsMessage, read: true })) })
+      .catch((err) => console.error("[drop-alerts] Couldn't save the texts to Messages:", err));
   }
+  return true;
 }
 
 /** Background check (every minute): announce published drops whose ordering time has started. */
