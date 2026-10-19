@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSetting } from "@/lib/settings";
 import { phoneKey } from "@/lib/phone";
-import { keywordAction } from "@/lib/sms-opt-out";
+import { keywordAction, optOut } from "@/lib/sms-opt-out";
 
 /**
  * n8n forwards every text that comes in to the SMS Gate phone here (with the
@@ -24,11 +24,7 @@ export async function POST(req: Request) {
   if (!key || !action) return NextResponse.json({ action: "none" });
 
   if (action === "stop") {
-    await prisma.smsOptOut.upsert({ where: { phone: key }, update: {}, create: { phone: key } });
-    // Phone-only alert subscribers come off the list; email ones keep getting emails
-    const subs = await prisma.subscriber.findMany({ where: { phone: { not: null } }, select: { id: true, phone: true, email: true } });
-    const mine = subs.filter((s) => phoneKey(s.phone) === key);
-    await prisma.subscriber.deleteMany({ where: { id: { in: mine.filter((s) => !s.email).map((s) => s.id) } } });
+    await optOut(key);
     return NextResponse.json({ action: "stop" });
   }
 

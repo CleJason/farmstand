@@ -12,5 +12,8 @@ export async function register() {
   const { runBackgroundJobs } = await import("@/lib/background-jobs");
   const tick = () => runBackgroundJobs().catch((err) => console.error("Background jobs failed", err));
   setTimeout(tick, 15_000); // shortly after start, then every minute
+  // Once: opt out anyone whose earlier "stop" reply wasn't recognized
+  const { catchMissedStops } = await import("@/lib/sms-opt-out");
+  setTimeout(() => catchMissedStops().catch((err) => console.error("Checking for missed STOP replies failed", err)), 10_000);
   setInterval(tick, 60_000).unref?.();
 }
