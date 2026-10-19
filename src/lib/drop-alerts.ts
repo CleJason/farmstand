@@ -88,6 +88,13 @@ export async function announceDrop(dropId: string): Promise<void> {
     }),
   });
 
+  if (!sent) {
+    // n8n didn't take it (down, restarting, wrong address): let the next background check try again
+    console.error(`[drop-alerts] Couldn't announce drop ${drop.id}; will retry`);
+    await prisma.drop.update({ where: { id: drop.id }, data: { announcedAt: null } });
+    return;
+  }
+
   // Show the alert texts in Admin → Messages, like any other text the shop sends
   const texted = reach.filter((r) => r.text).map((r) => r.key);
   if (sent && texted.length) {
