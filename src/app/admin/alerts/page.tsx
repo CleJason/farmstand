@@ -83,13 +83,13 @@ export default function AdminAlertsPage() {
   };
 
   // Fixing someone's email/phone in place (e.g. a misspelled email that bounces)
-  const [editing, setEditing] = useState<{ id: string; email: string; phone: string } | null>(null);
+  const [editing, setEditing] = useState<{ id: string; email: string; phone: string; via: string } | null>(null);
   const saveEdit = async () => {
     if (!editing) return;
     const res = await fetch("/api/subscribers", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: editing.id, email: editing.email.trim(), phone: editing.phone.trim() }),
+      body: JSON.stringify({ id: editing.id, email: editing.email.trim(), phone: editing.phone.trim(), via: editing.via }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return alert(data.error || "Couldn't save");
@@ -231,7 +231,10 @@ export default function AdminAlertsPage() {
                       <input
                         type="email"
                         value={editing.email}
-                        onChange={(e) => setEditing({ ...editing, email: e.target.value })}
+                        onChange={(e) =>
+                          // No email left: they can only get texts
+                          setEditing({ ...editing, email: e.target.value, via: e.target.value.trim() ? editing.via : "text" })
+                        }
                         placeholder="No email"
                         className="w-full min-w-[160px] text-sm px-2 py-1 border border-stone-200 rounded-lg"
                       />
@@ -240,13 +243,28 @@ export default function AdminAlertsPage() {
                       <input
                         type="tel"
                         value={editing.phone}
-                        onChange={(e) => setEditing({ ...editing, phone: e.target.value })}
+                        onChange={(e) =>
+                          // No phone left: they can only get emails
+                          setEditing({ ...editing, phone: e.target.value, via: e.target.value.trim() ? editing.via : "email" })
+                        }
                         placeholder="No phone"
                         className="w-full min-w-[120px] text-sm px-2 py-1 border border-stone-200 rounded-lg"
                       />
                     </td>
                     <td colSpan={2} className="px-4 py-2 text-[11px] text-stone-500">
-                      Clear a box to remove it. They keep getting alerts the other way.
+                      <label className="flex items-center gap-1.5 mb-1">
+                        Gets
+                        <select
+                          value={editing.via}
+                          onChange={(e) => setEditing({ ...editing, via: e.target.value })}
+                          className="text-xs px-1.5 py-1 border border-stone-200 rounded-lg"
+                        >
+                          <option value="text">Texts only</option>
+                          <option value="email">Emails only</option>
+                          <option value="both">Texts + emails</option>
+                        </select>
+                      </label>
+                      Clear a box to remove that email or phone.
                     </td>
                     <td className="px-4 py-2 text-right whitespace-nowrap">
                       <button onClick={saveEdit} className="text-xs font-semibold text-amber-700 hover:underline mr-3">
@@ -274,7 +292,14 @@ export default function AdminAlertsPage() {
                   <td className="px-4 py-3 text-stone-500 whitespace-nowrap">{shortDate(s.createdAt)}</td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     <button
-                      onClick={() => setEditing({ id: s.id, email: s.email ?? "", phone: s.phone ?? "" })}
+                      onClick={() =>
+                        setEditing({
+                          id: s.id,
+                          email: s.email ?? "",
+                          phone: s.phone ?? "",
+                          via: s.dropVia ?? (s.email && s.phone ? "both" : s.email ? "email" : "text"),
+                        })
+                      }
                       className="text-xs text-stone-500 hover:text-stone-900 mr-3"
                     >
                       Edit

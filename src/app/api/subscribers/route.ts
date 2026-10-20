@@ -89,7 +89,14 @@ export async function PATCH(req: Request) {
   if (email && email !== current.email && (await prisma.subscriber.findUnique({ where: { email } }))) {
     return NextResponse.json({ error: "Someone else on the list already has that email" }, { status: 400 });
   }
-  const fit = (via: string | null) => (!email ? "text" : !phone ? "email" : via);
+  // `via` (text | email | both) is how they get alerts; it has to fit what they gave
+  const asked = ["text", "email", "both"].includes(data.via) ? (data.via as string) : null;
+  if (asked === "text" && !phone) return NextResponse.json({ error: "Texts need a phone number" }, { status: 400 });
+  if (asked === "email" && !email) return NextResponse.json({ error: "Emails need an email address" }, { status: 400 });
+  if (asked === "both" && (!phone || !email)) {
+    return NextResponse.json({ error: "Both needs a phone number and an email" }, { status: 400 });
+  }
+  const fit = (via: string | null) => asked ?? (!email ? "text" : !phone ? "email" : via);
   await prisma.subscriber.update({
     where: { id },
     data: { email, phone, dropVia: fit(current.dropVia), standVia: fit(current.standVia) ?? "text" },
