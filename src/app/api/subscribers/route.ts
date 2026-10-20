@@ -68,6 +68,35 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true });
 }
 
+/**
+ * Fix someone's details (`id`, `email`, `phone`; empty = remove it), e.g. a
+ * misspelled email that bounces every week. They keep at least one of the two,
+ * and their choice follows what's left: no email means texts, no phone emails.
+ */
+export async function PATCH(req: Request) {
+  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const data = await req.json().catch(() => ({}));
+  const id = String(data.id ?? "");
+  const email = data.email ? cleanEmail(data.email) : null;
+  const phone = data.phone ? cleanPhone(data.phone) : null;
+  if (data.email && !email) return NextResponse.json({ error: "That email doesn't look right" }, { status: 400 });
+  if (data.phone && !phone) return NextResponse.json({ error: "That phone number doesn't look right" }, { status: 400 });
+  if (!email && !phone) {
+    return NextResponse.json({ error: "Keep an email or a phone number (or use Remove)" }, { status: 400 });
+  }
+  const current = await prisma.subscriber.findUnique({ where: { id } });
+  if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (email && email !== current.email && (await prisma.subscriber.findUnique({ where: { email } }))) {
+    return NextResponse.json({ error: "Someone else on the list already has that email" }, { status: 400 });
+  }
+  const fit = (via: string | null) => (!email ? "text" : !phone ? "email" : via);
+  await prisma.subscriber.update({
+    where: { id },
+    data: { email, phone, dropVia: fit(current.dropVia), standVia: fit(current.standVia) ?? "text" },
+  });
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const params = new URL(req.url).searchParams;

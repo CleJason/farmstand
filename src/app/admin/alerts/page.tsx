@@ -82,6 +82,21 @@ export default function AdminAlertsPage() {
     load();
   };
 
+  // Fixing someone's email/phone in place (e.g. a misspelled email that bounces)
+  const [editing, setEditing] = useState<{ id: string; email: string; phone: string } | null>(null);
+  const saveEdit = async () => {
+    if (!editing) return;
+    const res = await fetch("/api/subscribers", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: editing.id, email: editing.email.trim(), phone: editing.phone.trim() }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return alert(data.error || "Couldn't save");
+    setEditing(null);
+    load();
+  };
+
   const removeAll = async () => {
     if (!confirm(`Remove all ${subscribers.length} people from Drop Alerts? (Their customer records stay.)`)) return;
     const res = await fetch("/api/subscribers?all=1", { method: "DELETE" });
@@ -208,7 +223,41 @@ export default function AdminAlertsPage() {
           </div>
           <table className="w-full text-sm">
             <tbody className="divide-y divide-stone-100">
-              {subscribers.map((s) => (
+              {subscribers.map((s) =>
+                editing?.id === s.id ? (
+                  <tr key={s.id} className="bg-amber-50/50">
+                    <td className="px-4 py-3 text-stone-900 font-medium">{s.name ?? "—"}</td>
+                    <td className="px-4 py-2">
+                      <input
+                        type="email"
+                        value={editing.email}
+                        onChange={(e) => setEditing({ ...editing, email: e.target.value })}
+                        placeholder="No email"
+                        className="w-full min-w-[160px] text-sm px-2 py-1 border border-stone-200 rounded-lg"
+                      />
+                    </td>
+                    <td className="px-4 py-2">
+                      <input
+                        type="tel"
+                        value={editing.phone}
+                        onChange={(e) => setEditing({ ...editing, phone: e.target.value })}
+                        placeholder="No phone"
+                        className="w-full min-w-[120px] text-sm px-2 py-1 border border-stone-200 rounded-lg"
+                      />
+                    </td>
+                    <td colSpan={2} className="px-4 py-2 text-[11px] text-stone-500">
+                      Clear a box to remove it. They keep getting alerts the other way.
+                    </td>
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      <button onClick={saveEdit} className="text-xs font-semibold text-amber-700 hover:underline mr-3">
+                        Save
+                      </button>
+                      <button onClick={() => setEditing(null)} className="text-xs text-stone-400 hover:text-stone-700">
+                        Cancel
+                      </button>
+                    </td>
+                  </tr>
+                ) : (
                 <tr key={s.id}>
                   <td className="px-4 py-3 text-stone-900 font-medium">{s.name ?? <span className="text-stone-300 font-normal">—</span>}</td>
                   <td className="px-4 py-3 text-stone-700">{s.email ?? <span className="text-stone-400">text only</span>}</td>
@@ -223,13 +272,20 @@ export default function AdminAlertsPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-stone-500 whitespace-nowrap">{shortDate(s.createdAt)}</td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => setEditing({ id: s.id, email: s.email ?? "", phone: s.phone ?? "" })}
+                      className="text-xs text-stone-500 hover:text-stone-900 mr-3"
+                    >
+                      Edit
+                    </button>
                     <button onClick={() => remove(s)} className="text-xs text-stone-400 hover:text-red-600">
                       Remove
                     </button>
                   </td>
                 </tr>
-              ))}
+                )
+              )}
             </tbody>
           </table>
         </div>
