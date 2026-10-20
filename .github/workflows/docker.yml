@@ -442,7 +442,7 @@ jobs:
           c=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/messages); echo "inbox signed out -> $c"; [ "$c" = "401" ] || exit 1
           c=$(sms ci-secret '{"phone":"+1 (555) 777-0000","text":" stop "}'); echo "STOP -> $(cat /tmp/sms.json)"; grep -q '"stop"' /tmp/sms.json || exit 1
           [ "$(psql "$PGURL" -tAc "SELECT count(*) FROM \"SmsOptOut\" WHERE phone = '5557770000'")" = "1" ] || { echo "not opted out"; exit 1; }
-          [ "$(psql "$PGURL" -tAc "SELECT count(*) FROM \"Subscriber\" WHERE id = 'sp1'")" = "0" ] || { echo "still on alerts"; exit 1; }
+          [ "$(psql "$PGURL" -tAc "SELECT count(*) FROM \"Subscriber\" WHERE id = 'sp1'")" = "1" ] || { echo "STOP should keep them on the list (START turns texts back on)"; exit 1; }
           c=$(sms ci-secret '{"phone":"5557770000","text":"START"}'); echo "START -> $(cat /tmp/sms.json)"; grep -q '"start"' /tmp/sms.json || exit 1
           [ "$(psql "$PGURL" -tAc "SELECT count(*) FROM \"SmsOptOut\"")" = "0" ] || { echo "still opted out"; exit 1; }
 

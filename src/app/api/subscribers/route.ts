@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { phoneKey } from "@/lib/phone";
 import { cleanEmail, cleanPhone } from "@/lib/drop-alerts";
 import { addSubscriber, type AlertList } from "@/lib/subscribers";
+import { optedOutSet } from "@/lib/sms-opt-out";
 
 /** Where someone was added from (?list=stand = Porch Pickup); it's all one list. */
 const listOf = (v: unknown): AlertList => (v === "stand" ? "stand" : "drop");
@@ -16,7 +17,7 @@ async function isAdmin() {
 /** Everyone subscribed (drop alerts and Porch Pickup notices), for the admin only. */
 export async function GET() {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const [subscribers, contacts, users, orders] = await Promise.all([
+  const [subscribers, contacts, users, orders, optedOut] = await Promise.all([
     prisma.subscriber.findMany({
       orderBy: { createdAt: "desc" },
       select: { id: true, email: true, phone: true, createdAt: true, dropVia: true, standVia: true },
@@ -28,6 +29,7 @@ export async function GET() {
       select: { guestName: true, guestEmail: true, guestPhone: true },
       orderBy: { createdAt: "asc" }, // later orders overwrite, so the newest name wins
     }),
+    optedOutSet(),
   ]);
 
   // Names come from what we know about them elsewhere: customer records, accounts, orders
@@ -46,6 +48,8 @@ export async function GET() {
     subscribers.map((s) => ({
       ...s,
       name: (s.email && byEmail.get(s.email)) || (s.phone && byPhone.get(phoneKey(s.phone))) || null,
+      // Replied STOP: no texts until they reply START
+      stopped: !!s.phone && optedOut.has(phoneKey(s.phone)),
     }))
   );
 }

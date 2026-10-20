@@ -20,14 +20,12 @@ export function keywordAction(text: string): "stop" | "start" | null {
 }
 
 /**
- * A number replied STOP: never text it again. Phone-only subscribers come off
- * the list; ones with an email keep getting emails.
+ * A number replied STOP: never text it again. They stay on the subscriber
+ * list (shown as "Replied STOP"; ones with an email keep getting emails), so
+ * replying START later turns their texts back on.
  */
 export async function optOut(key: string): Promise<void> {
   await prisma.smsOptOut.upsert({ where: { phone: key }, update: {}, create: { phone: key } });
-  const subs = await prisma.subscriber.findMany({ where: { phone: { not: null } }, select: { id: true, phone: true, email: true } });
-  const mine = subs.filter((s) => phoneKey(s.phone) === key);
-  await prisma.subscriber.deleteMany({ where: { id: { in: mine.filter((s) => !s.email).map((s) => s.id) } } });
 }
 
 /**

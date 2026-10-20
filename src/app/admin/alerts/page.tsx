@@ -9,6 +9,7 @@ interface Subscriber {
   phone: string | null;
   createdAt: string;
   dropVia: string | null; // text | email | both; empty = signed up before there was a choice
+  stopped?: boolean; // replied STOP: no texts until they reply START
 }
 
 /** How they get drop alerts, for the list. */
@@ -212,7 +213,15 @@ export default function AdminAlertsPage() {
                   <td className="px-4 py-3 text-stone-900 font-medium">{s.name ?? <span className="text-stone-300 font-normal">—</span>}</td>
                   <td className="px-4 py-3 text-stone-700">{s.email ?? <span className="text-stone-400">text only</span>}</td>
                   <td className="px-4 py-3 text-stone-600 whitespace-nowrap">{s.phone || "—"}</td>
-                  <td className="px-4 py-3 text-stone-500 whitespace-nowrap text-xs">{getsLabel(s)}</td>
+                  <td className="px-4 py-3 text-stone-500 whitespace-nowrap text-xs">
+                    {s.stopped ? (
+                      <span className="text-red-600" title="They replied STOP. Texts start again if they reply START.">
+                        Replied STOP{s.email ? " (email only)" : ""}
+                      </span>
+                    ) : (
+                      getsLabel(s)
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-stone-500 whitespace-nowrap">{shortDate(s.createdAt)}</td>
                   <td className="px-4 py-3 text-right">
                     <button onClick={() => remove(s)} className="text-xs text-stone-400 hover:text-red-600">
