@@ -6,11 +6,13 @@ import RecipesTab from "@/components/costs/RecipesTab";
 import IngredientsTab from "@/components/costs/IngredientsTab";
 import PurchasesTab from "@/components/costs/PurchasesTab";
 import ImportExportTab from "@/components/costs/ImportExportTab";
+import ReceiptsTab from "@/components/costs/ReceiptsTab";
 
 const TABS = [
   { key: "recipes", label: "Recipes" },
   { key: "ingredients", label: "Ingredients" },
   { key: "purchases", label: "Purchases" },
+  { key: "receipts", label: "Receipts" },
   { key: "import", label: "Import / Export" },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
@@ -88,6 +90,7 @@ export default function AdminCostsPage() {
       {data && tab === "recipes" && <RecipesTab data={data} save={save} />}
       {data && tab === "ingredients" && <IngredientsTab data={data} save={save} />}
       {data && tab === "purchases" && <PurchasesTab data={data} save={save} />}
+      {data && tab === "receipts" && <ReceiptsTab data={data} save={save} />}
       {data && tab === "import" && <ImportExportTab data={data} save={save} />}
     </div>
   );

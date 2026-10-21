@@ -42,6 +42,8 @@ export async function POST(req: Request) {
     purchases: 0,
     duplicatePurchases: 0,
     skippedPurchases: [] as string[],
+    receipts: 0,
+    duplicateReceipts: 0,
     recipes: 0,
     replacedRecipes: 0,
     skippedRecipes: 0,
@@ -113,6 +115,37 @@ export async function POST(req: Request) {
   }
   if (newPurchases.length) await prisma.ingredientPurchase.createMany({ data: newPurchases });
   counts.purchases = newPurchases.length;
+
+  // Receipts (the expense log); the same date + store + total already here is skipped
+  const inReceipts: { date: string; vendor: string; amount: number; description?: string | null; category?: string | null }[] =
+    Array.isArray(data.receipts) ? data.receipts.slice(0, 10000) : [];
+  if (inReceipts.length) {
+    const have = new Set(
+      (await prisma.receipt.findMany()).map((r) => `${r.date.toISOString().slice(0, 10)}|${r.vendor.toLowerCase()}|${r.amount}`)
+    );
+    const fresh = [];
+    for (const r of inReceipts) {
+      const date = new Date(r.date);
+      const vendor = clean(r.vendor).slice(0, 60);
+      const amount = Math.round(num(r.amount) * 100);
+      if (Number.isNaN(date.getTime()) || !vendor || !(amount >= 0)) continue;
+      const key = `${date.toISOString().slice(0, 10)}|${vendor.toLowerCase()}|${amount}`;
+      if (have.has(key)) {
+        counts.duplicateReceipts++;
+        continue;
+      }
+      have.add(key);
+      fresh.push({
+        date,
+        vendor,
+        amount,
+        description: String(r.description ?? "").trim().slice(0, 1000) || null,
+        category: clean(r.category).slice(0, 40) || null,
+      });
+    }
+    if (fresh.length) await prisma.receipt.createMany({ data: fresh });
+    counts.receipts = fresh.length;
+  }
 
   if (data.overheadRate !== undefined && Number.isFinite(Number(data.overheadRate)) && Number(data.overheadRate) >= 0) {
     const value = String(Number(data.overheadRate));

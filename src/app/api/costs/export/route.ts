@@ -11,15 +11,20 @@ const csv = (rows: unknown[][]) => rows.map((r) => r.map(esc).join(",")).join("\
 
 /**
  * Cost analysis as CSV (opens in Google Sheets / Excel). ?what=recipes (one
- * row per recipe), lines (every ingredient of every recipe) or ingredients.
+ * row per recipe), lines (every ingredient of every recipe), ingredients or receipts.
  */
 export async function GET(req: Request) {
   if (!(await isAdmin())) return new Response("Unauthorized", { status: 401 });
   const what = new URL(req.url).searchParams.get("what") ?? "recipes";
-  const { recipes, ingredients, settings } = await loadCosts();
+  const { recipes, ingredients, settings, receipts } = await loadCosts();
   const names = new Map(ingredients.map((i) => [i.id, i]));
   let rows: unknown[][];
-  if (what === "ingredients") {
+  if (what === "receipts") {
+    rows = [
+      ["Date", "Vendor", "Amount ($)", "What was Purchased", "Category", "Itemized in Purchases ($)", "Receipt Photo"],
+      ...receipts.map((r) => [r.date.slice(0, 10), r.vendor, r.amount / 100, r.description, r.category, r.itemized / 100, r.imageUrl]),
+    ];
+  } else if (what === "ingredients") {
     rows = [
       ["Ingredient / Item", "Base Unit", "Grams per Cup", "Purchases", "Total Bought", "Total Spent ($)", "Average Cost per Unit ($)", "Latest Cost per Unit ($)", "Used In (lines)"],
       ...ingredients.map((i) => [i.name, i.baseUnit, i.gramsPerCup, i.purchases, i.bought, i.spent, i.average, i.latest, i.usedIn]),

@@ -12,6 +12,8 @@ type Counts = {
   purchases: number;
   duplicatePurchases: number;
   skippedPurchases: string[];
+  receipts?: number;
+  duplicateReceipts?: number;
   recipes: number;
   replacedRecipes: number;
   skippedRecipes: number;
@@ -22,6 +24,8 @@ const summary = (c: Counts) =>
   [
     c.purchases && `${c.purchases} purchases`,
     c.duplicatePurchases && `${c.duplicatePurchases} purchases already in the log (skipped)`,
+    c.receipts && `${c.receipts} receipts`,
+    c.duplicateReceipts && `${c.duplicateReceipts} receipts already here (skipped)`,
     c.ingredients && `${c.ingredients} new ingredients`,
     c.recipes && `${c.recipes} new recipes`,
     c.replacedRecipes && `${c.replacedRecipes} recipes updated`,
@@ -32,17 +36,29 @@ const summary = (c: Counts) =>
     .filter(Boolean)
     .join(" · ") || "Nothing new to import.";
 
+/** Plain names recipes use for something more specific on the shopping list */
+const SAME_AS: Record<string, string> = {
+  sugar: "granulated sugar",
+  "white sugar": "granulated sugar",
+  "brown sugar": "light brown sugar",
+  "confectioners sugar": "powdered sugar",
+  "vanilla": "vanilla extract",
+  milk: "whole milk",
+};
+
 /** Best existing ingredient for a recipe's ingredient name, or "" for "add it as new". */
 function match(name: string, ingredients: IngredientRow[]): string {
   const key = nameKey(name);
-  const exact = ingredients.find((i) => nameKey(i.name) === key);
+  const want = [key, SAME_AS[key] && nameKey(SAME_AS[key])].filter(Boolean);
+  const exact = ingredients.find((i) => want.includes(nameKey(i.name)));
   if (exact) return exact.id;
+  // Otherwise the closest name that contains it, or that it contains ("unsalted butter" ↔ "Unsalted Butter (Costco)")
   const close = ingredients
     .filter((i) => {
       const k = nameKey(i.name);
       return k.length > 2 && (key.includes(k) || k.includes(key));
     })
-    .sort((a, b) => b.name.length - a.name.length)[0];
+    .sort((a, b) => Math.abs(a.name.length - key.length) - Math.abs(b.name.length - key.length))[0];
   return close?.id ?? "";
 }
 
@@ -75,8 +91,8 @@ function SheetImport({ save }: TabProps) {
         else sheets.push({ name: f.name.replace(/\.csv$/i, "").replace(/^.* - /, ""), rows: parseCsv(await f.text()) });
       }
       const p = planFromWorkbook(sheets);
-      if (!p.purchases.length && !p.recipes.length && !p.ingredients.length) {
-        setMsg("Couldn't find a purchase log or recipe tabs in that file.");
+      if (!p.purchases.length && !p.recipes.length && !p.ingredients.length && !p.receipts?.length) {
+        setMsg("Couldn't find a purchase log, receipts or recipe tabs in that file.");
         return;
       }
       setPlan(p);
@@ -102,7 +118,9 @@ function SheetImport({ save }: TabProps) {
         <h2 className="text-sm font-semibold text-stone-900">Import your cost spreadsheet</h2>
         <p className="text-xs text-stone-500 mt-0.5">
           The .xlsx (in Google Sheets: File → Download → Microsoft Excel), or CSVs of single tabs. It reads the Purchasing
-          Log, the Master Inventory Pool and each recipe tab. Importing the same file again won&apos;t double up purchases.
+          Log, the Master Inventory Pool, each recipe tab, and a receipt tracker (Date, Vendor, Amount, What was Purchased).
+          Only the numbers you entered are used: all the cost math is redone here. Importing the same file again won&apos;t
+          double up purchases or receipts.
         </p>
       </div>
       <input type="file" accept=".xlsx,.csv" multiple onChange={(e) => read(e.target.files)} className="text-sm" />
@@ -114,6 +132,8 @@ function SheetImport({ save }: TabProps) {
             inventory list and <b>{plan.recipes.length}</b> recipes
             {plan.recipes.length > 0 && `: ${plan.recipes.map((r) => `${r.name} (makes ${r.yieldCount})`).join(", ")}`}.
             {plan.overheadRate !== undefined && ` Overhead rate: $${plan.overheadRate}/hr.`}
+            {!!plan.receipts?.length &&
+              ` Also ${plan.receipts.length} receipts totaling $${plan.receipts.reduce((n, r) => n + r.amount, 0).toFixed(2)}.`}
           </p>
           {plan.notes.map((n) => (
             <p key={n} className="text-xs text-amber-700">
@@ -298,6 +318,7 @@ function Export() {
         {link("recipes", "Recipe summary")}
         {link("lines", "Recipe ingredients, line by line")}
         {link("ingredients", "Ingredient costs")}
+        {link("receipts", "Receipts")}
       </div>
     </section>
   );

@@ -15,10 +15,12 @@ export type ImportRecipe = {
   source: "sheet" | "mealie";
   lines: ImportLine[];
 };
+export type ImportReceipt = { date: string; vendor: string; amount: number; description: string | null; category: string | null };
 export type ImportPlan = {
   ingredients: ImportIngredient[];
   purchases: ImportPurchase[];
   recipes: ImportRecipe[];
+  receipts?: ImportReceipt[];
   overheadRate?: number;
   notes: string[];
 };
@@ -61,8 +63,34 @@ const col = (cols: string[], ...tests: RegExp[]) => {
  * (÷ N)", and a Bundle / Retail Price row).
  */
 export function planFromWorkbook(sheets: Sheet[]): ImportPlan {
-  const plan: ImportPlan = { ingredients: [], purchases: [], recipes: [], notes: [] };
+  const plan: ImportPlan = { ingredients: [], purchases: [], recipes: [], receipts: [], notes: [] };
   const bought = new Set<string>();
+
+  // A receipt / expense log: Date, Vendor (or Store), Amount (or Total), What was Purchased
+  for (const sheet of sheets) {
+    const h = findHeader(sheet, [/^date/, /vendor|store|merchant/, /amount|total/]);
+    if (!h || h.cols.some((c) => /quantity|qty/.test(c))) continue;
+    const c = {
+      date: col(h.cols, /^date/),
+      vendor: col(h.cols, /vendor|store|merchant/),
+      amount: col(h.cols, /amount|total/),
+      what: col(h.cols, /what|description|items|purchased|notes?$/),
+      category: col(h.cols, /category|type/),
+    };
+    for (const row of sheet.rows.slice(h.row + 1)) {
+      const date = sheetDate(row[c.date] ?? null);
+      const vendor = str(row[c.vendor]);
+      const amount = number(row[c.amount]);
+      if (!date || !vendor || !(amount >= 0)) continue; // also skips a total row at the bottom
+      plan.receipts!.push({
+        date,
+        vendor,
+        amount,
+        description: c.what >= 0 ? str(row[c.what]) || null : null,
+        category: c.category >= 0 ? str(row[c.category]) || null : null,
+      });
+    }
+  }
 
   for (const sheet of sheets) {
     const h = findHeader(sheet, [/quantity purchased|qty purchased|amount purchased/, /price/, /ingredient|item/]);
@@ -227,11 +255,17 @@ type MealieRecipe = {
   description?: string | null;
 };
 
+/** Mealie's API uses camelCase, its recipe download snake_case: read both. */
+const camel = (o: Record<string, unknown>): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(o).map(([k, v]) => [k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase()), v]));
+
 function recipesIn(json: unknown): MealieRecipe[] {
   if (Array.isArray(json)) return json.flatMap(recipesIn);
   if (json && typeof json === "object") {
-    const o = json as Record<string, unknown>;
-    if (Array.isArray(o.recipeIngredient) && o.name) return [o as MealieRecipe];
+    const o = camel(json as Record<string, unknown>);
+    if (Array.isArray(o.recipeIngredient) && o.name) {
+      return [{ ...o, recipeIngredient: (o.recipeIngredient as Record<string, unknown>[]).map((i) => camel(i ?? {})) } as MealieRecipe];
+    }
     for (const k of ["items", "recipes", "data"]) if (Array.isArray(o[k])) return recipesIn(o[k]);
   }
   return [];
@@ -242,19 +276,32 @@ export function planFromMealie(jsons: unknown[]): ImportPlan {
   const plan: ImportPlan = { ingredients: [], purchases: [], recipes: [], notes: [] };
   for (const r of jsons.flatMap(recipesIn)) {
     const yieldText = str(r.recipeYield);
-    const yieldCount = Number(r.recipeYieldQuantity) > 0 ? Number(r.recipeYieldQuantity) : parseAmount(yieldText) > 0 ? parseAmount(yieldText) : Number(r.recipeServings) > 0 ? Number(r.recipeServings) : 1;
-    const yieldLabel = yieldText.replace(/^[\d\s./½¼¾⅓⅔⅛-]+/, "").trim() || (r.recipeServings ? "servings" : "items");
+    // A yield written out ("24 cookies") wins; Mealie's bare "1" with servings set means it makes that many
+    const textCount = parseAmount(yieldText);
+    const yieldCount =
+      textCount > 0
+        ? textCount
+        : Number(r.recipeYieldQuantity) > 1
+          ? Number(r.recipeYieldQuantity)
+          : Number(r.recipeServings) > 0
+            ? Number(r.recipeServings)
+            : 1;
+    const yieldLabel = yieldText.replace(/^[\d\s./½¼¾⅓⅔⅛-]+/, "").trim() || (Number(r.recipeServings) > 0 ? "servings" : "items");
     const lines: ImportLine[] = [];
     for (const i of r.recipeIngredient ?? []) {
       if (i.title && !i.food && !i.note && !i.display) continue; // section headings
       const food = typeof i.food === "string" ? i.food : i.food?.name;
       const unitName = typeof i.unit === "string" ? i.unit : i.unit?.name || i.unit?.abbreviation;
       if (food) {
+        if (!(Number(i.quantity) > 0)) {
+          plan.notes.push(`${r.name}: "${food}" has no amount (e.g. "to taste"), so it's left out.`);
+          continue;
+        }
         const unit = normalizeUnit(unitName) ?? (unitName ? null : "pc");
         if (!unit) {
-          plan.notes.push(`${r.name}: "${unitName}" isn't a unit I know, so "${food}" is counted as pieces. Change it after importing if needed.`);
+          plan.notes.push(`${r.name}: "${unitName}" isn't a unit I know, so ${food} is counted in pieces (1 ${unitName} = 1 piece).`);
         }
-        lines.push({ ingredientName: food, quantity: Number(i.quantity) > 0 ? Number(i.quantity) : 1, unit: unit ?? "pc", note: str(i.note) || null });
+        lines.push({ ingredientName: food, quantity: Number(i.quantity), unit: unit ?? "pc", note: str(i.note) || null });
       } else {
         // Mealie didn't parse this line into amount / unit / food: read the text
         const text = str(i.originalText) || str(i.display) || str(i.note);

@@ -13,12 +13,20 @@ export async function costSettings(): Promise<{ overheadRate: number; basis: Pri
 
 /** Everything the Costs page shows, with each ingredient's cost and each recipe's totals worked out. */
 export async function loadCosts() {
-  const [settings, ingredients, purchases, recipes] = await Promise.all([
+  const [settings, ingredients, purchases, recipes, receipts] = await Promise.all([
     costSettings(),
     prisma.ingredient.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { recipeLines: true } } } }),
     prisma.ingredientPurchase.findMany({ orderBy: [{ date: "desc" }, { createdAt: "desc" }] }),
     prisma.recipe.findMany({ orderBy: { name: "asc" }, include: { lines: { orderBy: { position: "asc" } } } }),
+    prisma.receipt.findMany({ orderBy: [{ date: "desc" }, { createdAt: "desc" }] }),
   ]);
+
+  // What's itemized in the purchase log for each receipt: same day, same store
+  const itemized = new Map<string, number>();
+  for (const p of purchases) {
+    const key = `${p.date.toISOString().slice(0, 10)}|${(p.store ?? "").trim().toLowerCase()}`;
+    itemized.set(key, (itemized.get(key) ?? 0) + p.price);
+  }
 
   const byIngredient = new Map<string, typeof purchases>();
   for (const p of purchases) byIngredient.set(p.ingredientId, [...(byIngredient.get(p.ingredientId) ?? []), p]);
@@ -68,6 +76,16 @@ export async function loadCosts() {
       price: p.price,
     })),
     recipes: recipeRows,
+    receipts: receipts.map((r) => ({
+      id: r.id,
+      date: r.date.toISOString(),
+      vendor: r.vendor,
+      amount: r.amount,
+      description: r.description,
+      category: r.category,
+      imageUrl: r.imageUrl,
+      itemized: itemized.get(`${r.date.toISOString().slice(0, 10)}|${r.vendor.trim().toLowerCase()}`) ?? 0,
+    })),
   };
 }
 

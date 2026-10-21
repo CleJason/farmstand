@@ -407,6 +407,21 @@ model IngredientPurchase {
   @@index([date])
 }
 
+// A whole receipt (business expense), like the "2026 Expenses" sheet: the
+// ingredient lines on it can also be logged as IngredientPurchases
+model Receipt {
+  id          String   @id @default(cuid())
+  date        DateTime
+  vendor      String
+  amount      Int      // cents, the receipt total
+  description String?  // what was bought
+  category    String?  // Ingredients, Packaging, Equipment, Website & software, Other
+  imageUrl    String?  // photo of the receipt (/uploads/…)
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+}
+
 model Recipe {
   id            String   @id @default(cuid())
   name          String   @unique
