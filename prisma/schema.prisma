@@ -374,6 +374,70 @@ model StandHours {
 }
 
 // ─────────────────────────────────────────────
+// Costs (Admin → Costs): what ingredients cost, and what each recipe costs to make
+// ─────────────────────────────────────────────
+
+// Something the shop buys: an ingredient or packaging (boxes, liners, labels).
+// Costs are tracked per base unit: grams, milliliters or pieces.
+model Ingredient {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  baseUnit    String   @default("g") // g | ml | pc
+  gramsPerCup Float?   // how much 1 cup weighs, so cups/tbsp/tsp price right (and grams for liquids)
+  manualCost  Float?   // $ per base unit, for things never bought through the log (e.g. labor)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchases   IngredientPurchase[]
+  recipeLines RecipeLine[]
+}
+
+// One line on a receipt: 5440 g of bread flour from Costco for $9.79
+model IngredientPurchase {
+  id           String     @id @default(cuid())
+  ingredientId String
+  date         DateTime
+  store        String?
+  quantity     Float      // in the ingredient's base unit
+  price        Int        // cents paid for that quantity
+  createdAt    DateTime   @default(now())
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@index([ingredientId])
+  @@index([date])
+}
+
+model Recipe {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  yieldCount    Float    @default(1)       // how many it makes
+  yieldLabel    String   @default("items") // "cookies", "rolls"…
+  overheadHours Float    @default(0)       // bake/labor hours, at the overhead rate
+  sellPrice     Int?     // cents
+  sellPer       String   @default("batch") // the price is for the whole batch, or per "item"
+  notes         String?
+  source        String?  // where it came from: "sheet" or "mealie"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lines         RecipeLine[]
+}
+
+model RecipeLine {
+  id           String     @id @default(cuid())
+  recipeId     String
+  ingredientId String
+  quantity     Float
+  unit         String     // g, kg, oz, lb, ml, cup, tbsp, tsp, pc…
+  note         String?
+  position     Int        @default(0)
+  recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@index([recipeId])
+  @@index([ingredientId])
+}
+
+// ─────────────────────────────────────────────
 // Notification Log
 // ─────────────────────────────────────────────
 

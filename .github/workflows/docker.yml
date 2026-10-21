@@ -446,6 +446,13 @@ jobs:
           c=$(sms ci-secret '{"phone":"5557770000","text":"START"}'); echo "START -> $(cat /tmp/sms.json)"; grep -q '"start"' /tmp/sms.json || exit 1
           [ "$(psql "$PGURL" -tAc "SELECT count(*) FROM \"SmsOptOut\"")" = "0" ] || { echo "still opted out"; exit 1; }
 
+      - name: Costs admin is admin-only
+        run: |
+          for path in /api/costs /api/costs/export; do
+            c=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000$path); echo "$path signed out -> $c"; [ "$c" = "401" ] || exit 1
+          done
+          c=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"recipes":[]}' http://localhost:3000/api/costs/import); echo "import signed out -> $c"; [ "$c" = "401" ] || exit 1
+
       - name: Product add-ons
         env:
           PGURL: postgresql://farmstand:smoketest@localhost:5432/farmstand
