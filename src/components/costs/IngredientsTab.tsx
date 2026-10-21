@@ -147,7 +147,17 @@ function Row({ i, all, save }: { i: IngredientRow; all: IngredientRow[]; save: T
     <tr className="align-top">
       <td className="px-4 py-3">
         <span className="font-medium text-stone-900">{i.name}</span>
-        <span className="block text-[11px] text-stone-400">{i.baseUnit === "g" ? "weighed" : i.baseUnit === "ml" ? "liquid" : "counted"}</span>
+        <select
+          value={i.baseUnit}
+          disabled={i.purchases > 0}
+          title={i.purchases > 0 ? "It has purchases in this unit; to change it, delete those first" : "How it's measured"}
+          onChange={(e) => put({ baseUnit: e.target.value })}
+          className="block mt-0.5 text-[11px] text-stone-500 bg-transparent border-0 p-0 pr-4 disabled:opacity-100"
+        >
+          <option value="g">weighed (g, oz, cups…)</option>
+          <option value="ml">liquid (ml, fl oz, cups…)</option>
+          <option value="pc">counted (pieces)</option>
+        </select>
         {merging && (
           <select
             autoFocus
@@ -163,7 +173,7 @@ function Row({ i, all, save }: { i: IngredientRow; all: IngredientRow[]; save: T
           >
             <option value="">Merge into…</option>
             {all
-              .filter((x) => x.id !== i.id && x.baseUnit === i.baseUnit)
+              .filter((x) => x.id !== i.id && (x.baseUnit === i.baseUnit || i.purchases === 0))
               .map((x) => (
                 <option key={x.id} value={x.id}>
                   {x.name}

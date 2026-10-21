@@ -295,6 +295,7 @@ export function parseIngredientText(text: string): { quantity: number; unit: str
     rest = word[2];
   }
   if (!(quantity > 0)) quantity = 1;
+  rest = rest.replace(/^of\s+/i, ""); // "pinch of salt"
   const [name, ...noteParts] = rest.replace(/\([^)]*\)/g, "").split(",");
   return { quantity, unit, name: name.trim(), note: noteParts.join(",").trim() || null };
 }

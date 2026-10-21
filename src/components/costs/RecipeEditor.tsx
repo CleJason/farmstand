@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { costRecipe, money, UNITS, type CostIngredient } from "@/lib/costs";
+import { costRecipe, guessBaseUnit, money, UNITS, type CostIngredient } from "@/lib/costs";
 import { buttonClass, ghostClass, inputClass, unitPrice, type RecipeRow, type TabProps } from "@/components/costs/shared";
 
 type Line = { ingredientId: string; quantity: string; unit: string; note: string };
 
+/** Its own kind of units first; the rest too, so a wrongly set-up ingredient can be fixed from here. */
 const unitsFor = (baseUnit: string | undefined) =>
-  baseUnit === "pc" ? UNITS.count : [...UNITS.weight, ...UNITS.volume];
+  baseUnit === "pc" ? [...UNITS.count, ...UNITS.volume, ...UNITS.weight] : [...UNITS.volume, ...UNITS.weight, ...UNITS.count];
 
 /** Add or change a recipe: its ingredients, how many it makes, bake time and price. Costs update as you type. */
 export default function RecipeEditor({
@@ -53,11 +54,30 @@ export default function RecipeEditor({
 
   const setLine = (i: number, patch: Partial<Line>) => setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
 
+  /** A unit that doesn't fit how the ingredient is measured (tsp of something counted): offer to fix the ingredient. */
+  const pickUnit = async (i: number, unit: string) => {
+    setLine(i, { unit });
+    const ing = byId.get(lines[i].ingredientId);
+    if (!ing) return;
+    const counted = UNITS.count.includes(unit);
+    if ((ing.baseUnit === "pc") === counted) return;
+    const next = counted ? "pc" : guessBaseUnit(ing.name, unit);
+    const how = next === "pc" ? "counted in pieces" : next === "ml" ? "measured as a liquid" : "weighed";
+    if (ing.purchases > 0) {
+      alert(`${ing.name} is bought by ${ing.baseUnit === "pc" ? "the piece" : ing.baseUnit}, so it can't be measured in ${unit} here. Use a matching unit, or a different ingredient.`);
+      return;
+    }
+    if (!confirm(`${ing.name} is set up as ${ing.baseUnit === "pc" ? "counted in pieces" : "weighed or poured"}. Change it to ${how} so ${unit} works?`)) return;
+    const { error } = await save("/api/costs/ingredients", "PUT", { id: ing.id, baseUnit: next });
+    if (error) alert(error);
+  };
+
   const pickIngredient = async (i: number, value: string) => {
     if (value !== "__new") {
       const ing = byId.get(value);
-      const units = unitsFor(ing?.baseUnit);
-      setLine(i, { ingredientId: value, unit: units.includes(lines[i].unit) ? lines[i].unit : ing?.baseUnit ?? "g" });
+      // Keep the unit if it fits how this ingredient is measured, else its own unit
+      const fits = (ing?.baseUnit === "pc") === UNITS.count.includes(lines[i].unit);
+      setLine(i, { ingredientId: value, unit: fits ? lines[i].unit : ing?.baseUnit ?? "g" });
       return;
     }
     const newName = prompt("New ingredient or packaging item:");
@@ -164,7 +184,7 @@ export default function RecipeEditor({
                     <input type="number" min={0} step="any" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} className={inputClass} />
                   </td>
                   <td className="py-1 pr-2">
-                    <select value={l.unit} onChange={(e) => setLine(i, { unit: e.target.value })} className={inputClass}>
+                    <select value={l.unit} onChange={(e) => pickUnit(i, e.target.value)} className={inputClass}>
                       {unitsFor(ing?.baseUnit).map((u) => (
                         <option key={u} value={u}>
                           {u}

@@ -7,10 +7,13 @@
 
 export type BaseUnit = "g" | "ml" | "pc";
 
-const WEIGHT: Record<string, number> = { g: 1, kg: 1000, oz: 28.35, lb: 453.59 };
+// A stick of butter is 4 oz
+const WEIGHT: Record<string, number> = { g: 1, kg: 1000, oz: 28.35, lb: 453.59, stick: 113.4 };
 const VOLUME: Record<string, number> = {
   ml: 1,
   l: 1000,
+  pinch: 0.31, // 1/16 tsp
+  dash: 0.62, // 1/8 tsp
   tsp: 4.93,
   tbsp: 14.79,
   "fl oz": 29.57,
@@ -51,7 +54,11 @@ export function normalizeUnit(input: string | null | undefined): string | null {
   if (u === "qt" || u.startsWith("quart")) return "qt";
   if (u === "gal" || u.startsWith("gallon")) return "gal";
   if (u === "dozen" || u === "doz") return "dozen";
-  if (["pc", "pcs", "piece", "pieces", "each", "ea", "count", "ct", "whole", "large", "egg", "eggs"].includes(u)) return "pc";
+  if (u.startsWith("pinch")) return "pinch";
+  if (u.startsWith("dash")) return "dash";
+  if (u.startsWith("stick")) return "stick";
+  const counted = ["pc", "pcs", "piece", "pieces", "each", "ea", "count", "ct", "whole", "large", "egg", "eggs", "clove", "cloves"];
+  if (counted.includes(u)) return "pc";
   return null;
 }
 

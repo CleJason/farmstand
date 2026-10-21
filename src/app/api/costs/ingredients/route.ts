@@ -52,8 +52,9 @@ export async function PUT(req: Request) {
     if (data.mergeInto) {
       const target = await prisma.ingredient.findUnique({ where: { id: String(data.mergeInto) } });
       if (!target || target.id === id) throw new CostInputError("Pick a different ingredient to merge into");
-      if (target.baseUnit !== current.baseUnit) {
-        throw new CostInputError(`They're tracked differently (${current.baseUnit} vs ${target.baseUnit}), so they can't be merged`);
+      // Purchases are stored in the base unit, so those only merge into the same kind; recipe lines keep their own units
+      if (target.baseUnit !== current.baseUnit && current._count.purchases) {
+        throw new CostInputError(`They're tracked differently (${current.baseUnit} vs ${target.baseUnit}), so their purchases can't be merged`);
       }
       await prisma.$transaction([
         prisma.ingredientPurchase.updateMany({ where: { ingredientId: id }, data: { ingredientId: target.id } }),
@@ -74,6 +75,10 @@ export async function PUT(req: Request) {
         throw new CostInputError("It already has purchases in that unit. Add a new ingredient instead, or delete its purchases first.");
       }
       update.baseUnit = baseUnit(data.baseUnit);
+      // Now weighed or poured: cups and spoons need grams per cup
+      if (update.baseUnit !== "pc" && current.gramsPerCup == null && data.gramsPerCup === undefined) {
+        update.gramsPerCup = suggestGramsPerCup(current.name);
+      }
     }
     if (data.gramsPerCup !== undefined) update.gramsPerCup = positive(data.gramsPerCup, "Grams per cup", true);
     if (data.manualCost !== undefined) {
