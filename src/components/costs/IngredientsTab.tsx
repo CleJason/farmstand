@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { suggestGramsPerCup } from "@/lib/costs";
-import { amount, buttonClass, inputClass, unitPrice, type IngredientRow, type TabProps } from "@/components/costs/shared";
+import { suggestGramsPerCup, UNITS } from "@/lib/costs";
+import { amount, buttonClass, inputClass, shortDate, unitPrice, type IngredientRow, type TabProps } from "@/components/costs/shared";
 
 /** Every ingredient and packaging item: what it costs per unit, grams per cup, and merge/rename/delete. */
 export default function IngredientsTab({ data, save }: TabProps) {
@@ -42,7 +42,8 @@ export default function IngredientsTab({ data, save }: TabProps) {
         </button>
         {error && <p className="basis-full text-sm text-red-600">{error}</p>}
         <p className="basis-full text-[11px] text-stone-500">
-          Prices come from the Purchases tab. <b>Grams per cup</b> lets recipes measured in cups and spoons cost right (a cup
+          Prices come from the Purchases tab. <b>On hand</b> starts once you count an item: after that, purchases add to
+          it and bakes logged on the Baking tab take from it. Re-count now and then to correct it. <b>Grams per cup</b> lets recipes measured in cups and spoons cost right (a cup
           of flour is about 120 g, not 237). Common ones are filled in for you; adjust to your own scoop.
           {needCup > 0 && <span className="text-amber-700"> {needCup} used in recipes still need it.</span>}
         </p>
@@ -63,6 +64,7 @@ export default function IngredientsTab({ data, save }: TabProps) {
               <th className="px-4 py-2.5 font-medium">Item</th>
               <th className="px-4 py-2.5 font-medium">Average</th>
               <th className="px-4 py-2.5 font-medium">Latest</th>
+              <th className="px-4 py-2.5 font-medium">On hand</th>
               <th className="px-4 py-2.5 font-medium">Bought</th>
               <th className="px-4 py-2.5 font-medium">Grams per cup</th>
               <th className="px-4 py-2.5 font-medium">Used in</th>
@@ -78,6 +80,56 @@ export default function IngredientsTab({ data, save }: TabProps) {
         {!list.length && <p className="p-6 text-center text-sm text-stone-400">No ingredients{q ? " match" : " yet"}.</p>}
       </div>
     </div>
+  );
+}
+
+/**
+ * What's on the shelf: the last count, plus purchases since, minus what logged
+ * bakes used. "Count" records what's really there (in any unit), e.g. 3 lb.
+ */
+function OnHand({ i, save }: { i: IngredientRow; save: TabProps["save"] }) {
+  const [counting, setCounting] = useState(false);
+  const units = i.baseUnit === "pc" ? UNITS.count : i.baseUnit === "ml" ? [...UNITS.volume, ...UNITS.weight] : [...UNITS.weight, ...UNITS.volume];
+  const [qty, setQty] = useState("");
+  const [unit, setUnit] = useState(i.baseUnit === "g" ? "lb" : i.baseUnit === "ml" ? "fl oz" : "pc");
+  const saveCount = async () => {
+    const { error } = await save("/api/costs/counts", "POST", { counts: [{ ingredientId: i.id, quantity: qty, unit }] });
+    if (error) return alert(error);
+    setCounting(false);
+    setQty("");
+  };
+  if (counting) {
+    return (
+      <span className="flex items-center gap-1">
+        <input type="number" min={0} step="any" value={qty} onChange={(e) => setQty(e.target.value)} autoFocus className={`${inputClass} w-20`} />
+        <select value={unit} onChange={(e) => setUnit(e.target.value)} className={`${inputClass} w-auto`}>
+          {units.map((u) => (
+            <option key={u}>{u}</option>
+          ))}
+        </select>
+        <button onClick={saveCount} disabled={qty === ""} className="font-semibold text-amber-700 hover:underline">
+          Save
+        </button>
+        <button onClick={() => setCounting(false)} className="text-stone-400">
+          ✕
+        </button>
+      </span>
+    );
+  }
+  const low = i.onHand !== null && i.onHand <= 0;
+  return (
+    <span>
+      {i.onHand === null ? (
+        <span className="text-stone-400">not counted</span>
+      ) : (
+        <span className={low ? "text-red-600 font-semibold" : "text-stone-700"} title={`Counted ${shortDate(i.countedAt!)}`}>
+          {low ? "out" : amount(i.onHand, i.baseUnit)}
+        </span>
+      )}
+      <button onClick={() => setCounting(true)} className="block text-amber-700 hover:underline">
+        Count
+      </button>
+    </span>
   );
 }
 
@@ -122,6 +174,9 @@ function Row({ i, all, save }: { i: IngredientRow; all: IngredientRow[]; save: T
       </td>
       <td className="px-4 py-3 whitespace-nowrap">{unitPrice(i.average, i.baseUnit)}</td>
       <td className="px-4 py-3 whitespace-nowrap text-stone-600">{unitPrice(i.latest, i.baseUnit)}</td>
+      <td className="px-4 py-3 text-xs">
+        <OnHand i={i} save={save} />
+      </td>
       <td className="px-4 py-3 text-stone-600 text-xs">
         {i.purchases ? (
           <>

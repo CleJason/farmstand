@@ -11,7 +11,8 @@ const bad = (e: unknown) =>
 /**
  * Save a recipe (new, or `id` to change one): `name`, `yieldCount`,
  * `yieldLabel`, `overheadHours`, `sellPrice` ($) + `sellPer` (batch | item),
- * `notes`, and `lines` [{ ingredientId, quantity, unit, note }] in order.
+ * `notes`, `lines` [{ ingredientId, quantity, unit, note }] in order, and
+ * `links` [{ name, itemsPerUnit }]: the products / box options it's sold as.
  */
 export async function POST(req: Request) {
   if (!(await isAdmin())) return unauthorized();
@@ -47,6 +48,21 @@ export async function POST(req: Request) {
       notes: String(data.notes ?? "").trim().slice(0, 4000) || null,
     };
 
+    // What it's sold as (product names / box options); a name moves here from any other recipe
+    const rawLinks: unknown[] = Array.isArray(data.links) ? data.links.slice(0, 50) : [];
+    const links = [
+      ...new Map(
+        rawLinks
+          .map((raw) => {
+            const l = (raw ?? {}) as Record<string, unknown>;
+            const name = String(l.name ?? "").trim().toLowerCase().replace(/\s+/g, " ").slice(0, 120);
+            return [name, { name, itemsPerUnit: positive(l.itemsPerUnit ?? 1, `How many "${name}" uses`)! }] as const;
+          })
+          .filter(([name]) => name)
+      ).values(),
+    ];
+
+    let recipeId = id;
     if (id) {
       const exists = await prisma.recipe.findUnique({ where: { id } });
       if (!exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -55,7 +71,13 @@ export async function POST(req: Request) {
         prisma.recipe.update({ where: { id }, data: { ...fields, lines: { create: lines } } }),
       ]);
     } else {
-      await prisma.recipe.create({ data: { ...fields, lines: { create: lines } } });
+      recipeId = (await prisma.recipe.create({ data: { ...fields, lines: { create: lines } } })).id;
+    }
+    if (data.links !== undefined) {
+      await prisma.$transaction([
+        prisma.recipeLink.deleteMany({ where: { OR: [{ recipeId: recipeId! }, { name: { in: links.map((l) => l.name) } }] } }),
+        prisma.recipeLink.createMany({ data: links.map((l) => ({ ...l, recipeId: recipeId! })) }),
+      ]);
     }
     return NextResponse.json(await loadCosts());
   } catch (e) {

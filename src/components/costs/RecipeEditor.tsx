@@ -26,6 +26,13 @@ export default function RecipeEditor({
   const [lines, setLines] = useState<Line[]>(
     recipe?.lines.map((l) => ({ ingredientId: l.ingredientId, quantity: String(l.quantity), unit: l.unit, note: l.note ?? "" })) ?? []
   );
+  const [links, setLinks] = useState<{ name: string; itemsPerUnit: string }[]>(
+    recipe?.links.map((l) => ({
+      // Saved lowercase; show it as the shop spells it
+      name: data.soldNames.find((n) => n.toLowerCase().replace(/\s+/g, " ") === l.name) ?? l.name,
+      itemsPerUnit: String(l.itemsPerUnit),
+    })) ?? []
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -78,6 +85,7 @@ export default function RecipeEditor({
       sellPer,
       notes,
       lines: lines.filter((l) => l.ingredientId),
+      links: links.filter((l) => l.name.trim()),
     });
     setBusy(false);
     if (err) return setError(err);
@@ -217,6 +225,48 @@ export default function RecipeEditor({
           <span className="block text-[11px] text-stone-500">Profit / margin</span>
           {cost.profit === null ? "—" : `${money(cost.profit)} · ${cost.margin?.toFixed(0)}%`}
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <div>
+          <span className="block text-xs font-medium text-stone-600">Sold in the shop as</span>
+          <span className="block text-[11px] text-stone-500">
+            Link the products (or mix &amp; match box choices) made from this recipe, so a drop&apos;s orders turn into how
+            many batches to bake. E.g. a 4-pack uses 4 {yieldLabel || "items"}.
+          </span>
+        </div>
+        {links.map((l, i) => (
+          <div key={i} className="flex flex-wrap items-center gap-2 text-sm">
+            <input
+              list="sold-names"
+              value={l.name}
+              onChange={(e) => setLinks(links.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+              placeholder="Product or box choice"
+              className={`${inputClass} w-64`}
+            />
+            each uses
+            <input
+              type="number"
+              min={0}
+              step="any"
+              value={l.itemsPerUnit}
+              onChange={(e) => setLinks(links.map((x, j) => (j === i ? { ...x, itemsPerUnit: e.target.value } : x)))}
+              className={`${inputClass} w-20`}
+            />
+            {yieldLabel || "items"}
+            <button onClick={() => setLinks(links.filter((_, j) => j !== i))} className="text-stone-400 hover:text-red-600" aria-label="Remove link">
+              ✕
+            </button>
+          </div>
+        ))}
+        <datalist id="sold-names">
+          {data.soldNames.map((n) => (
+            <option key={n} value={n} />
+          ))}
+        </datalist>
+        <button onClick={() => setLinks([...links, { name: "", itemsPerUnit: "1" }])} className="text-xs font-semibold text-amber-700 hover:underline">
+          + Link a product
+        </button>
       </div>
 
       <label className="block">

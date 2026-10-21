@@ -390,6 +390,19 @@ model Ingredient {
 
   purchases   IngredientPurchase[]
   recipeLines RecipeLine[]
+  counts      StockCount[]
+}
+
+// "There's actually this much on the shelf": on hand = this + purchases since − baking since
+model StockCount {
+  id           String     @id @default(cuid())
+  ingredientId String
+  date         DateTime   @default(now())
+  amount       Float      // in the ingredient's base unit
+  createdAt    DateTime   @default(now())
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@index([ingredientId, date])
 }
 
 // One line on a receipt: 5440 g of bread flour from Costco for $9.79
@@ -435,6 +448,51 @@ model Recipe {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   lines         RecipeLine[]
+  links         RecipeLink[]
+  bakes         Bake[]
+  itemsOut      ItemOut[]
+}
+
+// What a recipe is sold as: a product's name, or a box option ("Chocolate Chip"
+// in a 6-cookie box). Each one sold uses `itemsPerUnit` of what the recipe makes.
+model RecipeLink {
+  id           String @id @default(cuid())
+  name         String @unique // stored lowercase
+  recipeId     String
+  itemsPerUnit Float  @default(1)
+  recipe       Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+}
+
+// Batches baked (for a drop, the porch, trying a new recipe…): uses up ingredients
+model Bake {
+  id        String   @id @default(cuid())
+  recipeId  String
+  date      DateTime @default(now())
+  batches   Float
+  reason    String   @default("other") // drop | porch | test | other
+  dropId    String?
+  note      String?
+  usage     Json     @default("[]") // [{ ingredientId, amount }] in base units, as the recipe was then
+  cost      Int      @default(0)    // cents, ingredients + overhead, as it was then
+  createdAt DateTime @default(now())
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([date])
+}
+
+// Baked items that didn't sell: given away (to win next week's order), tasted, tossed
+model ItemOut {
+  id        String   @id @default(cuid())
+  recipeId  String
+  date      DateTime @default(now())
+  count     Float
+  reason    String   @default("giveaway") // giveaway | tasting | tossed
+  note      String?
+  cost      Int      @default(0) // cents, per-item cost × count, as it was then
+  createdAt DateTime @default(now())
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([date])
 }
 
 model RecipeLine {

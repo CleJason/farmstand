@@ -7,9 +7,11 @@ import IngredientsTab from "@/components/costs/IngredientsTab";
 import PurchasesTab from "@/components/costs/PurchasesTab";
 import ImportExportTab from "@/components/costs/ImportExportTab";
 import ReceiptsTab from "@/components/costs/ReceiptsTab";
+import BakingTab from "@/components/costs/BakingTab";
 
 const TABS = [
   { key: "recipes", label: "Recipes" },
+  { key: "baking", label: "Baking" },
   { key: "ingredients", label: "Ingredients" },
   { key: "purchases", label: "Purchases" },
   { key: "receipts", label: "Receipts" },
@@ -88,6 +90,7 @@ export default function AdminCostsPage() {
         </div>
       )}
       {data && tab === "recipes" && <RecipesTab data={data} save={save} />}
+      {data && tab === "baking" && <BakingTab data={data} save={save} />}
       {data && tab === "ingredients" && <IngredientsTab data={data} save={save} />}
       {data && tab === "purchases" && <PurchasesTab data={data} save={save} />}
       {data && tab === "receipts" && <ReceiptsTab data={data} save={save} />}

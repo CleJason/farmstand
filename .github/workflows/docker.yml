@@ -448,7 +448,7 @@ jobs:
 
       - name: Costs admin is admin-only
         run: |
-          for path in /api/costs /api/costs/export; do
+          for path in /api/costs /api/costs/export /api/costs/plan; do
             c=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000$path); echo "$path signed out -> $c"; [ "$c" = "401" ] || exit 1
           done
           c=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"recipes":[]}' http://localhost:3000/api/costs/import); echo "import signed out -> $c"; [ "$c" = "401" ] || exit 1
