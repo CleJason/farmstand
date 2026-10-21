@@ -44,6 +44,8 @@ export async function POST(req: Request) {
     skippedPurchases: [] as string[],
     receipts: 0,
     duplicateReceipts: 0,
+    pastSales: 0,
+    duplicatePastSales: 0,
     recipes: 0,
     replacedRecipes: 0,
     skippedRecipes: 0,
@@ -145,6 +147,36 @@ export async function POST(req: Request) {
     }
     if (fresh.length) await prisma.receipt.createMany({ data: fresh });
     counts.receipts = fresh.length;
+  }
+
+  // Sales from before this shop (Hotplate's orders export); the same order number again is skipped
+  const inSales: Record<string, unknown>[] = Array.isArray(data.pastSales) ? data.pastSales.slice(0, 20000) : [];
+  if (inSales.length) {
+    const c = (v: unknown) => (Number.isFinite(Number(v)) ? Math.round(Number(v) * 100) : 0);
+    const rows = inSales
+      .map((s) => ({
+        source: clean(s.source).slice(0, 30) || "hotplate",
+        orderNumber: clean(s.orderNumber).slice(0, 40),
+        placedAt: new Date(String(s.placedAt)),
+        fulfilledAt: s.fulfilledAt ? new Date(String(s.fulfilledAt)) : null,
+        customer: clean(s.customer) || null,
+        subtotal: c(s.subtotal),
+        discount: c(s.discount),
+        tax: c(s.tax),
+        tip: c(s.tip),
+        fees: c(s.fees),
+        refunded: c(s.refunded),
+        revenue: c(s.revenue),
+        items: (Array.isArray(s.items) ? s.items : [])
+          .slice(0, 100)
+          .map((i: { name?: unknown; quantity?: unknown }) => ({ name: clean(i?.name), quantity: num(i?.quantity) }))
+          .filter((i: { name: string; quantity: number }) => i.name && i.quantity > 0),
+      }))
+      .filter((s) => s.orderNumber && !Number.isNaN(s.placedAt.getTime()))
+      .map((s) => ({ ...s, fulfilledAt: s.fulfilledAt && !Number.isNaN(s.fulfilledAt.getTime()) ? s.fulfilledAt : null }));
+    const { count } = await prisma.pastSale.createMany({ data: rows, skipDuplicates: true });
+    counts.pastSales = count;
+    counts.duplicatePastSales = rows.length - count;
   }
 
   if (data.overheadRate !== undefined && Number.isFinite(Number(data.overheadRate)) && Number(data.overheadRate) >= 0) {

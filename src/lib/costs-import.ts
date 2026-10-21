@@ -16,11 +16,28 @@ export type ImportRecipe = {
   lines: ImportLine[];
 };
 export type ImportReceipt = { date: string; vendor: string; amount: number; description: string | null; category: string | null };
+/** A sale from another platform's order export (dollars) */
+export type ImportPastSale = {
+  source: string;
+  orderNumber: string;
+  placedAt: string;
+  fulfilledAt: string | null;
+  customer: string | null;
+  subtotal: number;
+  discount: number;
+  tax: number;
+  tip: number;
+  fees: number;
+  refunded: number;
+  revenue: number;
+  items: { name: string; quantity: number }[];
+};
 export type ImportPlan = {
   ingredients: ImportIngredient[];
   purchases: ImportPurchase[];
   recipes: ImportRecipe[];
   receipts?: ImportReceipt[];
+  pastSales?: ImportPastSale[];
   overheadRate?: number;
   notes: string[];
 };
@@ -63,13 +80,58 @@ const col = (cols: string[], ...tests: RegExp[]) => {
  * (÷ N)", and a Bundle / Retail Price row).
  */
 export function planFromWorkbook(sheets: Sheet[]): ImportPlan {
-  const plan: ImportPlan = { ingredients: [], purchases: [], recipes: [], receipts: [], notes: [] };
+  const plan: ImportPlan = { ingredients: [], purchases: [], recipes: [], receipts: [], pastSales: [], notes: [] };
   const bought = new Set<string>();
+
+  // A Hotplate orders export: one row per order, then a column per menu item with how many
+  for (const sheet of sheets) {
+    const h = findHeader(sheet, [/^order number$/, /^date placed$/, /^total revenue$/]);
+    if (!h) continue;
+    const header = sheet.rows[h.row].map((x) => str(x));
+    const c = (name: string) => h.cols.indexOf(name);
+    const money = (row: (string | number | null)[], name: string) => {
+      const n = number(row[c(name)]);
+      return Number.isFinite(n) ? n : 0;
+    };
+    // Item columns come after the address columns
+    const firstItem = Math.max(c("fulfillment zip"), c("fulfillment state"), c("chef hotplate fee")) + 1;
+    let undated = 0;
+    for (const row of sheet.rows.slice(h.row + 1)) {
+      const orderNumber = str(row[c("order number")]);
+      if (!orderNumber) continue;
+      const placedAt = sheetDate(row[c("date placed")] ?? null) ?? sheetDate(row[c("date fulfilled")] ?? null);
+      if (!placedAt) {
+        undated++;
+        continue;
+      }
+      const items: { name: string; quantity: number }[] = [];
+      for (let i = firstItem; i < header.length; i++) {
+        const q = number(row[i]);
+        if (header[i] && q > 0) items.push({ name: header[i].replace(/\s*\p{Extended_Pictographic}/gu, "").trim(), quantity: q });
+      }
+      plan.pastSales!.push({
+        source: "hotplate",
+        orderNumber,
+        placedAt,
+        fulfilledAt: sheetDate(row[c("date fulfilled")] ?? null),
+        customer: str(row[c("customer name")]) || null,
+        subtotal: money(row, "subtotal"),
+        discount: money(row, "discount applied to subtotal"),
+        tax: money(row, "tax"),
+        tip: money(row, "tip"),
+        fees: money(row, "chef payment processing fee") + money(row, "chef hotplate fee"),
+        refunded: money(row, "refund total"),
+        revenue: money(row, "total revenue"),
+        items,
+      });
+    }
+    if (undated) plan.notes.push(`${sheet.name}: ${undated} order${undated === 1 ? " has" : "s have"} no date and ${undated === 1 ? "was" : "were"} skipped.`);
+  }
 
   // A receipt / expense log: Date, Vendor (or Store), Amount (or Total), What was Purchased
   for (const sheet of sheets) {
     const h = findHeader(sheet, [/^date/, /vendor|store|merchant/, /amount|total/]);
-    if (!h || h.cols.some((c) => /quantity|qty/.test(c))) continue;
+    if (!h || h.cols.some((c) => /quantity|qty|order number/.test(c))) continue;
     const c = {
       date: col(h.cols, /^date/),
       vendor: col(h.cols, /vendor|store|merchant/),

@@ -420,6 +420,29 @@ model IngredientPurchase {
   @@index([date])
 }
 
+// A sale from before this shop (e.g. a Hotplate orders export), kept for the
+// books only: not an Order, so it never touches stock, customers or emails
+model PastSale {
+  id          String    @id @default(cuid())
+  source      String    // "hotplate"
+  orderNumber String
+  placedAt    DateTime
+  fulfilledAt DateTime?
+  customer    String?
+  subtotal    Int       // cents
+  discount    Int       @default(0)
+  tax         Int       @default(0)
+  tip         Int       @default(0)
+  fees        Int       @default(0) // what the platform/card took from the shop
+  refunded    Int       @default(0)
+  revenue     Int       // cents the shop actually got
+  items       Json      @default("[]") // [{ name, quantity }]
+  createdAt   DateTime  @default(now())
+
+  @@unique([source, orderNumber])
+  @@index([placedAt])
+}
+
 // A whole receipt (business expense), like the "2026 Expenses" sheet: the
 // ingredient lines on it can also be logged as IngredientPurchases
 model Receipt {

@@ -92,7 +92,8 @@ export function sheetDate(v: string | number | null): string | null {
   if (typeof v === "number" && v > 20000 && v < 80000) return new Date(Math.floor(v - 25569) * 86400000 + 43200000).toISOString();
   if (typeof v === "string" && v.trim()) {
     const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+    // "9/2/2026" → that day at noon UTC, like the Excel dates above
+    return Number.isNaN(d.getTime()) ? null : new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12)).toISOString();
   }
   return null;
 }

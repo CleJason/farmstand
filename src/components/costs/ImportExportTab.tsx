@@ -14,6 +14,8 @@ type Counts = {
   skippedPurchases: string[];
   receipts?: number;
   duplicateReceipts?: number;
+  pastSales?: number;
+  duplicatePastSales?: number;
   recipes: number;
   replacedRecipes: number;
   skippedRecipes: number;
@@ -24,6 +26,8 @@ const summary = (c: Counts) =>
   [
     c.purchases && `${c.purchases} purchases`,
     c.duplicatePurchases && `${c.duplicatePurchases} purchases already in the log (skipped)`,
+    c.pastSales && `${c.pastSales} past sales`,
+    c.duplicatePastSales && `${c.duplicatePastSales} past sales already here (skipped)`,
     c.receipts && `${c.receipts} receipts`,
     c.duplicateReceipts && `${c.duplicateReceipts} receipts already here (skipped)`,
     c.ingredients && `${c.ingredients} new ingredients`,
@@ -91,8 +95,8 @@ function SheetImport({ save }: TabProps) {
         else sheets.push({ name: f.name.replace(/\.csv$/i, "").replace(/^.* - /, ""), rows: parseCsv(await f.text()) });
       }
       const p = planFromWorkbook(sheets);
-      if (!p.purchases.length && !p.recipes.length && !p.ingredients.length && !p.receipts?.length) {
-        setMsg("Couldn't find a purchase log, receipts or recipe tabs in that file.");
+      if (!p.purchases.length && !p.recipes.length && !p.ingredients.length && !p.receipts?.length && !p.pastSales?.length) {
+        setMsg("Couldn't find a purchase log, receipts, orders or recipe tabs in that file.");
         return;
       }
       setPlan(p);
@@ -118,7 +122,8 @@ function SheetImport({ save }: TabProps) {
         <h2 className="text-sm font-semibold text-stone-900">Import your cost spreadsheet</h2>
         <p className="text-xs text-stone-500 mt-0.5">
           The .xlsx (in Google Sheets: File → Download → Microsoft Excel), or CSVs of single tabs. It reads the Purchasing
-          Log, the Master Inventory Pool, each recipe tab, and a receipt tracker (Date, Vendor, Amount, What was Purchased).
+          Log, the Master Inventory Pool, each recipe tab, a receipt tracker (Date, Vendor, Amount, What was Purchased),
+          and Hotplate&apos;s orders export (kept as past sales for the accountant export; they don&apos;t become orders here).
           Only the numbers you entered are used: all the cost math is redone here. Importing the same file again won&apos;t
           double up purchases or receipts.
         </p>
@@ -134,6 +139,10 @@ function SheetImport({ save }: TabProps) {
             {plan.overheadRate !== undefined && ` Overhead rate: $${plan.overheadRate}/hr.`}
             {!!plan.receipts?.length &&
               ` Also ${plan.receipts.length} receipts totaling $${plan.receipts.reduce((n, r) => n + r.amount, 0).toFixed(2)}.`}
+            {!!plan.pastSales?.length &&
+              ` Also ${plan.pastSales.length} past orders (${plan.pastSales[0].source}) with $${plan.pastSales
+                .reduce((n, s) => n + s.revenue, 0)
+                .toFixed(2)} revenue, kept for the books only.`}
           </p>
           {plan.notes.map((n) => (
             <p key={n} className="text-xs text-amber-700">
@@ -301,12 +310,46 @@ function MealieImport({ data, save }: TabProps) {
 }
 
 function Export() {
+  const year = new Date().getFullYear();
+  const [from, setFrom] = useState(`${year}-01-01`);
+  const [to, setTo] = useState(`${year}-12-31`);
   const link = (what: string, label: string) => (
     <a href={`/api/costs/export?what=${what}`} className={ghostClass}>
       {label}
     </a>
   );
+  const dated = (what: string, label: string) => (
+    <a href={`/api/costs/export?what=${what}&from=${from}&to=${to}`} className={ghostClass}>
+      {label}
+    </a>
+  );
   return (
+    <>
+    <section className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+      <div>
+        <h2 className="text-sm font-semibold text-stone-900">For your accountant</h2>
+        <p className="text-xs text-stone-500 mt-0.5">
+          Sales (this shop&apos;s paid orders, plus past sales imported from Hotplate&apos;s orders export), expenses from
+          Receipts, giveaways, and a month-by-month summary. Card fees for shop orders are in your Stripe dashboard.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-end gap-2 text-xs text-stone-600">
+        <label>
+          From
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={`${inputClass} w-40`} />
+        </label>
+        <label>
+          To
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={`${inputClass} w-40`} />
+        </label>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {dated("summary", "Monthly summary")}
+        {dated("sales", "Sales")}
+        {dated("expenses", "Expenses")}
+        {dated("giveaways", "Giveaways")}
+      </div>
+    </section>
     <section className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
       <div>
         <h2 className="text-sm font-semibold text-stone-900">Export the cost analysis</h2>
@@ -321,5 +364,6 @@ function Export() {
         {link("receipts", "Receipts")}
       </div>
     </section>
+    </>
   );
 }

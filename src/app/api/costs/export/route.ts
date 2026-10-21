@@ -1,5 +1,6 @@
 import { isAdmin } from "@/lib/admin-input";
 import { loadCosts } from "@/lib/costs-data";
+import { accounting } from "@/lib/accounting";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,61 @@ const csv = (rows: unknown[][]) => rows.map((r) => r.map(esc).join(",")).join("\
  */
 export async function GET(req: Request) {
   if (!(await isAdmin())) return new Response("Unauthorized", { status: 401 });
-  const what = new URL(req.url).searchParams.get("what") ?? "recipes";
+  const params = new URL(req.url).searchParams;
+  const what = params.get("what") ?? "recipes";
+  const date = new Date().toISOString().slice(0, 10);
+  const file = (rows: unknown[][], name: string) =>
+    new Response(csv(rows), {
+      headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${name}"` },
+    });
+
+  // For the accountant: ?what=sales|expenses|giveaways|summary&from=YYYY-MM-DD&to=YYYY-MM-DD (to included)
+  if (["sales", "expenses", "giveaways", "summary"].includes(what)) {
+    const year = new Date().getFullYear();
+    const from = new Date(`${params.get("from") || `${year}-01-01`}T00:00:00Z`);
+    const toDay = new Date(`${params.get("to") || `${year}-12-31`}T00:00:00Z`);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(toDay.getTime())) return new Response("Bad dates", { status: 400 });
+    const to = new Date(toDay.getTime() + 86400000);
+    const a = await accounting(from, to);
+    const range = `${from.toISOString().slice(0, 10)}-to-${toDay.toISOString().slice(0, 10)}`;
+    if (what === "sales") {
+      return file(
+        [
+          ["Date", "Source", "Order #", "Type", "Customer", "Items", "Subtotal ($)", "Discount ($)", "Paid with Gift Card ($)", "Tip ($)", "Tax ($)", "Fees ($)", "Refunded ($)", "Revenue ($)", "Est. Cost to Make ($)"],
+          ...a.sales.map((s) => [s.date, s.source, s.orderNumber, s.type, s.customer, s.items, s.subtotal, s.discount, s.giftCardUsed, s.tip, s.tax, s.fees ?? "see Stripe", s.refunded, s.revenue, s.estCost]),
+        ],
+        `sales-${range}.csv`
+      );
+    }
+    if (what === "expenses") {
+      return file(
+        [
+          ["Date", "Vendor", "Category", "What was Purchased", "Amount ($)", "Receipt Photo"],
+          ...a.expenses.map((r) => [r.date.slice(0, 10), r.vendor, r.category ?? "Uncategorized", r.description, r.amount / 100, r.imageUrl]),
+        ],
+        `expenses-${range}.csv`
+      );
+    }
+    if (what === "giveaways") {
+      return file(
+        [
+          ["Date", "What", "How Many", "Why", "Note", "Cost ($)"],
+          ...a.giveaways.map((g) => [g.date.slice(0, 10), g.recipeName, g.count, g.reason, g.note, g.cost / 100]),
+        ],
+        `giveaways-${range}.csv`
+      );
+    }
+    const categories = [...new Set(a.months.flatMap(([, m]) => [...m.expenses.keys()]))].sort();
+    const rows: unknown[][] = [
+      ["Month", "Sales Revenue ($)", "Tips ($)", "Platform/Card Fees ($)", "Est. Cost to Make ($)", ...categories.map((c) => `Expenses: ${c} ($)`), "Total Expenses ($)", "Giveaways at Cost ($)", "Revenue − Expenses ($)"],
+    ];
+    for (const [month, m] of a.months) {
+      const spent = [...m.expenses.values()].reduce((n, v) => n + v, 0);
+      rows.push([month, m.revenue, m.tips, m.fees, m.estCost, ...categories.map((c) => m.expenses.get(c) ?? 0), spent, m.giveaways, m.revenue - spent]);
+    }
+    return file(rows, `summary-${range}.csv`);
+  }
+
   const { recipes, ingredients, settings, receipts } = await loadCosts();
   const names = new Map(ingredients.map((i) => [i.id, i]));
   let rows: unknown[][];
@@ -54,11 +109,5 @@ export async function GET(req: Request) {
       ]),
     ];
   }
-  const date = new Date().toISOString().slice(0, 10);
-  return new Response(csv(rows), {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="costs-${what}-${date}.csv"`,
-    },
-  });
+  return file(rows, `costs-${what}-${date}.csv`);
 }
