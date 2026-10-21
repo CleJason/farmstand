@@ -7,6 +7,7 @@ import { optedOutSet } from "@/lib/sms-opt-out";
 import { getSiteSettings, isOn } from "@/lib/site";
 import { countsStock } from "@/lib/stock";
 import { channelsFor } from "@/lib/subscribers";
+import { isTextingTime } from "@/lib/text-hours";
 
 /** Admin → Drop Alerts: the "closing soon" reminder is on/off, and how many hours before close. */
 export async function reminderSettings() {
@@ -127,7 +128,7 @@ async function sendReminder(dropId: string): Promise<{ sent: boolean; texts: num
 /** Background check (every minute): remind for drops closing within the set number of hours. */
 export async function remindDueDrops(): Promise<void> {
   const { enabled, hours } = await reminderSettings();
-  if (!enabled) return;
+  if (!enabled || !(await isTextingTime())) return; // waits for texting hours
   const now = new Date();
   const due = await prisma.drop.findMany({
     where: {

@@ -6,6 +6,7 @@ import { phoneKey } from "@/lib/phone";
 import { optedOutSet } from "@/lib/sms-opt-out";
 import { getSiteSettings, isOn } from "@/lib/site";
 import { channelsFor } from "@/lib/subscribers";
+import { isTextingTime } from "@/lib/text-hours";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -26,6 +27,8 @@ export function cleanPhone(input: unknown): string | null {
  * click) never sends the alert twice. n8n does the actual emailing and texting.
  */
 export async function announceDrop(dropId: string): Promise<void> {
+  // Outside texting hours: the background check announces it once they start
+  if (!(await isTextingTime())) return;
   const now = new Date();
   const { count } = await prisma.drop.updateMany({
     where: { id: dropId, status: "OPEN", announcedAt: null, orderOpenAt: { lte: now }, orderCloseAt: { gt: now } },

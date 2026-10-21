@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { remindDrop } from "@/lib/drop-reminders";
+import { clock, isTextingTime, textHours } from "@/lib/text-hours";
 
 /** Admin → Drops → "Send reminder now": the closing-soon reminder, right away (once per drop). */
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -16,6 +17,14 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const now = new Date();
   if (drop.status !== "OPEN" || drop.orderOpenAt > now || drop.orderCloseAt <= now) {
     return NextResponse.json({ error: "Reminders can only go out while ordering is open" }, { status: 400 });
+  }
+
+  const hours = await textHours();
+  if (!(await isTextingTime(now, hours))) {
+    return NextResponse.json(
+      { error: `It's outside texting hours (${clock(hours.start)}–${clock(hours.end)}). Send it then, or let it go automatically.` },
+      { status: 400 }
+    );
   }
 
   const result = await remindDrop(id, { now: true });

@@ -533,6 +533,21 @@ model RecipeLine {
   @@index([ingredientId])
 }
 
+// A bulk message / Porch Pickup notice sent outside texting hours: it goes to
+// n8n when the hours start (background check, every minute)
+model ScheduledSend {
+  id        String    @id @default(cuid())
+  event     String    // the n8n event, e.g. "broadcast"
+  payload   Json
+  smsBody   String?   // the text, for Admin → Messages once sent
+  smsPhones String[]  @default([])
+  sendAt    DateTime
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([sentAt, sendAt])
+}
+
 // ─────────────────────────────────────────────
 // Notification Log
 // ─────────────────────────────────────────────

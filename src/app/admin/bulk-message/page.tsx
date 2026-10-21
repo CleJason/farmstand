@@ -78,7 +78,13 @@ export default function AdminBulkMessagePage() {
     const data = await post(true);
     if (!data) return;
     setPreview(null);
-    setDone(`Sent to ${data.people} ${data.people === 1 ? "person" : "people"} (${data.texts} texts, ${data.emails} emails).`);
+    const who = `${data.people} ${data.people === 1 ? "person" : "people"} (${data.texts} texts, ${data.emails} emails)`;
+    const at = (data as { scheduledFor?: string }).scheduledFor;
+    setDone(
+      at
+        ? `It's outside texting hours, so it's queued for ${who}: it goes out ${new Date(at).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}.`
+        : `Sent to ${who}.`
+    );
     setMessage("");
     setSubject("");
   };

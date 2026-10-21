@@ -123,9 +123,11 @@ export default function StandHoursEditor() {
     const data = await res.json().catch(() => ({}));
     setBusy(false);
     alert(
-      res.ok
-        ? `Sent: ${data.texts} ${data.texts === 1 ? "text" : "texts"} and ${data.emails} ${data.emails === 1 ? "email" : "emails"}.`
-        : data.error || "Couldn't send it"
+      !res.ok
+        ? data.error || "Couldn't send it"
+        : data.scheduledFor
+          ? `It's outside texting hours, so it's queued: ${data.texts} texts and ${data.emails} emails go out ${new Date(data.scheduledFor).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}.`
+          : `Sent: ${data.texts} ${data.texts === 1 ? "text" : "texts"} and ${data.emails} ${data.emails === 1 ? "email" : "emails"}.`
     );
   };
 

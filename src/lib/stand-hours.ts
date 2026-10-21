@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSetting } from "@/lib/settings";
-import { fireNotification } from "@/lib/notifications";
+import { sendMarketing } from "@/lib/marketing-send";
 import { formatPickup } from "@/lib/pickup";
 import { getSiteSettings, isOn, standHref } from "@/lib/site";
 import { recipients, sendCounts, type SendResult } from "@/lib/bulk-message";
@@ -51,23 +51,23 @@ export async function notifyStandList({
   const when = hours.map(formatHours);
   const smsMessage = `${shop ? `${shop}: ` : ""}${name} is open ${when.join("; ")}. ${url} Reply STOP to opt out.`;
 
-  const sent = await fireNotification("broadcast", {
-    smsMessage,
-    texts: to.texts.map((phone) => ({ phone })),
-    emails: to.emails,
-    emailSubject: `${shop ? `${shop}: ` : ""}${name} is open`,
-    emailHeading: `${name} is open!`,
-    emailLines: when,
-    buttonText: `Visit ${name}`,
-    buttonUrl: url,
-    // Texts that can't go out before the last open window ends are dropped
-    validUntil: hours[hours.length - 1].endsAt.toISOString(),
-  });
+  // Outside texting hours it waits until they start
+  const { sent, scheduledFor } = await sendMarketing(
+    "broadcast",
+    {
+      smsMessage,
+      texts: to.texts.map((phone) => ({ phone })),
+      emails: to.emails,
+      emailSubject: `${shop ? `${shop}: ` : ""}${name} is open`,
+      emailHeading: `${name} is open!`,
+      emailLines: when,
+      buttonText: `Visit ${name}`,
+      buttonUrl: url,
+      // Texts that can't go out before the last open window ends are dropped
+      validUntil: hours[hours.length - 1].endsAt.toISOString(),
+    },
+    { body: smsMessage, phones: to.texts }
+  );
   if (!sent) return { sent: false, ...counts, error: "Couldn't send it. Check that n8n is running and the workflow is published." };
-  if (to.texts.length) {
-    await prisma.smsMessage.createMany({
-      data: to.texts.map((phone) => ({ phone, direction: "OUT", body: smsMessage, read: true })),
-    });
-  }
-  return { sent: true, ...counts };
+  return { sent: true, ...counts, scheduledFor };
 }

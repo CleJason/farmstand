@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSetting } from "@/lib/settings";
-import { fireNotification } from "@/lib/notifications";
+import { sendMarketing } from "@/lib/marketing-send";
 import { phoneKey } from "@/lib/phone";
 import { optedOutSet } from "@/lib/sms-opt-out";
 import { getSiteSettings, isOn } from "@/lib/site";
@@ -126,6 +126,7 @@ export type SendResult = {
   emails: number;
   skipped: number;
   orders?: { name: string; subscribed: boolean }[];
+  scheduledFor?: string; // queued until texting hours start
   error?: string;
 };
 
@@ -180,22 +181,22 @@ export async function bulkMessage({
   const heading = subject?.trim().slice(0, 150) || (shop ? `News from ${shop}` : "News from us");
   const homeUrl = appUrl.replace(/\/+$/, "");
 
-  const sent = await fireNotification("broadcast", {
-    smsMessage,
-    texts: to.texts.map((phone) => ({ phone })),
-    emails: to.emails,
-    emailSubject: heading,
-    emailHeading: escapeHtml(heading),
-    // n8n puts these into the email as-is, one per line
-    emailLines: text.split(/\r?\n/).map(escapeHtml),
-    buttonText: homeUrl ? `Visit ${escapeHtml(site.SITE_NAME || "the shop")}` : "",
-    buttonUrl: homeUrl,
-  });
+  // Outside texting hours it waits until they start
+  const { sent, scheduledFor } = await sendMarketing(
+    "broadcast",
+    {
+      smsMessage,
+      texts: to.texts.map((phone) => ({ phone })),
+      emails: to.emails,
+      emailSubject: heading,
+      emailHeading: escapeHtml(heading),
+      // n8n puts these into the email as-is, one per line
+      emailLines: text.split(/\r?\n/).map(escapeHtml),
+      buttonText: homeUrl ? `Visit ${escapeHtml(site.SITE_NAME || "the shop")}` : "",
+      buttonUrl: homeUrl,
+    },
+    { body: smsMessage, phones: to.texts }
+  );
   if (!sent) return { sent: false, ...counts, error: "Couldn't send it. Check that n8n is running and the workflow is published." };
-  if (to.texts.length) {
-    await prisma.smsMessage.createMany({
-      data: to.texts.map((phone) => ({ phone, direction: "OUT", body: smsMessage, read: true })),
-    });
-  }
-  return { sent: true, ...counts };
+  return { sent: true, ...counts, scheduledFor };
 }

@@ -27,13 +27,31 @@ export default function AdminAlertsPage() {
   const [adding, setAdding] = useState(false);
   const [reminder, setReminder] = useState<{ enabled: boolean; hours: number } | null>(null);
   const [reminderMsg, setReminderMsg] = useState("");
+  const [textHours, setTextHours] = useState<{ enabled: boolean; start: string; end: string } | null>(null);
+  const [hoursMsg, setHoursMsg] = useState("");
 
   useEffect(() => {
     fetch("/api/settings/reminders")
       .then((r) => (r.ok ? r.json() : null))
       .then(setReminder)
       .catch(() => {});
+    fetch("/api/settings/text-hours")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setTextHours)
+      .catch(() => {});
   }, []);
+
+  const saveTextHours = async (next: { enabled: boolean; start: string; end: string }) => {
+    setTextHours(next);
+    setHoursMsg("");
+    const res = await fetch("/api/settings/text-hours", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    });
+    const data = await res.json().catch(() => ({}));
+    setHoursMsg(res.ok ? "Saved." : data.error || "Couldn't save");
+  };
 
   const saveReminder = async (next: { enabled: boolean; hours: number }) => {
     setReminder(next);
@@ -164,6 +182,42 @@ export default function AdminAlertsPage() {
             Once per drop, to people on this list who haven&apos;t ordered from that drop yet: a text if they gave a phone
             number, otherwise an email. You can also send it any time from the drop in Admin → Drops. Texts go out one by one
             at the pace set in the SMS Gate app, so leave enough time; any not sent by closing time are dropped.
+          </p>
+        </div>
+      )}
+
+      {textHours && (
+        <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-2">
+          <h2 className="text-sm font-semibold text-stone-900">🕘 Texting hours</h2>
+          <label className="flex flex-wrap items-center gap-2 text-sm text-stone-700">
+            <input
+              type="checkbox"
+              checked={textHours.enabled}
+              onChange={(e) => saveTextHours({ ...textHours, enabled: e.target.checked })}
+              className="h-4 w-4 accent-amber-600"
+            />
+            Only send drop alerts, reminders, bulk messages and Porch Pickup notices between
+            <input
+              type="time"
+              value={textHours.start}
+              onChange={(e) => setTextHours({ ...textHours, start: e.target.value })}
+              onBlur={() => saveTextHours(textHours)}
+              className="text-sm px-2 py-1 border border-stone-200 rounded-lg"
+            />
+            and
+            <input
+              type="time"
+              value={textHours.end}
+              onChange={(e) => setTextHours({ ...textHours, end: e.target.value })}
+              onBlur={() => saveTextHours(textHours)}
+              className="text-sm px-2 py-1 border border-stone-200 rounded-lg"
+            />
+            {hoursMsg && <span className="text-xs text-stone-400">{hoursMsg}</span>}
+          </label>
+          <p className="text-[11px] text-stone-500">
+            Outside these hours they wait and go out when the hours start (a drop that opens at 6 AM is announced at the
+            start time). Order confirmations and your replies in Messages always go right away. Turn off any business
+            hours in the SMS Gate app so it doesn&apos;t hold those.
           </p>
         </div>
       )}
