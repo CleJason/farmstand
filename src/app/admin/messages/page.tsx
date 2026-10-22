@@ -102,6 +102,38 @@ export default function AdminMessagesPage() {
     loadThreads();
   };
 
+  // Numbers kept out of Messages (e.g. your own phone)
+  const [ignored, setIgnoredList] = useState<{ phone: string; name: string | null }[]>([]);
+  const loadIgnored = useCallback(
+    () =>
+      fetch("/api/messages?ignored=1")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((d) => setIgnoredList(Array.isArray(d) ? d : []))
+        .catch(() => {}),
+    []
+  );
+  useEffect(() => {
+    loadIgnored();
+  }, [loadIgnored]);
+
+  const setIgnore = (phone: string, ignore: boolean) =>
+    fetch("/api/messages", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, ignore }),
+    });
+
+  const ignoreNumber = async () => {
+    if (!open) return;
+    const who = convo?.name ?? pretty(open);
+    if (!confirm(`Ignore ${who}? Their texts won't show in Messages anymore (this conversation is cleared). You can undo it at the bottom of this page.`)) return;
+    if (!(await setIgnore(open, true)).ok) return setError("Couldn't do that");
+    setOpen(null);
+    setConvo(null);
+    loadThreads();
+    loadIgnored();
+  };
+
   const startNew = (e: React.FormEvent) => {
     e.preventDefault();
     const digits = newNumber.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
@@ -174,7 +206,10 @@ export default function AdminMessagesPage() {
                   <div className="font-semibold text-stone-900 text-sm">{convo?.name ?? pretty(open)}</div>
                   {convo?.name && <div className="text-xs text-stone-500">{pretty(open)}</div>}
                 </div>
-                <button onClick={removeThread} className="ml-auto text-xs text-stone-400 hover:text-red-600">
+                <button onClick={ignoreNumber} className="ml-auto text-xs text-stone-400 hover:text-stone-700">
+                  Ignore this number
+                </button>
+                <button onClick={removeThread} className="text-xs text-stone-400 hover:text-red-600">
                   Delete conversation
                 </button>
               </header>
@@ -224,6 +259,27 @@ export default function AdminMessagesPage() {
           )}
         </section>
       </div>
+
+      {ignored.length > 0 && (
+        <p className="text-xs text-stone-500">
+          Ignored (not shown here):{" "}
+          {ignored.map((n, i) => (
+            <span key={n.phone}>
+              {i > 0 && ", "}
+              {n.name ?? pretty(n.phone)}{" "}
+              <button
+                onClick={async () => {
+                  await setIgnore(n.phone, false);
+                  loadIgnored();
+                }}
+                className="text-amber-700 hover:underline"
+              >
+                stop ignoring
+              </button>
+            </span>
+          ))}
+        </p>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { isAdmin } from "@/lib/admin-input";
 import { phoneKey } from "@/lib/phone";
 import { fireNotification } from "@/lib/notifications";
 import { isOptedOut } from "@/lib/sms-opt-out";
+import { ignoredNumbers, setIgnored } from "@/lib/sms-ignore";
 
 /** Who each number belongs to, from customer records, accounts and orders. */
 async function namesByPhone(): Promise<Map<string, string>> {
@@ -41,12 +42,18 @@ export async function GET(req: Request) {
     return NextResponse.json({ phone, name: names.get(phone) ?? null, optedOut, messages });
   }
 
-  const [all, names] = await Promise.all([
+  const [all, names, ignored] = await Promise.all([
     prisma.smsMessage.findMany({ orderBy: { createdAt: "desc" }, take: 5000 }),
     namesByPhone(),
+    ignoredNumbers(),
   ]);
+  // ?ignored=1: the numbers kept out of the inbox, for "Stop ignoring"
+  if (new URL(req.url).searchParams.get("ignored")) {
+    return NextResponse.json([...ignored].map((p) => ({ phone: p, name: names.get(p) ?? null })));
+  }
   const threads = new Map<string, { phone: string; name: string | null; last: (typeof all)[number]; unread: number }>();
   for (const m of all) {
+    if (ignored.has(m.phone)) continue;
     const t = threads.get(m.phone) ?? { phone: m.phone, name: names.get(m.phone) ?? null, last: m, unread: 0 };
     if (m.direction === "IN" && !m.read) t.unread++;
     threads.set(m.phone, t);
@@ -64,6 +71,17 @@ export async function DELETE(req: Request) {
   if (!phone) return NextResponse.json({ error: "Missing phone" }, { status: 400 });
   const { count } = await prisma.smsMessage.deleteMany({ where: { phone } });
   return NextResponse.json({ ok: true, deleted: count });
+}
+
+/** `{ phone, ignore }`: keep a number out of Messages (its thread is cleared), or let it back in. */
+export async function PUT(req: Request) {
+  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const data = await req.json().catch(() => ({}));
+  const phone = phoneKey(String(data.phone ?? ""));
+  if (!phone) return NextResponse.json({ error: "Missing phone" }, { status: 400 });
+  await setIgnored(phone, data.ignore !== false);
+  if (data.ignore !== false) await prisma.smsMessage.deleteMany({ where: { phone } });
+  return NextResponse.json({ ok: true });
 }
 
 /** Reply (or start a text) to a number. Sent through n8n → SMS Gate. */
