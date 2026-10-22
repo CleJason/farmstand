@@ -91,6 +91,17 @@ export default function AdminMessagesPage() {
     loadThreads();
   };
 
+  const removeThread = async () => {
+    if (!open) return;
+    const who = convo?.name ?? pretty(open);
+    if (!confirm(`Delete the conversation with ${who} from here? The texts stay on the phones; a STOP still counts.`)) return;
+    const res = await fetch(`/api/messages?phone=${encodeURIComponent(open)}`, { method: "DELETE" });
+    if (!res.ok) return setError("Couldn't delete it");
+    setOpen(null);
+    setConvo(null);
+    loadThreads();
+  };
+
   const startNew = (e: React.FormEvent) => {
     e.preventDefault();
     const digits = newNumber.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
@@ -163,6 +174,9 @@ export default function AdminMessagesPage() {
                   <div className="font-semibold text-stone-900 text-sm">{convo?.name ?? pretty(open)}</div>
                   {convo?.name && <div className="text-xs text-stone-500">{pretty(open)}</div>}
                 </div>
+                <button onClick={removeThread} className="ml-auto text-xs text-stone-400 hover:text-red-600">
+                  Delete conversation
+                </button>
               </header>
               <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-[#FAFAF8]">
                 {convo?.messages.map((m) => (

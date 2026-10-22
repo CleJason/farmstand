@@ -54,6 +54,18 @@ export async function GET(req: Request) {
   return NextResponse.json([...threads.values()]);
 }
 
+/**
+ * Delete a conversation (?phone=) from Admin → Messages. Only the copies here:
+ * texts on the phones aren't touched, and a STOP stays in effect.
+ */
+export async function DELETE(req: Request) {
+  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const phone = phoneKey(new URL(req.url).searchParams.get("phone"));
+  if (!phone) return NextResponse.json({ error: "Missing phone" }, { status: 400 });
+  const { count } = await prisma.smsMessage.deleteMany({ where: { phone } });
+  return NextResponse.json({ ok: true, deleted: count });
+}
+
 /** Reply (or start a text) to a number. Sent through n8n → SMS Gate. */
 export async function POST(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
