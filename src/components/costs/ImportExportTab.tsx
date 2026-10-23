@@ -5,7 +5,7 @@ import { parseCsv } from "@/lib/csv";
 import { nameKey } from "@/lib/costs";
 import { readXlsx, unzip, type Sheet } from "@/lib/xlsx-read";
 import { planFromMealie, planFromWorkbook, type ImportPlan } from "@/lib/costs-import";
-import { buttonClass, ghostClass, inputClass, type IngredientRow, type TabProps } from "@/components/costs/shared";
+import { buttonClass, ghostClass, fieldClass, inputClass, type IngredientRow, type TabProps } from "@/components/costs/shared";
 
 type Counts = {
   ingredients: number;
@@ -230,7 +230,7 @@ function MealieImport({ data, save }: TabProps) {
       </div>
       <input type="file" accept=".json,.zip" multiple onChange={(e) => readFiles(e.target.files)} className="text-sm" />
       <div className="flex gap-2 items-start">
-        <textarea value={pasted} onChange={(e) => setPasted(e.target.value)} rows={2} placeholder="…or paste Mealie JSON here" className={inputClass} />
+        <textarea value={pasted} onChange={(e) => setPasted(e.target.value)} rows={2} placeholder="…or paste Mealie JSON here" className={fieldClass} />
         <button
           onClick={() => {
             try {
@@ -269,7 +269,7 @@ function MealieImport({ data, save }: TabProps) {
                             picks[ri][li] = e.target.value;
                             setMapped({ ...mapped, picks });
                           }}
-                          className={`${inputClass} text-xs py-1`}
+                          className={`${inputClass} w-full text-xs`}
                         >
                           <option value="">➕ New: {l.ingredientName}</option>
                           {data.ingredients.map((i) => (

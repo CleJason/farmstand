@@ -11,8 +11,10 @@ export type TabProps = { data: CostsData; save: Save };
 export type IngredientRow = CostsData["ingredients"][number];
 export type RecipeRow = CostsData["recipes"][number];
 
+/** Inputs: `inputClass` plus a width (w-20…), or `fieldClass` to fill the space */
 export const inputClass =
-  "w-full text-sm px-2.5 py-1.5 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500";
+  "text-sm px-2.5 py-1.5 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500";
+export const fieldClass = `${inputClass} w-full`;
 export const buttonClass =
   "bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold text-sm px-4 py-2 rounded-lg";
 export const ghostClass =

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { buttonClass, inputClass, shortDate, type TabProps } from "@/components/costs/shared";
+import { buttonClass, fieldClass, shortDate, type TabProps } from "@/components/costs/shared";
 
 const CATEGORIES = ["Ingredients", "Packaging", "Equipment", "Website & software", "Other"];
 
@@ -51,11 +51,11 @@ export default function ReceiptsTab({ data, save }: TabProps) {
       <form onSubmit={add} className="bg-white rounded-xl border border-stone-200 p-4 grid grid-cols-2 sm:grid-cols-6 gap-2 items-end">
         <label>
           <span className="block text-xs font-medium text-stone-600 mb-1">Date</span>
-          <input type="date" value={form.date} onChange={(e) => set({ date: e.target.value })} className={inputClass} />
+          <input type="date" value={form.date} onChange={(e) => set({ date: e.target.value })} className={fieldClass} />
         </label>
         <label>
           <span className="block text-xs font-medium text-stone-600 mb-1">Store</span>
-          <input list="receipt-vendors" value={form.vendor} onChange={(e) => set({ vendor: e.target.value })} placeholder="Costco" className={inputClass} />
+          <input list="receipt-vendors" value={form.vendor} onChange={(e) => set({ vendor: e.target.value })} placeholder="Costco" className={fieldClass} />
           <datalist id="receipt-vendors">
             {vendors.map((v) => (
               <option key={v} value={v} />
@@ -64,15 +64,15 @@ export default function ReceiptsTab({ data, save }: TabProps) {
         </label>
         <label>
           <span className="block text-xs font-medium text-stone-600 mb-1">Total ($)</span>
-          <input type="number" min={0} step="0.01" value={form.amount} onChange={(e) => set({ amount: e.target.value })} className={inputClass} />
+          <input type="number" min={0} step="0.01" value={form.amount} onChange={(e) => set({ amount: e.target.value })} className={fieldClass} />
         </label>
         <label className="col-span-2">
           <span className="block text-xs font-medium text-stone-600 mb-1">What was bought</span>
-          <input value={form.description} onChange={(e) => set({ description: e.target.value })} placeholder="Flour, butter, eggs" className={inputClass} />
+          <input value={form.description} onChange={(e) => set({ description: e.target.value })} placeholder="Flour, butter, eggs" className={fieldClass} />
         </label>
         <label>
           <span className="block text-xs font-medium text-stone-600 mb-1">Category</span>
-          <select value={form.category} onChange={(e) => set({ category: e.target.value })} className={inputClass}>
+          <select value={form.category} onChange={(e) => set({ category: e.target.value })} className={fieldClass}>
             {CATEGORIES.map((c) => (
               <option key={c}>{c}</option>
             ))}

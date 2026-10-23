@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { suggestGramsPerCup, UNITS } from "@/lib/costs";
-import { amount, buttonClass, inputClass, shortDate, unitPrice, type IngredientRow, type TabProps } from "@/components/costs/shared";
+import { amount, buttonClass, fieldClass, inputClass, shortDate, unitPrice, type IngredientRow, type TabProps } from "@/components/costs/shared";
 
 /** Every ingredient and packaging item: what it costs per unit, grams per cup, and merge/rename/delete. */
 export default function IngredientsTab({ data, save }: TabProps) {
@@ -27,7 +27,7 @@ export default function IngredientsTab({ data, save }: TabProps) {
       <form onSubmit={add} className="bg-white rounded-xl border border-stone-200 p-4 flex flex-wrap items-end gap-2">
         <label className="flex-1 min-w-[200px]">
           <span className="block text-xs font-medium text-stone-600 mb-1">New ingredient or packaging</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Bread Flour, 6x6 Box…" className={inputClass} />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Bread Flour, 6x6 Box…" className={fieldClass} />
         </label>
         <label>
           <span className="block text-xs font-medium text-stone-600 mb-1">Measured by</span>
@@ -54,7 +54,7 @@ export default function IngredientsTab({ data, save }: TabProps) {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search ingredients"
-        className={`${inputClass} sm:w-72`}
+        className={`${inputClass} w-full sm:w-72`}
       />
 
       <div className="bg-white rounded-xl border border-stone-200 overflow-x-auto">

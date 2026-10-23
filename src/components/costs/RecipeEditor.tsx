@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { costRecipe, guessBaseUnit, money, UNITS, type CostIngredient } from "@/lib/costs";
-import { buttonClass, ghostClass, inputClass, unitPrice, type RecipeRow, type TabProps } from "@/components/costs/shared";
+import { buttonClass, ghostClass, fieldClass, inputClass, unitPrice, type RecipeRow, type TabProps } from "@/components/costs/shared";
 
 type Line = { ingredientId: string; quantity: string; unit: string; note: string };
 
@@ -124,24 +124,24 @@ export default function RecipeEditor({
       <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
         <label className="col-span-2 sm:col-span-2">
           <span className="block text-xs font-medium text-stone-600 mb-1">Recipe</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Cinnamon Rolls" className={inputClass} />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Cinnamon Rolls" className={fieldClass} />
         </label>
         <label>
           <span className="block text-xs font-medium text-stone-600 mb-1">Makes</span>
-          <input type="number" min={0} step="any" value={yieldCount} onChange={(e) => setYieldCount(e.target.value)} className={inputClass} />
+          <input type="number" min={0} step="any" value={yieldCount} onChange={(e) => setYieldCount(e.target.value)} className={fieldClass} />
         </label>
         <label>
           <span className="block text-xs font-medium text-stone-600 mb-1">of</span>
-          <input value={yieldLabel} onChange={(e) => setYieldLabel(e.target.value)} placeholder="cookies" className={inputClass} />
+          <input value={yieldLabel} onChange={(e) => setYieldLabel(e.target.value)} placeholder="cookies" className={fieldClass} />
         </label>
         <label>
           <span className="block text-xs font-medium text-stone-600 mb-1">Bake/labor hours</span>
-          <input type="number" min={0} step="0.05" value={hours} onChange={(e) => setHours(e.target.value)} className={inputClass} />
+          <input type="number" min={0} step="0.05" value={hours} onChange={(e) => setHours(e.target.value)} className={fieldClass} />
         </label>
         <label>
           <span className="block text-xs font-medium text-stone-600 mb-1">Sells for ($)</span>
           <div className="flex gap-1">
-            <input type="number" min={0} step="0.01" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} className={inputClass} />
+            <input type="number" min={0} step="0.01" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} className={fieldClass} />
             <select value={sellPer} onChange={(e) => setSellPer(e.target.value)} className={`${inputClass} w-auto`}>
               <option value="batch">batch</option>
               <option value="item">each</option>
@@ -169,7 +169,7 @@ export default function RecipeEditor({
               return (
                 <tr key={i} className="align-top">
                   <td className="py-1 pr-2">
-                    <select value={l.ingredientId} onChange={(e) => pickIngredient(i, e.target.value)} className={inputClass}>
+                    <select value={l.ingredientId} onChange={(e) => pickIngredient(i, e.target.value)} className={fieldClass}>
                       <option value="">Pick…</option>
                       {data.ingredients.map((x) => (
                         <option key={x.id} value={x.id}>
@@ -181,10 +181,10 @@ export default function RecipeEditor({
                     {ing && <span className="block text-[11px] text-stone-400 mt-0.5">{unitPrice(ing.cost, ing.baseUnit)}</span>}
                   </td>
                   <td className="py-1 pr-2">
-                    <input type="number" min={0} step="any" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} className={inputClass} />
+                    <input type="number" min={0} step="any" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} className={fieldClass} />
                   </td>
                   <td className="py-1 pr-2">
-                    <select value={l.unit} onChange={(e) => pickUnit(i, e.target.value)} className={inputClass}>
+                    <select value={l.unit} onChange={(e) => pickUnit(i, e.target.value)} className={fieldClass}>
                       {unitsFor(ing?.baseUnit).map((u) => (
                         <option key={u} value={u}>
                           {u}
@@ -193,7 +193,7 @@ export default function RecipeEditor({
                     </select>
                   </td>
                   <td className="py-1 pr-2">
-                    <input value={l.note} onChange={(e) => setLine(i, { note: e.target.value })} placeholder="filling, topping…" className={inputClass} />
+                    <input value={l.note} onChange={(e) => setLine(i, { note: e.target.value })} placeholder="filling, topping…" className={fieldClass} />
                   </td>
                   <td className="py-1 pr-2 text-right whitespace-nowrap pt-2.5">
                     {money(c?.cost ?? 0)}
@@ -243,7 +243,7 @@ export default function RecipeEditor({
         </div>
         <div>
           <span className="block text-[11px] text-stone-500">Profit / margin</span>
-          {cost.profit === null ? "—" : `${money(cost.profit)} · ${cost.margin?.toFixed(0)}%`}
+          {cost.profit === null || !cost.batchPrice ? "—" : `${money(cost.profit)} · ${cost.margin?.toFixed(0) ?? "—"}%`}
         </div>
       </div>
 
@@ -291,7 +291,7 @@ export default function RecipeEditor({
 
       <label className="block">
         <span className="block text-xs font-medium text-stone-600 mb-1">Notes</span>
-        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inputClass} />
+        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={fieldClass} />
       </label>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

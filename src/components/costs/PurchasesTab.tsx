@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { UNITS } from "@/lib/costs";
-import { amount, buttonClass, inputClass, shortDate, unitPrice, type TabProps } from "@/components/costs/shared";
+import { amount, buttonClass, fieldClass, inputClass, shortDate, unitPrice, type TabProps } from "@/components/costs/shared";
 
 const today = () => {
   const d = new Date();
@@ -55,11 +55,11 @@ export default function PurchasesTab({ data, save }: TabProps) {
       <form onSubmit={add} className="bg-white rounded-xl border border-stone-200 p-4 grid grid-cols-2 sm:grid-cols-7 gap-2 items-end">
         <label>
           <span className="block text-xs font-medium text-stone-600 mb-1">Date</span>
-          <input type="date" value={form.date} onChange={(e) => set({ date: e.target.value })} className={inputClass} />
+          <input type="date" value={form.date} onChange={(e) => set({ date: e.target.value })} className={fieldClass} />
         </label>
         <label>
           <span className="block text-xs font-medium text-stone-600 mb-1">Store</span>
-          <input list="cost-stores" value={form.store} onChange={(e) => set({ store: e.target.value })} placeholder="Costco" className={inputClass} />
+          <input list="cost-stores" value={form.store} onChange={(e) => set({ store: e.target.value })} placeholder="Costco" className={fieldClass} />
           <datalist id="cost-stores">
             {stores.map((s) => (
               <option key={s} value={s} />
@@ -68,7 +68,7 @@ export default function PurchasesTab({ data, save }: TabProps) {
         </label>
         <label className="col-span-2">
           <span className="block text-xs font-medium text-stone-600 mb-1">Item</span>
-          <input list="cost-items" value={form.item} onChange={(e) => pickItem(e.target.value)} placeholder="Bread Flour" className={inputClass} />
+          <input list="cost-items" value={form.item} onChange={(e) => pickItem(e.target.value)} placeholder="Bread Flour" className={fieldClass} />
           <datalist id="cost-items">
             {data.ingredients.map((i) => (
               <option key={i.id} value={i.name} />
@@ -78,7 +78,7 @@ export default function PurchasesTab({ data, save }: TabProps) {
         <label>
           <span className="block text-xs font-medium text-stone-600 mb-1">Amount</span>
           <div className="flex gap-1">
-            <input type="number" min={0} step="any" value={form.quantity} onChange={(e) => set({ quantity: e.target.value })} className={inputClass} />
+            <input type="number" min={0} step="any" value={form.quantity} onChange={(e) => set({ quantity: e.target.value })} className={fieldClass} />
             <select value={form.unit} onChange={(e) => set({ unit: e.target.value })} className={`${inputClass} w-auto`}>
               {[...UNITS.weight, ...UNITS.volume, ...UNITS.count].map((u) => (
                 <option key={u} value={u}>
@@ -90,7 +90,7 @@ export default function PurchasesTab({ data, save }: TabProps) {
         </label>
         <label>
           <span className="block text-xs font-medium text-stone-600 mb-1">Paid ($)</span>
-          <input type="number" min={0} step="0.01" value={form.price} onChange={(e) => set({ price: e.target.value })} className={inputClass} />
+          <input type="number" min={0} step="0.01" value={form.price} onChange={(e) => set({ price: e.target.value })} className={fieldClass} />
         </label>
         <button disabled={busy || !form.item.trim() || !form.quantity || !form.price} className={buttonClass}>
           {busy ? "Adding…" : "+ Add"}
@@ -102,7 +102,7 @@ export default function PurchasesTab({ data, save }: TabProps) {
       </form>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search item or store" className={`${inputClass} sm:w-72`} />
+        <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search item or store" className={`${inputClass} w-full sm:w-72`} />
         <span className="text-sm text-stone-600">
           This month: <b className="text-stone-900">${thisMonth.toFixed(2)}</b> · {data.purchases.length} purchases logged
         </span>
