@@ -79,8 +79,9 @@ export default function ReceiptsTab({ data, save }: TabProps) {
           </select>
         </label>
         <label className="col-span-2 sm:col-span-3 text-xs text-stone-600">
-          <span className="block font-medium mb-1">Photo of the receipt (optional)</span>
-          <input type="file" accept="image/*" capture="environment" onChange={(e) => upload(e.target.files?.[0])} className="text-xs" />
+          <span className="block font-medium mb-1">Receipt photo or PDF (optional)</span>
+          {/* No capture="environment": on a phone that would force the camera and hide PDFs */}
+          <input type="file" accept="image/*,application/pdf" onChange={(e) => upload(e.target.files?.[0])} className="text-xs" />
           {uploading && <span className="ml-2 text-stone-400">Uploading…</span>}
           {form.imageUrl && <span className="ml-2 text-green-700">✓ attached</span>}
         </label>
@@ -130,7 +131,7 @@ export default function ReceiptsTab({ data, save }: TabProps) {
                     <td className="px-4 py-2.5 text-right whitespace-nowrap text-xs">
                       {r.imageUrl && (
                         <a href={r.imageUrl} target="_blank" rel="noreferrer" className="text-amber-700 hover:underline mr-3">
-                          Photo
+                          {r.imageUrl.endsWith(".pdf") ? "PDF" : "Photo"}
                         </a>
                       )}
                       <button

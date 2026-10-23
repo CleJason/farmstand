@@ -17,6 +17,8 @@ const EXTENSIONS: Record<string, string> = {
   'image/x-icon': '.ico',
   'image/vnd.microsoft.icon': '.ico',
   'image/svg+xml': '.svg',
+  // receipts downloaded as PDFs (admin only: customers can only upload photos)
+  'application/pdf': '.pdf',
 };
 const ALLOWED_TYPES = Object.keys(EXTENSIONS);
 // What customers may upload (review photos): ordinary photos only
@@ -52,7 +54,7 @@ export async function POST(req: Request) {
 
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Allowed: JPEG, PNG, WebP, GIF, AVIF, ICO, SVG' },
+        { error: 'Invalid file type. Allowed: JPEG, PNG, WebP, GIF, AVIF, ICO, SVG, PDF' },
         { status: 400 }
       );
     }
@@ -66,6 +68,9 @@ export async function POST(req: Request) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    if (file.type === 'application/pdf' && buffer.subarray(0, 5).toString('latin1') !== '%PDF-') {
+      return NextResponse.json({ error: "That file isn't a PDF" }, { status: 400 });
+    }
 
     const ext = EXTENSIONS[file.type];
     const uniqueName = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`;

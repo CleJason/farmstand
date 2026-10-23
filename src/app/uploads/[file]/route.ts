@@ -14,6 +14,7 @@ const CONTENT_TYPES: Record<string, string> = {
   '.avif': 'image/avif',
   '.ico': 'image/x-icon',
   '.svg': 'image/svg+xml',
+  '.pdf': 'application/pdf',
 };
 
 export async function GET(
@@ -33,8 +34,11 @@ export async function GET(
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=31536000, immutable',
-        // Uploaded SVGs can contain script; never let an upload run code on this site
-        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+        // Uploaded SVGs can contain script; never let an upload run code on this site.
+        // PDFs (admin-only uploads) skip it: the browser's PDF viewer won't open a sandboxed one.
+        ...(contentType === 'application/pdf'
+          ? {}
+          : { 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox" }),
         'X-Content-Type-Options': 'nosniff',
       },
     });
