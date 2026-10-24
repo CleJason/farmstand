@@ -110,12 +110,12 @@ export default function AdminDashboardPage() {
     el.classList.add("ring-2", "ring-amber-500");
   }, [loading]);
 
-  const updateOrderStatus = async (orderId: string, status: string) => {
+  const updateOrderStatus = async (orderId: string, status: string, notify = true) => {
     try {
       const res = await fetch(`/api/orders/${orderId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, notify }),
       });
       if (res.ok) loadOrders();
       else alert((await res.json().catch(() => ({}))).error || "Failed to update status");
@@ -438,7 +438,13 @@ export default function AdminDashboardPage() {
                         const msg = card
                           ? `Cancel order #${order.id.slice(-6).toUpperCase()}? ${formatPrice(order.total)} will be refunded to their card.`
                           : `Cancel order #${order.id.slice(-6).toUpperCase()}?`;
-                        if (confirm(msg)) updateOrderStatus(order.id, "CANCELLED");
+                        if (!confirm(msg)) return;
+                        // A duplicate (they paid another way) shouldn't get a "cancelled" email
+                        const email = order.guestEmail || order.user?.email;
+                        const notify = email
+                          ? confirm(`Email ${email} that the order was cancelled?\n\nOK = send the email · Cancel = cancel quietly (e.g. a duplicate they already paid for another way)`)
+                          : false;
+                        updateOrderStatus(order.id, "CANCELLED", notify);
                       }}
                       className="text-stone-400 hover:text-red-600 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors ml-auto"
                     >

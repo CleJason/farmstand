@@ -157,7 +157,8 @@ export async function PUT(
   } else if (statusChanged && status === "PICKED_UP") {
     // "How was it?" email, if this customer is due one
     await maybeRequestReview(order.id);
-  } else if (statusChanged && (status === "CANCELLED" || status === "REFUNDED")) {
+  } else if (statusChanged && (status === "CANCELLED" || status === "REFUNDED") && data.notify !== false) {
+    // (`notify: false` cancels quietly, e.g. a duplicate the customer already paid for another way)
     await fireNotification("order.cancelled", {
       orderId: order.id,
       type: order.type,
