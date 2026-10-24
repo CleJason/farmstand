@@ -241,7 +241,8 @@ export default function WalkUpShop() {
         <p className="text-xs text-[#735D54] mt-0.5">
           {site.SITE_FARMSTAND_BLURB}
         </p>
-        <StandHours />
+        {/* While loading, or with items out on the porch, no "not open" note */}
+        <StandHours hideIfNone={loading || items.length > 0} />
       </header>
 
       {/* Item List */}

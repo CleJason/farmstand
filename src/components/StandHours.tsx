@@ -6,8 +6,12 @@ import { hoursLabel } from "@/components/StandHoursEditor";
 
 type Hours = { id: string; startsAt: string; endsAt: string };
 
-/** When the walk-up stand is open next (set in Admin → Porch Pickup). `compact` for the home page. */
-export default function StandHours({ compact = false }: { compact?: boolean }) {
+/**
+ * When the walk-up stand is open next (set in Admin → Porch Pickup). `compact`
+ * for the home page. `hideIfNone`: with no hours set, show nothing instead of
+ * "not scheduled" (e.g. there are items out on the porch right now).
+ */
+export default function StandHours({ compact = false, hideIfNone = false }: { compact?: boolean; hideIfNone?: boolean }) {
   const site = useSite();
   const text = useText();
   const [hours, setHours] = useState<Hours[] | null>(null);
@@ -23,6 +27,7 @@ export default function StandHours({ compact = false }: { compact?: boolean }) {
   const stand = site.SITE_FARMSTAND_HEADING;
   const openNow = hours.some((h) => new Date(h.startsAt) <= new Date());
 
+  if (!hours.length && hideIfNone) return null;
   if (compact) {
     if (!hours.length) return null;
     return (
