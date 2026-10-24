@@ -415,10 +415,11 @@ export async function POST(req: Request) {
       giftCode: order.giftCode,
       giftAmount: order.giftAmount,
       paymentMethod: order.paymentMethod,
-      // Where the customer sends the money (for their "order received" email)
       paymentHandle: await getSetting(order.paymentMethod === "PAYPAL" ? "PAYPAL_ME_USERNAME" : "VENMO_USERNAME"),
       customerName: order.guestName,
-      customerEmail: order.guestEmail || session?.user?.email || null,
+      // No customer email here: the checkout screen already shows how to pay, so no "how to pay" email.
+      // They get the confirmation once it's marked paid. (n8n only emails the customer when this is set.)
+      customerEmail: null,
       customerPhone: order.guestPhone,
       pickupSlot: order.pickupSlot?.label,
       pickupTime: formatPickup(order.pickupTime),

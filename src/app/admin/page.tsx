@@ -439,11 +439,13 @@ export default function AdminDashboardPage() {
                           ? `Cancel order #${order.id.slice(-6).toUpperCase()}? ${formatPrice(order.total)} will be refunded to their card.`
                           : `Cancel order #${order.id.slice(-6).toUpperCase()}?`;
                         if (!confirm(msg)) return;
-                        // A duplicate (they paid another way) shouldn't get a "cancelled" email
+                        // Unpaid orders are cancelled quietly; for a paid one, you choose whether they get an email
                         const email = order.guestEmail || order.user?.email;
-                        const notify = email
-                          ? confirm(`Email ${email} that the order was cancelled?\n\nOK = send the email · Cancel = cancel quietly (e.g. a duplicate they already paid for another way)`)
-                          : false;
+                        const paid = ["PAID", "READY"].includes(order.status);
+                        const notify =
+                          paid && email
+                            ? confirm(`Email ${email} that the order was cancelled?\n\nOK = send the email · Cancel = cancel quietly`)
+                            : false;
                         updateOrderStatus(order.id, "CANCELLED", notify);
                       }}
                       className="text-stone-400 hover:text-red-600 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors ml-auto"
@@ -451,7 +453,7 @@ export default function AdminDashboardPage() {
                       Cancel
                     </button>
                   )}
-                  {["CANCELLED", "REFUNDED", "PENDING"].includes(order.status) && (
+                  {["CANCELLED", "REFUNDED", "PENDING", "AWAITING_CONFIRM"].includes(order.status) && (
                     <button
                       onClick={() => deleteOrder(order.id)}
                       className="text-stone-400 hover:text-red-600 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors ml-auto"

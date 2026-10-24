@@ -61,11 +61,17 @@ export async function DELETE(
   const { id } = await params;
   const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
-  if (countsStock(order.status)) {
+  // Paid orders are cancelled (refunded) first; an unpaid Venmo/PayPal one can go straight away
+  if (countsStock(order.status) && order.status !== "AWAITING_CONFIRM") {
     return NextResponse.json({ error: "Cancel the order first, then delete it" }, { status: 400 });
   }
 
   await prisma.$transaction(async (tx) => {
+    // Give back the stock (and discount use) it was holding
+    if (order.status === "AWAITING_CONFIRM") {
+      const withItems = await tx.order.findUniqueOrThrow({ where: { id }, include: { items: true } });
+      await applyStatusChange(tx, withItems, "AWAITING_CONFIRM", "CANCELLED");
+    }
     // A gift card this order was buying never became usable; remove it too
     await tx.giftCertificate.deleteMany({ where: { orderId: id, status: { not: "ACTIVE" } } });
     await tx.order.delete({ where: { id } });
