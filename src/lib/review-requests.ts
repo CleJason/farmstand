@@ -108,7 +108,8 @@ export async function maybeRequestReview(orderId: string): Promise<void> {
   if (text) {
     const site = await getSiteSettings();
     const shop = isOn(site.SITE_NAME_IN_NOTIFICATIONS) ? site.SITE_NAME : "";
-    const what = products.length === 1 ? `your ${products[0]}` : "your order";
+    // "your Biscoff Cookie", but "The Sunday Roll" as is
+    const what = products.length !== 1 ? "your order" : /^the\s/i.test(products[0]) ? products[0] : `your ${products[0]}`;
     const smsMessage =
       `${shop ? `${shop}: ` : ""}Thanks for picking up! How was ${what}? Leave a quick review: ${reviewUrl}` +
       `${reward ? ` Your first review gets ${reward}% off your next order.` : ""} Reply STOP to opt out.`;
