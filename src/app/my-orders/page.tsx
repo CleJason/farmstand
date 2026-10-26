@@ -100,7 +100,7 @@ export default async function MyOrdersPage() {
                   {o.items.map((i) => (
                     <li key={i.id} className="flex justify-between gap-3">
                       <span>
-                        {i.quantity} × {i.dropProduct?.product.name ?? i.farmstandItem?.name ?? "Item"}
+                        {i.quantity} × {i.dropProduct?.product.name ?? i.farmstandItem?.name ?? i.name ?? "Item"}
                         {describePicks(i.selections) && (
                           <span className="block text-xs text-stone-500 pl-4">{describePicks(i.selections)}</span>
                         )}

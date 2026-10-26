@@ -41,12 +41,13 @@ type NamedItem = {
   addOns?: unknown;
   dropProduct?: { product: { name: string } } | null;
   farmstandItem?: { name: string } | null;
+  name?: string | null; // kept for Porch Pickup items deleted since
 };
 
 /** Order contents for emails/texts, box picks included: "Cookie Box (4 Chocolate Chip, 2 Snickerdoodle)". */
 export function notificationItems(items: NamedItem[]) {
   return items.map((i) => {
-    const name = i.dropProduct?.product.name ?? i.farmstandItem?.name ?? "Item";
+    const name = i.dropProduct?.product.name ?? i.farmstandItem?.name ?? i.name ?? "Item";
     const details = [describePicks(i.selections), describeAddOns(i.addOns)].filter(Boolean).join("; ");
     return { name: details ? `${name} (${details})` : name, quantity: i.quantity, price: i.priceAtPurchase };
   });

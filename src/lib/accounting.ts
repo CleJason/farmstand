@@ -73,7 +73,7 @@ export async function accounting(from: Date, to: Date) {
   for (const o of orders) {
     if (!isPaidStatus(o.status)) continue;
     const items: SoldItem[] = o.items.map((i) => ({
-      name: i.dropProduct?.product.name ?? i.farmstandItem?.name ?? (o.type === "GIFT" ? "Gift card" : "Item"),
+      name: i.dropProduct?.product.name ?? i.farmstandItem?.name ?? i.name ?? (o.type === "GIFT" ? "Gift card" : "Item"),
       quantity: i.quantity,
       picks: Array.isArray(i.selections) ? (i.selections as { name: string; quantity: number }[]) : undefined,
     }));

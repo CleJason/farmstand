@@ -29,11 +29,12 @@ export async function reviewSettings() {
 type NamedItems = {
   dropProduct: { product: { name: string } } | null;
   farmstandItem: { name: string } | null;
+  name?: string | null;
 }[];
 
 /** The product names on an order (boxes by their product name), each once. */
 export function orderProductNames(items: NamedItems): string[] {
-  const names = items.map((i) => i.dropProduct?.product.name ?? i.farmstandItem?.name).filter(Boolean) as string[];
+  const names = items.map((i) => i.dropProduct?.product.name ?? i.farmstandItem?.name ?? i.name).filter(Boolean) as string[];
   return [...new Set(names)];
 }
 

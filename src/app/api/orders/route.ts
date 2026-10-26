@@ -304,6 +304,8 @@ export async function POST(req: Request) {
           create: lines.map((l) => ({
             dropProductId: l.dropProductId,
             farmstandItemId: l.farmstandItemId,
+            // A Porch Pickup item's name stays on the order after the item is deleted
+            name: l.farmstandItemId ? l.name : null,
             quantity: l.quantity,
             priceAtPurchase: l.price,
             selections: l.selections ? (l.selections as Prisma.InputJsonValue) : Prisma.DbNull,

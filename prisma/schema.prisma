@@ -216,6 +216,7 @@ model OrderItem {
   // one of these will be set
   dropProductId     String?
   farmstandItemId   String?
+  name              String?  // Porch Pickup item's name, kept for when the item is deleted
   quantity          Int
   priceAtPurchase   Int      // cents — snapshot at time of order
   selections        Json?    // mix & match box picks: [{ name, quantity }] per box

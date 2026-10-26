@@ -34,6 +34,7 @@ interface Order {
     addOns: unknown;
     dropProduct: { product: { name: string } } | null;
     farmstandItem: { name: string } | null;
+    name: string | null; // a Porch Pickup item's name, kept if the item was deleted
   }[];
 }
 
@@ -374,6 +375,7 @@ export default function AdminDashboardPage() {
                         {item.quantity}×{" "}
                         {item.dropProduct?.product.name ||
                           item.farmstandItem?.name ||
+                          item.name ||
                           "Item"}
                         {describePicks(item.selections) && (
                           <span className="block pl-4 text-stone-500">{describePicks(item.selections)}</span>
