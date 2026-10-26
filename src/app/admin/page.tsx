@@ -49,9 +49,9 @@ const statusConfig: Record<string, { label: string; classes: string }> = {
 };
 
 /**
- * Current or past: a drop order is past once its pickup day is over; walk-up
- * and gift card orders after a week. Ones waiting on a Venmo/PayPal check
- * always stay current.
+ * Current or past: a drop order is past once its pickup day is over; a Porch
+ * Pickup order after the day it was bought; gift card orders after a week.
+ * Ones waiting on a Venmo/PayPal check always stay current.
  */
 function isCurrent(o: Order, startOfToday: number) {
   if (o.status === "AWAITING_CONFIRM") return true;
@@ -59,6 +59,8 @@ function isCurrent(o: Order, startOfToday: number) {
     const pickup = o.pickupTime ?? o.pickupSlot?.endDate ?? o.pickupSlot?.pickupDate ?? o.drop?.orderCloseAt ?? o.createdAt;
     return new Date(pickup).getTime() >= startOfToday;
   }
+  // Porch Pickup is taken on the spot: done once paid, so it's past after that day
+  if (o.type === "FARMSTAND") return new Date(o.createdAt).getTime() >= startOfToday;
   return new Date(o.createdAt).getTime() >= startOfToday - 6 * 86_400_000;
 }
 
