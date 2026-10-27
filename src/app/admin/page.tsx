@@ -66,6 +66,80 @@ function isCurrent(o: Order, startOfToday: number) {
   return new Date(o.createdAt).getTime() >= startOfToday - 6 * 86_400_000;
 }
 
+/** "Message customer": a note about this order by email and/or text, e.g. a pickup reminder. */
+function MessageCustomer({ order, shop }: { order: Order; shop: string }) {
+  const email = order.guestEmail || order.user?.email;
+  const phone = order.guestPhone || order.user?.phone;
+  const first = (order.guestName || order.user?.name || "").split(" ")[0];
+  const no = order.id.slice(-6).toUpperCase();
+  const [open, setOpen] = useState(false);
+  const [via, setVia] = useState(email ? "email" : "text");
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const reminder = () =>
+    setText(
+      `Hi${first ? ` ${first}` : ""}, just a friendly reminder that your order #${no} is still waiting for pickup. ` +
+        `Please pick it up by ____, or we'll have to toss it since it won't stay fresh. ` +
+        `Reply here if you need a different time. Thanks!\n\n${shop}`
+    );
+
+  const send = async () => {
+    setBusy(true);
+    const res = await fetch(`/api/orders/${order.id}/message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, via }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) return alert(data.error || "Couldn't send it");
+    alert(`Sent by ${data.sent.join(" and ")}.${data.problems?.length ? ` (${data.problems.join("; ")})` : ""}`);
+    setOpen(false);
+    setText("");
+  };
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => {
+          setOpen(true);
+          if (!text) reminder();
+        }}
+        className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+      >
+        ✉ Message customer
+      </button>
+    );
+  }
+  return (
+    <div className="basis-full bg-stone-50 rounded-lg p-3 space-y-2">
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={5}
+        className="w-full text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+      />
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <select value={via} onChange={(e) => setVia(e.target.value)} className="text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white">
+          {email && <option value="email">Email {email}</option>}
+          {phone && <option value="text">Text {phone}</option>}
+          {email && phone && <option value="both">Email and text</option>}
+        </select>
+        <button onClick={send} disabled={busy || !text.trim()} className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold px-3 py-1.5 rounded-lg">
+          {busy ? "Sending…" : "Send"}
+        </button>
+        <button onClick={reminder} className="text-stone-500 hover:text-stone-800">
+          Pickup reminder template
+        </button>
+        <button onClick={() => setOpen(false)} className="text-stone-400 hover:text-stone-700 ml-auto">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboardPage() {
   const site = useSite();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -427,6 +501,9 @@ export default function AdminDashboardPage() {
                     >
                       Resend confirmation
                     </button>
+                  )}
+                  {order.type !== "GIFT" && (order.guestEmail || order.user?.email || order.guestPhone || order.user?.phone) && (
+                    <MessageCustomer order={order} shop={site.SITE_NAME} />
                   )}
                   {["PAID", "READY", "PICKED_UP"].includes(order.status) && order.type !== "GIFT" && (
                     <button
