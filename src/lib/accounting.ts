@@ -107,9 +107,10 @@ export async function accounting(from: Date, to: Date) {
     sales.push({
       // Imported dates are already the shop's day (stored at noon UTC)
       date: s.placedAt.toISOString().slice(0, 10),
-      source: s.source === "hotplate" ? "Hotplate" : s.source,
+      // "Imported" (from Hotplate or wherever); the platform is noted with the kind
+      source: "Imported",
       orderNumber: s.orderNumber,
-      type: "Drop",
+      type: `Drop (${s.source === "hotplate" ? "Hotplate" : s.source})`,
       customer: s.customer ?? "",
       items: describe(items),
       payment: "Card",

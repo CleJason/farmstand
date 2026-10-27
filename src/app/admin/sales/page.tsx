@@ -129,7 +129,7 @@ export default function AdminSalesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-stone-900">Sales</h1>
-          <p className="text-sm text-stone-500 mt-0.5">Paid orders from this shop, plus sales imported from Hotplate.</p>
+          <p className="text-sm text-stone-500 mt-0.5">Paid orders from this shop, plus past sales you imported (e.g. from Hotplate).</p>
         </div>
         <button onClick={exportCsv} disabled={!rows.length} className="bg-white hover:bg-stone-50 disabled:opacity-50 text-stone-700 border border-stone-300 font-semibold text-sm px-4 py-2 rounded-lg">
           Export CSV
@@ -207,7 +207,7 @@ export default function AdminSalesPage() {
               </div>
             ))}
           </div>
-          {fees > 0 && <p className="text-xs text-stone-500">Hotplate/card fees in these sales: {money(fees)} (card fees for this shop&apos;s orders are in Stripe).</p>}
+          {fees > 0 && <p className="text-xs text-stone-500">Platform/card fees in imported sales: {money(fees)} (card fees for this shop&apos;s orders are in Stripe).</p>}
 
           <div className="grid md:grid-cols-3 gap-3">
             <Breakdown title="By payment" rows={groupBy(rows, (r) => r.payment)} total={revenue} />
@@ -230,7 +230,7 @@ export default function AdminSalesPage() {
                   ))}
               </tbody>
             </table>
-            <p className="text-[11px] text-stone-400 mt-2">Hotplate sales show how many sold; their per-item amounts aren&apos;t in Hotplate&apos;s export.</p>
+            <p className="text-[11px] text-stone-400 mt-2">Imported sales show how many sold; per-item amounts aren&apos;t in the import.</p>
           </div>
 
           <div className="bg-white rounded-xl border border-stone-200 overflow-x-auto">
