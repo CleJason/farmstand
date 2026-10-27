@@ -55,8 +55,9 @@ function ReviewRequestSettings() {
       <div>
         <h2 className="text-sm font-semibold text-stone-900">Customer reviews</h2>
         <p className="text-xs text-stone-500 mt-0.5">
-          When you mark an order Picked Up, the customer gets a &quot;How was everything?&quot; email with a review link.
-          New reviews stay hidden until you click Approve.
+          When you mark an order Picked Up, the customer gets a review link by email, or by text if they gave only a
+          phone or chose texts. You can also send one any time with &quot;Ask for a review&quot; on an order. New reviews stay
+          hidden until you click Approve.
         </p>
       </div>
       <div className="flex flex-wrap items-end gap-3 text-sm">
@@ -82,6 +83,61 @@ function ReviewRequestSettings() {
         Discounts (set Max uses to 1).
       </p>
     </form>
+  );
+}
+
+type SentRequest = { orderId: string; sentAt: string; via: string | null; customer: string; rating: number | null };
+
+/** Review requests sent (automatic on Picked Up, or "Ask for a review" on Orders) and which ones came back. */
+function ReviewRequestsSent() {
+  const [list, setList] = useState<SentRequest[] | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  useEffect(() => {
+    fetch("/api/reviews/requests")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setList(Array.isArray(d) ? d : []))
+      .catch(() => setList([]));
+  }, []);
+  if (!list) return null;
+  const month = new Date().toISOString().slice(0, 7);
+  const thisMonth = list.filter((r) => r.sentAt.slice(0, 7) === month);
+  const answered = list.filter((r) => r.rating !== null).length;
+  const shown = showAll ? list : list.slice(0, 10);
+  const date = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  return (
+    <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3 max-w-2xl">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold text-stone-900">Review requests sent</h2>
+        <span className="text-sm text-stone-600">
+          <b className="text-stone-900">{thisMonth.length}</b> this month · {list.length} in all ·{" "}
+          {list.length ? Math.round((answered / list.length) * 100) : 0}% left a review
+        </span>
+      </div>
+      {list.length === 0 ? (
+        <p className="text-xs text-stone-500">None yet. They go out when you mark an order Picked Up, or use &quot;Ask for a review&quot; on an order.</p>
+      ) : (
+        <table className="w-full text-xs">
+          <tbody className="divide-y divide-stone-100">
+            {shown.map((r) => (
+              <tr key={r.orderId}>
+                <td className="py-1.5 text-stone-500 w-16">{date(r.sentAt)}</td>
+                <td className="py-1.5 text-stone-800">{r.customer}</td>
+                <td className="py-1.5 text-stone-500">{r.via === "both" ? "email + text" : r.via ?? ""}</td>
+                <td className="py-1.5 text-right">
+                  {r.rating !== null ? <span className="text-amber-600">{"★".repeat(r.rating)} reviewed</span> : <span className="text-stone-400">no review yet</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {list.length > 10 && (
+        <button onClick={() => setShowAll(!showAll)} className="text-xs text-amber-700 hover:underline">
+          {showAll ? "Show fewer" : `Show all ${list.length}`}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -215,6 +271,7 @@ export default function AdminReviewsPage() {
       </div>
 
       <ReviewRequestSettings />
+      <ReviewRequestsSent />
 
       {reviews.some((r) => r.orderId && !r.visible) && (
         <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">

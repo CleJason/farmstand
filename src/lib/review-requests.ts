@@ -49,8 +49,15 @@ export function generateRewardCode() {
   return `THANKS-${chars.slice(0, 4)}-${chars.slice(4)}`;
 }
 
-/** Called when an order is marked Picked Up. Sends the review link if this customer is due one. */
-export async function maybeRequestReview(orderId: string): Promise<void> {
+export type ReviewRequestResult = { sent: boolean; via?: "email" | "text" | "both"; reason?: string };
+
+/**
+ * Sends the review link if this customer is due one: called when an order is
+ * marked Picked Up. `force` (the owner's "Ask for a review" button) skips the
+ * once-every-N-days limit and works on any paid order, and re-sends the same
+ * link if this order was asked before; "don't ask me" and STOP still count.
+ */
+export async function maybeRequestReview(orderId: string, { force = false } = {}): Promise<ReviewRequestResult> {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
@@ -58,26 +65,34 @@ export async function maybeRequestReview(orderId: string): Promise<void> {
       items: { include: { dropProduct: { include: { product: true } }, farmstandItem: true } },
     },
   });
-  if (!order || order.type === "GIFT" || order.reviewToken) return;
+  if (!order || order.type === "GIFT") return { sent: false, reason: "Not an order that can be reviewed" };
+  if (order.reviewToken && !force) return { sent: false, reason: "Already asked for this order" };
+  if (await prisma.review.count({ where: { orderId: order.id } })) return { sent: false, reason: "They already reviewed this order" };
   const email = (order.guestEmail || order.user?.email || "").trim().toLowerCase();
   const phone = phoneKey(order.guestPhone || order.user?.phone);
-  if (!email && !phone) return;
+  if (!email && !phone) return { sent: false, reason: "No email or phone on this order" };
 
   const { days, percent } = await reviewSettings();
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   // They asked not to be asked for reviews
-  if (email && (await prisma.reviewOptOut.findUnique({ where: { email } }))) return;
+  if (email && (await prisma.reviewOptOut.findUnique({ where: { email } }))) {
+    return { sent: false, reason: "They asked not to get review requests" };
+  }
 
-  // Asked (by email or text) or reviewed recently: not this time
-  const asked = await prisma.order.findMany({
-    where: { reviewRequestedAt: { gte: since } },
-    select: { guestEmail: true, guestPhone: true, user: { select: { email: true, phone: true } } },
-  });
-  const same = (o: (typeof asked)[number]) =>
-    (email && [o.guestEmail, o.user?.email].some((e) => e?.trim().toLowerCase() === email)) ||
-    (phone && [o.guestPhone, o.user?.phone].some((p) => phoneKey(p) === phone));
-  if (asked.some(same)) return;
-  if (email && (await prisma.review.count({ where: { email, createdAt: { gte: since } } }))) return;
+  if (!force) {
+    // Asked (by email or text) or reviewed recently: not this time
+    const asked = await prisma.order.findMany({
+      where: { reviewRequestedAt: { gte: since } },
+      select: { guestEmail: true, guestPhone: true, user: { select: { email: true, phone: true } } },
+    });
+    const same = (o: (typeof asked)[number]) =>
+      (email && [o.guestEmail, o.user?.email].some((e) => e?.trim().toLowerCase() === email)) ||
+      (phone && [o.guestPhone, o.user?.phone].some((p) => phoneKey(p) === phone));
+    if (asked.some(same)) return { sent: false, reason: `Asked within the last ${days} days` };
+    if (email && (await prisma.review.count({ where: { email, createdAt: { gte: since } } }))) {
+      return { sent: false, reason: `Reviewed within the last ${days} days` };
+    }
+  }
 
   // A text too when they gave only a phone, or chose texts for alerts (never after STOP)
   const subs = await prisma.subscriber.findMany({ where: { OR: [...(email ? [{ email }] : []), { phone: { not: null } }] } });
@@ -85,9 +100,11 @@ export async function maybeRequestReview(orderId: string): Promise<void> {
   const text = !!phone && !(await isOptedOut(phone)) && (!email || sub?.dropVia === "text" || sub?.dropVia === "both");
   // Someone who chose texts only gets just the text
   const sendEmail = !!email && !(text && sub?.dropVia === "text");
+  if (!sendEmail && !text) return { sent: false, reason: "They replied STOP and have no email" };
+  const via = sendEmail && text ? "both" : sendEmail ? "email" : "text";
 
-  const token = crypto.randomBytes(18).toString("base64url");
-  await prisma.order.update({ where: { id: order.id }, data: { reviewToken: token, reviewRequestedAt: new Date() } });
+  const token = order.reviewToken ?? crypto.randomBytes(18).toString("base64url");
+  await prisma.order.update({ where: { id: order.id }, data: { reviewToken: token, reviewRequestedAt: new Date(), reviewVia: via } });
 
   const appUrl = await getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || "");
   const reviewUrl = `${appUrl}/review?token=${token}`;
@@ -117,4 +134,5 @@ export async function maybeRequestReview(orderId: string): Promise<void> {
     // Waits for texting hours, like other texts that aren't about an order
     await sendMarketing("broadcast", { smsMessage, texts: [{ phone }], emails: [] }, { body: smsMessage, phones: [phone] });
   }
+  return { sent: true, via };
 }

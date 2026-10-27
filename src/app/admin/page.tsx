@@ -22,6 +22,7 @@ interface Order {
   guestPhone: string | null;
   manualPaymentRef: string | null;
   createdAt: string;
+  reviewRequestedAt: string | null;
   pickupSlot: { label: string; location: string | null; pickupDate: string; endDate: string | null } | null;
   pickupTime: string | null;
   user: { name: string | null; email: string; phone: string | null } | null;
@@ -425,6 +426,21 @@ export default function AdminDashboardPage() {
                       className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
                     >
                       Resend confirmation
+                    </button>
+                  )}
+                  {["PAID", "READY", "PICKED_UP"].includes(order.status) && order.type !== "GIFT" && (
+                    <button
+                      onClick={async () => {
+                        const again = order.reviewRequestedAt ? " again (they were asked before)" : "";
+                        if (!confirm(`Send ${order.guestName || "them"} a link to review this order${again}?`)) return;
+                        const res = await fetch(`/api/orders/${order.id}/review-request`, { method: "POST" });
+                        const data = await res.json().catch(() => ({}));
+                        alert(res.ok ? `Sent by ${data.via === "both" ? "email and text" : data.via}.` : data.error || "Couldn't send it");
+                        if (res.ok) loadOrders();
+                      }}
+                      className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      {order.reviewRequestedAt ? "⭐ Asked for review · ask again" : "⭐ Ask for a review"}
                     </button>
                   )}
                   {order.status === "READY" && (

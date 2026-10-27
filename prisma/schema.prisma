@@ -200,6 +200,7 @@ model Order {
   // "How was it?" email after pickup (not every order: see lib/review-requests)
   reviewToken     String?  @unique
   reviewRequestedAt DateTime?
+  reviewVia       String?  // how the review request went: email | text | both
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
