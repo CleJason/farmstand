@@ -23,7 +23,7 @@ interface Review {
 
 /** Ask-for-review frequency and the first-review thank-you discount. */
 function ReviewRequestSettings() {
-  const [days, setDays] = useState("30");
+  const [days, setDays] = useState("365");
   const [percent, setPercent] = useState("10");
   const [msg, setMsg] = useState("");
 

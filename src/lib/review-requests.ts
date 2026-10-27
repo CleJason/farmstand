@@ -17,7 +17,7 @@ import { sendMarketing } from "@/lib/marketing-send";
 
 export async function reviewSettings() {
   const [days, percent] = await Promise.all([
-    getSetting("REVIEW_REQUEST_DAYS", "30"),
+    getSetting("REVIEW_REQUEST_DAYS", "365"),
     getSetting("REVIEW_REWARD_PERCENT", "10"),
   ]);
   return {
