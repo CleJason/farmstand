@@ -12,6 +12,8 @@ export type SaleRow = {
   type: string;
   customer: string;
   items: string;
+  payment: string; // Card, Venmo, PayPal, Gift card…
+  lines: { name: string; quantity: number; amount: number | null }[]; // amount = dollars, when known
   subtotal: number; // dollars
   discount: number;
   giftCardUsed: number;
@@ -68,6 +70,9 @@ export async function accounting(from: Date, to: Date) {
     return known ? Math.round(total * 100) / 100 : null;
   };
   const describe = (items: SoldItem[]) => items.map((i) => `${i.quantity} × ${i.name}`).join("; ");
+  // The shop's day, not UTC: an 9 PM order belongs to that evening
+  const day = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: process.env.TZ || "America/New_York" }).format(d);
+  const PAYMENT: Record<string, string> = { STRIPE: "Card", VENMO: "Venmo", PAYPAL: "PayPal", CASH: "Cash" };
 
   const sales: SaleRow[] = [];
   for (const o of orders) {
@@ -78,12 +83,14 @@ export async function accounting(from: Date, to: Date) {
       picks: Array.isArray(i.selections) ? (i.selections as { name: string; quantity: number }[]) : undefined,
     }));
     sales.push({
-      date: o.createdAt.toISOString().slice(0, 10),
+      date: day(o.createdAt),
       source: "Shop",
       orderNumber: `#${o.id.slice(-6).toUpperCase()}`,
       type: o.type === "GIFT" ? "Gift card sold" : o.type === "FARMSTAND" ? "Porch Pickup" : "Drop",
       customer: o.guestName || o.user?.name || o.guestEmail || o.user?.email || "",
       items: describe(items),
+      payment: o.total === 0 && o.giftAmount > 0 ? "Gift card" : PAYMENT[o.paymentMethod] ?? o.paymentMethod,
+      lines: o.items.map((i, n) => ({ name: items[n].name, quantity: i.quantity, amount: (i.priceAtPurchase * i.quantity) / 100 })),
       subtotal: o.subtotal / 100,
       discount: o.discount / 100,
       giftCardUsed: o.giftAmount / 100,
@@ -98,12 +105,15 @@ export async function accounting(from: Date, to: Date) {
   for (const s of past) {
     const items = (s.items as SoldItem[]) ?? [];
     sales.push({
+      // Imported dates are already the shop's day (stored at noon UTC)
       date: s.placedAt.toISOString().slice(0, 10),
       source: s.source === "hotplate" ? "Hotplate" : s.source,
       orderNumber: s.orderNumber,
       type: "Drop",
       customer: s.customer ?? "",
       items: describe(items),
+      payment: "Card",
+      lines: items.map((i) => ({ name: i.name, quantity: i.quantity, amount: null })),
       subtotal: s.subtotal / 100,
       discount: s.discount / 100,
       giftCardUsed: 0,

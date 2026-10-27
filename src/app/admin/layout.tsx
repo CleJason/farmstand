@@ -37,6 +37,7 @@ export default async function AdminLayout({
 
   const navItems = [
     { href: "/admin", label: "Orders", icon: "📋" },
+    { href: "/admin/sales", label: "Sales", icon: "📈" },
     { href: "/admin/messages", label: unreadTexts ? `Messages (${unreadTexts})` : "Messages", icon: "💬" },
     { href: "/admin/drops", label: "Drops", icon: "📅" },
     { href: "/admin/farmstand", label: site.SITE_FARMSTAND_HEADING, icon: "🏪" },
