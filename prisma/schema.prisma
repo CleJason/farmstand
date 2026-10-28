@@ -304,6 +304,21 @@ model Review {
   updatedAt  DateTime @updatedAt
 }
 
+// A review link for a customer with no order in this shop (e.g. they bought on
+// Hotplate): Admin → Customers → "Ask for a review"
+model ReviewInvite {
+  id       String   @id @default(cuid())
+  token    String   @unique
+  name     String?
+  email    String?  // lowercase
+  phone    String?  // digits
+  via      String?  // email | text | both
+  sentAt   DateTime @default(now())
+  reviewId String?  @unique // once they've left it
+
+  @@index([email])
+}
+
 // Customers added by the owner (by hand or imported from Hotplate etc.).
 // Shown in Admin → Customers, merged with orders by email or phone.
 model Contact {

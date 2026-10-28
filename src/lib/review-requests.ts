@@ -94,27 +94,54 @@ export async function maybeRequestReview(orderId: string, { force = false } = {}
     }
   }
 
-  // A text too when they gave only a phone, or chose texts for alerts (never after STOP)
+  const how = await channels(email, phone);
+  if (!how) return { sent: false, reason: "They replied STOP and have no email" };
+
+  const token = order.reviewToken ?? crypto.randomBytes(18).toString("base64url");
+  await prisma.order.update({ where: { id: order.id }, data: { reviewToken: token, reviewRequestedAt: new Date(), reviewVia: how.via } });
+  await sendReviewLink({ token, email, phone, how, name: order.user?.name ?? null, products: orderProductNames(order.items), percent });
+  return { sent: true, via: how.via };
+}
+
+/**
+ * How to reach them: email, plus a text when they gave only a phone or chose
+ * texts for alerts (never after STOP); texts-only people get just the text.
+ * null = no way (STOP and no email).
+ */
+async function channels(email: string, phone: string) {
   const subs = await prisma.subscriber.findMany({ where: { OR: [...(email ? [{ email }] : []), { phone: { not: null } }] } });
   const sub = subs.find((s) => (email && s.email === email) || (phone && phoneKey(s.phone) === phone));
   const text = !!phone && !(await isOptedOut(phone)) && (!email || sub?.dropVia === "text" || sub?.dropVia === "both");
-  // Someone who chose texts only gets just the text
   const sendEmail = !!email && !(text && sub?.dropVia === "text");
-  if (!sendEmail && !text) return { sent: false, reason: "They replied STOP and have no email" };
-  const via = sendEmail && text ? "both" : sendEmail ? "email" : "text";
+  if (!sendEmail && !text) return null;
+  return { email: sendEmail, text, via: (sendEmail && text ? "both" : sendEmail ? "email" : "text") as "email" | "text" | "both" };
+}
 
-  const token = order.reviewToken ?? crypto.randomBytes(18).toString("base64url");
-  await prisma.order.update({ where: { id: order.id }, data: { reviewToken: token, reviewRequestedAt: new Date(), reviewVia: via } });
-
+/** The review link by email (n8n) and/or text (waits for texting hours). */
+async function sendReviewLink({
+  token,
+  email,
+  phone,
+  how,
+  name,
+  products,
+  percent,
+}: {
+  token: string;
+  email: string;
+  phone: string;
+  how: { email: boolean; text: boolean };
+  name: string | null;
+  products: string[];
+  percent: number;
+}) {
   const appUrl = await getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || "");
   const reviewUrl = `${appUrl}/review?token=${token}`;
   const reward = email && (await hasReviewed(email)) ? 0 : percent;
-  const products = orderProductNames(order.items);
-  if (sendEmail) {
+  if (how.email) {
     await fireNotification("review.requested", {
-      orderId: order.id,
       customerEmail: email,
-      customerName: order.user?.name ?? null,
+      customerName: name,
       products,
       reviewUrl,
       // "Don't ask me for reviews" link at the bottom of the email
@@ -123,16 +150,38 @@ export async function maybeRequestReview(orderId: string, { force = false } = {}
       rewardPercent: reward,
     });
   }
-  if (text) {
+  if (how.text) {
     const site = await getSiteSettings();
     const shop = isOn(site.SITE_NAME_IN_NOTIFICATIONS) ? site.SITE_NAME : "";
     // "your Biscoff Cookie", but "The Sunday Roll" as is
     const what = products.length !== 1 ? "your order" : /^the\s/i.test(products[0]) ? products[0] : `your ${products[0]}`;
     const smsMessage =
-      `${shop ? `${shop}: ` : ""}Thanks for picking up! How was ${what}? Leave a quick review: ${reviewUrl}` +
+      `${shop ? `${shop}: ` : ""}Thanks for ordering! How was ${what}? Leave a quick review: ${reviewUrl}` +
       `${reward ? ` Your first review gets ${reward}% off your next order.` : ""} Reply STOP to opt out.`;
     // Waits for texting hours, like other texts that aren't about an order
     await sendMarketing("broadcast", { smsMessage, texts: [{ phone }], emails: [] }, { body: smsMessage, phones: [phone] });
   }
-  return { sent: true, via };
+}
+
+/**
+ * Admin → Customers → "Ask for a review": for someone with no order here (e.g.
+ * a Hotplate customer). Their link isn't tied to an order. "Don't ask me" and
+ * STOP still count.
+ */
+export async function requestReviewFromCustomer(input: { name?: string | null; email?: string | null; phone?: string | null }): Promise<ReviewRequestResult> {
+  const email = (input.email ?? "").trim().toLowerCase();
+  const phone = phoneKey(input.phone);
+  if (!email && !phone) return { sent: false, reason: "No email or phone for this customer" };
+  if (email && (await prisma.reviewOptOut.findUnique({ where: { email } }))) {
+    return { sent: false, reason: "They asked not to get review requests" };
+  }
+  const how = await channels(email, phone);
+  if (!how) return { sent: false, reason: "They replied STOP and have no email" };
+  const { percent } = await reviewSettings();
+  const token = crypto.randomBytes(18).toString("base64url");
+  await prisma.reviewInvite.create({
+    data: { token, name: input.name?.trim() || null, email: email || null, phone: phone || null, via: how.via },
+  });
+  await sendReviewLink({ token, email, phone, how, name: input.name?.trim() || null, products: [], percent });
+  return { sent: true, via: how.via };
 }

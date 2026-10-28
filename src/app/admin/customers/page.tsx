@@ -299,6 +299,24 @@ export default function AdminCustomersPage() {
                     : "Guest checkout"}
                 </div>
               </div>
+              {(selected.email || selected.phone) && (
+                <button
+                  onClick={async () => {
+                    const who = selected.name || selected.email || selected.phone;
+                    if (!confirm(`Send ${who} a link to leave a review?`)) return;
+                    const res = await fetch("/api/customers/review-request", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ name: selected.name, email: selected.email, phone: selected.phone }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    alert(res.ok ? `Sent by ${data.via === "both" ? "email and text" : data.via}.` : data.error || "Couldn't send it");
+                  }}
+                  className="mt-2 text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800"
+                >
+                  ⭐ Ask for a review
+                </button>
+              )}
             </div>
             )}
 

@@ -10,7 +10,9 @@ async function stopReviewEmails(formData: FormData) {
   "use server";
   const token = String(formData.get("token") ?? "");
   const order = token ? await prisma.order.findUnique({ where: { reviewToken: token }, include: { user: true } }) : null;
-  const email = (order?.guestEmail || order?.user?.email || "").toLowerCase();
+  // Or a link sent from Admin → Customers
+  const invite = !order && token ? await prisma.reviewInvite.findUnique({ where: { token } }) : null;
+  const email = (order?.guestEmail || order?.user?.email || invite?.email || "").toLowerCase();
   if (email) await prisma.reviewOptOut.upsert({ where: { email }, update: {}, create: { email } });
   redirect("/review/stop?done=1");
 }

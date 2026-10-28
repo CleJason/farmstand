@@ -52,6 +52,37 @@ export default async function ReviewPage({
   ]);
   const existing = order ? await prisma.review.findUnique({ where: { orderId: order.id } }) : null;
 
+  // A link sent from Admin → Customers (no order here, e.g. they bought on Hotplate)
+  const invite = !order && token ? await prisma.reviewInvite.findUnique({ where: { token: String(token) } }) : null;
+  if (invite) {
+    if (invite.reviewId) {
+      return (
+        <div className="min-h-screen bg-[#FAF6F0] flex items-center justify-center p-4 sm:p-6">
+          <div className="max-w-md w-full bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-stone-200 text-center space-y-4">
+            <h1 className="text-2xl font-bold text-stone-900">Thanks for your review!</h1>
+            <Link href="/" className="inline-block bg-amber-600 hover:bg-amber-700 text-white font-semibold px-6 py-2.5 rounded-full text-sm">
+              Back to {site.SITE_NAME}
+            </Link>
+          </div>
+        </div>
+      );
+    }
+    const { percent } = await reviewSettings();
+    return (
+      <div className="min-h-screen bg-[#FAF6F0] flex items-center justify-center p-4 sm:p-6">
+        <div className="max-w-md w-full bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-stone-200 space-y-4">
+          <ReviewForm
+            token={String(token)}
+            shopName={site.SITE_NAME}
+            products={[]}
+            defaultName={invite.name ?? ""}
+            rewardPercent={invite.email && !(await hasReviewed(invite.email)) ? percent : 0}
+          />
+        </div>
+      </div>
+    );
+  }
+
   const shell = (children: React.ReactNode) => (
     <div className="min-h-screen bg-[#FAF6F0] flex items-center justify-center p-4 sm:p-6">
       <div className="max-w-md w-full bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-stone-200 space-y-4">{children}</div>

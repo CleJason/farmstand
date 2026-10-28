@@ -28,17 +28,20 @@ export async function POST(req: Request) {
     const { percent } = await reviewSettings();
     const result = await prisma.$transaction(
       async (tx) => {
+        const token = String(data.token ?? "") || "-";
         const order = await tx.order.findUnique({
-          where: { reviewToken: String(data.token ?? "") || "-" },
+          where: { reviewToken: token },
           include: { user: true, items: { include: { dropProduct: { include: { product: true } }, farmstandItem: true } } },
         });
-        if (!order) throw new ReviewError("This review link isn't valid anymore");
-        if (await tx.review.findUnique({ where: { orderId: order.id } })) {
+        // Or a link sent from Admin → Customers (no order here)
+        const invite = order ? null : await tx.reviewInvite.findUnique({ where: { token } });
+        if (!order && !invite) throw new ReviewError("This review link isn't valid anymore");
+        if ((order && (await tx.review.findUnique({ where: { orderId: order.id } }))) || invite?.reviewId) {
           throw new ReviewError("You've already reviewed this order. Thank you!");
         }
-        const email = (order.guestEmail || order.user?.email || "").toLowerCase() || null;
+        const email = (order ? order.guestEmail || order.user?.email || "" : invite?.email || "").toLowerCase() || null;
         // Tags: only products that were actually in the order
-        const onOrder = orderProductNames(order.items);
+        const onOrder = order ? orderProductNames(order.items) : [];
         const picked = Array.isArray(data.products) ? data.products.map(String) : onOrder;
         const products = onOrder.filter((p) => picked.includes(p));
 
@@ -51,7 +54,7 @@ export async function POST(req: Request) {
             data: { code: rewardCode, type: "PERCENT", value: percent, appliesTo: "ALL", maxUses: 1, allowedEmails: [email] },
           });
         }
-        await tx.review.create({
+        const review = await tx.review.create({
           data: {
             name,
             rating,
@@ -60,11 +63,12 @@ export async function POST(req: Request) {
             products: products.join(", ") || null,
             visible: false, // the owner approves it first
             email,
-            orderId: order.id,
+            orderId: order?.id ?? null,
             rewardCode,
             images: reviewImages(data.images),
           },
         });
+        if (invite) await tx.reviewInvite.update({ where: { id: invite.id }, data: { reviewId: review.id } });
         return { email, name, rewardCode };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }

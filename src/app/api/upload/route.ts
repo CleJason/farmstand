@@ -28,7 +28,10 @@ const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'imag
 async function canUploadReviewPhoto(token: string) {
   if (!token) return false;
   const order = await prisma.order.findUnique({ where: { reviewToken: token }, select: { id: true } });
-  return !!order && !(await prisma.review.findUnique({ where: { orderId: order.id }, select: { id: true } }));
+  if (order) return !(await prisma.review.findUnique({ where: { orderId: order.id }, select: { id: true } }));
+  // A review link sent from Admin → Customers
+  const invite = await prisma.reviewInvite.findUnique({ where: { token }, select: { reviewId: true } });
+  return !!invite && !invite.reviewId;
 }
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
