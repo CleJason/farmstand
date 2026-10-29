@@ -12,9 +12,11 @@ export function keywordAction(text: string): "stop" | "start" | null {
   const word = text.trim().toUpperCase().replace(/[^A-Z]/g, "");
   if (STOP_WORDS.includes(word)) return "stop";
   if (START_WORDS.includes(word)) return "start";
-  // "STOP!!", "Stop please", "STOP. Who is this?": the reply starts with STOP
-  const first = text.trim().split(/\s+/)[0]?.toUpperCase().replace(/[^A-Z]/g, "") ?? "";
-  if (first === "STOP" || first === "STOPALL" || first === "UNSUBSCRIBE") return "stop";
+  // "STOP!!", "Stop please", "Stop it now": STOP plus only polite filler. Not just any
+  // text that starts with "stop" ("Stop believing chat" is a conversation, not an opt-out).
+  if (/^\s*(stop|stopall|unsubscribe)\b[\s.!,]*((please|pls|plz|now|it|this|them|thanks|thank you|asap)[\s.!,]*)*$/i.test(text)) {
+    return "stop";
+  }
   if (STOP_PHRASES.test(text)) return "stop";
   return null;
 }
