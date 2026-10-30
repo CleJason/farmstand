@@ -144,7 +144,14 @@ export const COPY = {
   "drop.backHome": { group: "Pre-order page", label: "Order placed: button", default: "Back to Home" },
 
   // ── Walk-up (porch pickup) page
-  "stand.hoursTitle": { group: "Walk-up page", label: "Open hours: heading", default: "Open" },
+  "stand.hoursTitle": { group: "Walk-up page", label: "Open hours: heading", default: "Opening" },
+  "stand.payNote": {
+    group: "Walk-up page",
+    label: "Pay-at-the-porch note",
+    default:
+      "🏡 Please pay only when you're at the porch with your items in hand. Items aren't set aside for anyone who pays ahead, so whatever's on the porch goes to whoever is there.",
+    long: true,
+  },
   "stand.openNow": { group: "Walk-up page", label: "Open hours: heading while open", default: "Open now" },
   "stand.noHours": {
     group: "Walk-up page",

@@ -247,6 +247,12 @@ export default function WalkUpShop() {
 
       {/* Item List */}
       <main className="max-w-xl mx-auto p-4 space-y-4 pt-6">
+        {/* People paying ahead and someone else taking it: nothing is held for anyone */}
+        {items.length > 0 && text("stand.payNote") && (
+          <p className="text-sm text-[#5C4033] bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 whitespace-pre-line">
+            {text("stand.payNote")}
+          </p>
+        )}
         {items.length === 0 ? (
           <div className="bg-white rounded-2xl p-10 border border-stone-200 text-center space-y-2">
             <div className="text-3xl">🛍️</div>
