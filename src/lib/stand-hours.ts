@@ -10,6 +10,17 @@ export function upcomingStandHours() {
   return prisma.standHours.findMany({ where: { endsAt: { gt: new Date() } }, orderBy: { startsAt: "asc" } });
 }
 
+/**
+ * When Porch Pickup opens next, if open hours are set and none has started
+ * yet: until then items stay hidden from customers (so they can be set up
+ * ahead). null = open now, or no hours set (items show whenever they're out).
+ */
+export async function standClosedUntil(now = new Date()): Promise<Date | null> {
+  const hours = await upcomingStandHours();
+  if (!hours.length || hours.some((h) => h.startsAt <= now)) return null;
+  return hours[0].startsAt;
+}
+
 /** "Sat, Oct 18, 9:00 AM–2:00 PM" in the server's timezone, for texts and emails. */
 export function formatHours(h: { startsAt: Date; endsAt: Date }) {
   const end = h.endsAt.toLocaleTimeString("en-US", {

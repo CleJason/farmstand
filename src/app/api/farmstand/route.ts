@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { cleanPosition } from "@/lib/image-position";
+import { standClosedUntil } from "@/lib/stand-hours";
 
 export async function GET() {
+  // Before the next open hours start, customers see none (items can be set up ahead); the admin sees all
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN" && (await standClosedUntil())) return NextResponse.json([]);
   const items = await prisma.farmstandItem.findMany({
     orderBy: { createdAt: "desc" },
   });

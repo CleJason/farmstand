@@ -19,6 +19,7 @@ import {
   pickupTimeCounts,
   pickupTimes,
 } from "@/lib/pickup";
+import { standClosedUntil } from "@/lib/stand-hours";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -130,6 +131,7 @@ async function priceOrder(
   input: { type: string; dropId?: string; pickupSlotId?: string; pickupTime?: string; items: unknown }
 ): Promise<{ lines: PricedLine[]; pickupTime: Date | null }> {
   if (input.type === "FARMSTAND") {
+    if (await standClosedUntil()) throw new OrderError("Porch Pickup isn't open yet");
     const requested = parseItems(input.items, "farmstandItemId");
     const stock = await db.farmstandItem.findMany({
       where: { id: { in: requested.map((r) => r.id) } },
