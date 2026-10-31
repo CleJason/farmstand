@@ -73,7 +73,7 @@ const col = (cols: string[], ...tests: RegExp[]) => {
 };
 
 /**
- * A cost-analyzer workbook like Made For Sunday's: a purchase log (Date,
+ * A cost-analyzer workbook laid out like this: a purchase log (Date,
  * Store, Ingredient / Item, Quantity Purchased, Base Unit, Total Price Paid),
  * an inventory pool (for items never bought, like overhead), and one tab per
  * recipe (Item Name, Quantity Used, Unit… "Total Batch Cost", "Cost Per X
