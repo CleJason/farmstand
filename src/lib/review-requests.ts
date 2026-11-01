@@ -156,7 +156,7 @@ async function sendReviewLink({
     // "your Biscoff Cookie", but "The Sunday Roll" as is
     const what = products.length !== 1 ? "your order" : /^the\s/i.test(products[0]) ? products[0] : `your ${products[0]}`;
     const smsMessage =
-      `${shop ? `${shop}: ` : ""}Thanks for ordering! How was ${what}? Leave a quick review: ${reviewUrl}` +
+      `${shop ? `${shop}: ` : ""}Thanks for ordering! How did you like ${what}? Leave a quick review: ${reviewUrl}` +
       `${reward ? ` Your first review gets ${reward}% off your next order.` : ""} Reply STOP to opt out.`;
     // Waits for texting hours, like other texts that aren't about an order
     await sendMarketing("broadcast", { smsMessage, texts: [{ phone }], emails: [] }, { body: smsMessage, phones: [phone] });
