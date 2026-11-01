@@ -22,6 +22,7 @@ const shortDate = (iso: string) =>
 export default function AdminAlertsPage() {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [adding, setAdding] = useState(false);
@@ -135,6 +136,17 @@ export default function AdminAlertsPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  // Search by name, email or phone in any format ("+1 (330) 555-0100" finds 3305550100)
+  const q = search.trim().toLowerCase();
+  const qPhone = q.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+  const shown = subscribers.filter(
+    (s) =>
+      !q ||
+      s.name?.toLowerCase().includes(q) ||
+      s.email?.toLowerCase().includes(q) ||
+      (qPhone.length >= 3 && s.phone?.replace(/\D/g, "").includes(qPhone))
+  );
 
   return (
     <div className="space-y-6">
@@ -274,10 +286,18 @@ export default function AdminAlertsPage() {
             <button onClick={removeAll} className="text-xs text-stone-400 hover:text-red-600">
               Remove all
             </button>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, email or phone"
+              className="basis-full text-sm px-3 py-2 border border-stone-200 rounded-lg"
+            />
           </div>
+          {shown.length === 0 && <p className="px-4 py-6 text-center text-sm text-stone-400">Nobody on the list matches that.</p>}
           <table className="w-full text-sm">
             <tbody className="divide-y divide-stone-100">
-              {subscribers.map((s) =>
+              {shown.map((s) =>
                 editing?.id === s.id ? (
                   <tr key={s.id} className="bg-amber-50/50">
                     <td className="px-4 py-3 text-stone-900 font-medium">{s.name ?? "—"}</td>
