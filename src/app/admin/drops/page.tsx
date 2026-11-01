@@ -240,6 +240,18 @@ export default function AdminDropsPage() {
     setShowModal(true);
   };
 
+  // A new drop that starts from an old one: same products, prices and pickup
+  // times, but it needs its own name and dates (and its own alerts and orders)
+  const openCopy = (drop: Drop) => {
+    openEdit(drop);
+    setEditingId(null);
+    setTitle("");
+    setOrderOpenAt("");
+    setOrderCloseAt("");
+    setWindows((ws) => ws.map((w) => ({ ...w, id: undefined, date: "" })));
+    setProductForm((pf) => Object.fromEntries(Object.entries(pf).filter(([id]) => products.some((p) => p.id === id))));
+  };
+
   const setWindow = (idx: number, patch: Partial<WindowForm>) =>
     setWindows((ws) => ws.map((w, i) => (i === idx ? { ...w, ...patch } : w)));
 
@@ -512,6 +524,9 @@ export default function AdminDropsPage() {
                     </div>
                   )}
                   <div className="flex items-center gap-3">
+                    <button onClick={() => openCopy(drop)} className="text-xs text-stone-500 hover:text-stone-900">
+                      Copy
+                    </button>
                     <button onClick={() => deleteDrop(drop)} className="text-xs text-stone-400 hover:text-red-600">
                       Delete
                     </button>
