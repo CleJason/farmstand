@@ -546,6 +546,15 @@ export default function AdminDashboardPage() {
                       ✓ Picked Up
                     </button>
                   )}
+                  {order.status === "READY" && (
+                    <button
+                      onClick={() => updateOrderStatus(order.id, "PICKED_UP", false)}
+                      title="Marks it picked up without asking this customer for a review"
+                      className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      ✓ Picked Up, no review
+                    </button>
+                  )}
                   {order.status !== "CANCELLED" && order.status !== "REFUNDED" && order.status !== "PICKED_UP" && (
                     <button
                       onClick={() => {

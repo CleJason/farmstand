@@ -161,8 +161,8 @@ export async function PUT(
       pickupAddress: order.type === "DROP" ? pickupAddressFor(order.pickupSlot, await getSiteSettings()) : null,
     });
   } else if (statusChanged && status === "PICKED_UP") {
-    // "How was it?" email, if this customer is due one
-    await maybeRequestReview(order.id);
+    // "How was it?" email, if this customer is due one (`notify: false` skips it)
+    if (data.notify !== false) await maybeRequestReview(order.id);
   } else if (statusChanged && (status === "CANCELLED" || status === "REFUNDED") && data.notify !== false) {
     // (`notify: false` cancels quietly, e.g. a duplicate the customer already paid for another way)
     await fireNotification("order.cancelled", {
