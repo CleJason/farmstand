@@ -9,8 +9,11 @@ type Via = "text" | "email" | "both";
 const inputClass =
   "min-w-0 text-sm px-4 py-3 border border-stone-300 rounded-full bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/40";
 
-/** "Never miss a drop" sign-up on the home page: by text, email or both. */
-export default function DropAlertsSignup() {
+/**
+ * "Never miss a drop" sign-up on the home page: by text, email or both.
+ * `embedded`: just the form, for inside the "no drop right now" card.
+ */
+export default function DropAlertsSignup({ embedded = false }: { embedded?: boolean }) {
   const text = useText();
   const [via, setVia] = useState<Via>("both");
   const [email, setEmail] = useState("");
@@ -49,19 +52,15 @@ export default function DropAlertsSignup() {
     ["both", text("alerts.viaBoth")],
   ];
 
-  return (
-    <section id="alerts" className="scroll-mt-20 border-t border-amber-100 bg-amber-50/60">
-      <div className="max-w-xl mx-auto px-4 py-12 text-center">
-        <h2 className="text-2xl md:text-3xl font-bold text-stone-900 tracking-tight">{text("alerts.heading")}</h2>
-        <div aria-hidden className="mx-auto mt-2 h-1 w-12 rounded-full bg-amber-500/80" />
-        {state === "done" ? (
+  const body =
+    state === "done" ? (
           <div className="mt-5 space-y-2">
             <p className="text-stone-700">{text("alerts.done")}</p>
             {wantsEmail && <p className="text-xs text-stone-500">{text("alerts.doneSpam")}</p>}
           </div>
         ) : (
           <>
-            <p className="mt-4 text-stone-600 text-sm">{text("alerts.intro")}</p>
+            {!embedded && <p className="mt-4 text-stone-600 text-sm">{text("alerts.intro")}</p>}
             <form onSubmit={submit} className="mt-5 space-y-2 text-left">
               <div className="flex justify-center gap-2" role="radiogroup" aria-label="How to reach you">
                 {choices.map(([value, label]) => (
@@ -122,7 +121,21 @@ export default function DropAlertsSignup() {
               </p>
             </form>
           </>
-        )}
+        );
+
+  if (embedded) {
+    return (
+      <div id="alerts" className="scroll-mt-20 max-w-md mx-auto">
+        {body}
+      </div>
+    );
+  }
+  return (
+    <section id="alerts" className="scroll-mt-20 border-t border-amber-100 bg-amber-50/60">
+      <div className="max-w-xl mx-auto px-4 py-12 text-center">
+        <h2 className="text-2xl md:text-3xl font-bold text-stone-900 tracking-tight">{text("alerts.heading")}</h2>
+        <div aria-hidden className="mx-auto mt-2 h-1 w-12 rounded-full bg-amber-500/80" />
+        {body}
       </div>
     </section>
   );

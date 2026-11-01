@@ -43,8 +43,22 @@ export default function HomeClient() {
   const [drops, setDrops] = useState<Drop[]>([]);
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState<{ average: number; count: number } | null>(null);
+  // Is Porch Pickup going? Items out with some left, or open hours coming up (null = still checking)
+  const [porchActive, setPorchActive] = useState<boolean | null>(null);
 
   useEffect(() => {
+    Promise.all([
+      fetch("/api/farmstand").then((r) => (r.ok ? r.json() : [])),
+      fetch("/api/stand-hours").then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([items, hours]: [{ available: boolean; quantityAvailable: number; quantitySold: number }[], unknown[]]) =>
+        setPorchActive(
+          (Array.isArray(items) && items.some((i) => i.available && i.quantityAvailable - i.quantitySold > 0)) ||
+            (Array.isArray(hours) && hours.length > 0)
+        )
+      )
+      .catch(() => setPorchActive(true)); // Can't tell: show the usual page
+
     async function fetchDrops() {
       try {
         const res = await fetch("/api/drops");
@@ -72,6 +86,9 @@ export default function HomeClient() {
       })
       .catch(() => {});
   }, []);
+
+  // No drop and no Porch Pickup: the sign-up moves up into the drops section
+  const quiet = !loading && drops.length === 0 && porchActive === false;
 
   return (
     <div className="min-h-screen bg-white">
@@ -163,10 +180,17 @@ export default function HomeClient() {
           </p>
         </div>
 
-        {loading ? (
+        {loading || (drops.length === 0 && porchActive === null) ? (
           <div className="text-center py-20">
             <div className="inline-block w-6 h-6 border-2 border-stone-300 border-t-amber-600 rounded-full animate-spin" />
             <p className="text-sm text-stone-400 mt-3">{text("home.loadingDrops")}</p>
+          </div>
+        ) : quiet ? (
+          // Nothing to buy right now: the sign-up is the main thing on the page
+          <div className="rounded-3xl p-6 sm:p-10 text-center border-2 border-dashed border-amber-200 bg-gradient-to-br from-amber-50/80 to-white">
+            <h3 className="font-semibold text-stone-900 text-xl">{text("home.quietTitle")}</h3>
+            <p className="text-stone-600 text-sm mt-2 max-w-sm mx-auto">{text("home.quietText")}</p>
+            <DropAlertsSignup embedded />
           </div>
         ) : drops.length === 0 ? (
           <div className="rounded-3xl p-12 text-center border-2 border-dashed border-amber-200 bg-gradient-to-br from-amber-50/80 to-white">
@@ -304,7 +328,7 @@ export default function HomeClient() {
       </main>
 
       <ReviewsSection />
-      <DropAlertsSignup />
+      {!quiet && <DropAlertsSignup />}
       <LegalFooter />
     </div>
   );

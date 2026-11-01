@@ -46,6 +46,13 @@ export const COPY = {
   // ── Home page
   "home.viewDrops": { group: "Home page", label: "Main button (to the drops)", default: "View This Week's Drop" },
   "home.loadingDrops": { group: "Home page", label: "Loading drops", default: "Loading drops..." },
+  "home.quietTitle": { group: "Home page", label: "Nothing open (no drop or Porch Pickup): title", default: "No drop right now" },
+  "home.quietText": {
+    group: "Home page",
+    label: "Nothing open: text above the sign-up",
+    default: "Sign up and we'll let you know as soon as the next one opens.",
+    long: true,
+  },
   "home.noDropsTitle": { group: "Home page", label: "No drops: title", default: "No active drops right now" },
   "home.noDropsText": {
     group: "Home page",
