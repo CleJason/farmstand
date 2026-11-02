@@ -32,7 +32,8 @@ export function channelsFor(
  * Add someone to the subscriber list. There's one list: signing up on the home
  * page or the Porch Pickup page gets drop alerts and Porch Pickup notices
  * (`list` is only where they signed up). The same email, or the same phone for
- * phone-only people, is one subscriber. Email/phone must already be cleaned
+ * phone-only people (even when they come back and add an email), is one
+ * subscriber. Email/phone must already be cleaned
  * (cleanEmail/cleanPhone). `via` is how they want them (text, email or both).
  */
 export async function addSubscriber({
@@ -50,6 +51,24 @@ export async function addSubscriber({
   const choice = via ?? (list === "stand" ? viaFor(phone, email) : undefined);
   const flag = { dropAlerts: true, standAlerts: true, ...(choice ? { dropVia: choice, standVia: choice } : {}) };
   if (email) {
+    // They're already on the list by phone alone: add the email to that entry instead of a second one
+    const phoneOnly = phone
+      ? (await prisma.subscriber.findMany({ where: { email: null, phone: { not: null } } })).find((s) => phoneKey(s.phone) === phoneKey(phone))
+      : undefined;
+    if (phoneOnly) {
+      const same = await prisma.subscriber.findUnique({ where: { email } });
+      if (same) {
+        // On the list twice already: keep the email entry, from when they first signed up
+        const createdAt = phoneOnly.createdAt < same.createdAt ? phoneOnly.createdAt : same.createdAt;
+        await prisma.$transaction([
+          prisma.subscriber.delete({ where: { id: phoneOnly.id } }),
+          prisma.subscriber.update({ where: { id: same.id }, data: { ...flag, phone, createdAt } }),
+        ]);
+      } else {
+        await prisma.subscriber.update({ where: { id: phoneOnly.id }, data: { ...flag, email, phone } });
+      }
+      return;
+    }
     await prisma.subscriber.upsert({
       where: { email },
       create: { email, phone, ...flag },
