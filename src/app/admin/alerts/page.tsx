@@ -18,11 +18,22 @@ const getsLabel = (s: Subscriber) =>
 
 const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const shortTime = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+/** The last n days, newest first, each as a local date. */
+const lastDays = (n: number) =>
+  Array.from({ length: n }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    return d;
+  });
+const dayKey = (d: Date | string) => new Date(d).toLocaleDateString("en-US");
 
 export default function AdminAlertsPage() {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [day, setDay] = useState(""); // show only the people who signed up on this day
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [adding, setAdding] = useState(false);
@@ -142,11 +153,17 @@ export default function AdminAlertsPage() {
   const qPhone = q.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
   const shown = subscribers.filter(
     (s) =>
-      !q ||
-      s.name?.toLowerCase().includes(q) ||
-      s.email?.toLowerCase().includes(q) ||
-      (qPhone.length >= 3 && s.phone?.replace(/\D/g, "").includes(qPhone))
+      (!day || dayKey(s.createdAt) === day) &&
+      (!q ||
+        s.name?.toLowerCase().includes(q) ||
+        s.email?.toLowerCase().includes(q) ||
+        (qPhone.length >= 3 && s.phone?.replace(/\D/g, "").includes(qPhone)))
   );
+
+  // New sign-ups by day, to see whether a post brought people in
+  const perDay = new Map<string, number>();
+  for (const s of subscribers) perDay.set(dayKey(s.createdAt), (perDay.get(dayKey(s.createdAt)) ?? 0) + 1);
+  const newIn = (days: number) => lastDays(days).reduce((n, d) => n + (perDay.get(dayKey(d)) ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -266,6 +283,50 @@ export default function AdminAlertsPage() {
         </p>
       </form>
 
+      {subscribers.length > 0 && (
+        <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-stone-900">📈 New sign-ups</h2>
+          <div className="flex flex-wrap gap-6">
+            {[
+              { label: "Today", days: 1 },
+              { label: "Last 7 days", days: 7 },
+              { label: "Last 30 days", days: 30 },
+            ].map(({ label, days }) => (
+              <div key={label}>
+                <div className="text-xl font-bold text-stone-900">{newIn(days)}</div>
+                <div className="text-xs text-stone-500">{label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {lastDays(14).map((d) => {
+              const key = dayKey(d);
+              const count = perDay.get(key) ?? 0;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setDay(day === key ? "" : key)}
+                  disabled={count === 0}
+                  className={`text-xs px-2 py-1 rounded-lg border ${
+                    day === key
+                      ? "bg-amber-600 border-amber-600 text-white"
+                      : count > 0
+                        ? "bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100"
+                        : "border-stone-100 text-stone-400"
+                  }`}
+                >
+                  {d.toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric" })} · <b>{count}</b>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-stone-500">
+            Tap a day to see who signed up. Counts everyone on the list by the day they joined, including people who signed up
+            at checkout or you added. Anyone removed from the list isn&apos;t counted.
+          </p>
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center py-16">
           <div className="inline-block w-5 h-5 border-2 border-stone-300 border-t-amber-600 rounded-full animate-spin" />
@@ -363,7 +424,9 @@ export default function AdminAlertsPage() {
                       getsLabel(s)
                     )}
                   </td>
-                  <td className="px-4 py-3 text-stone-500 whitespace-nowrap">{shortDate(s.createdAt)}</td>
+                  <td className="px-4 py-3 text-stone-500 whitespace-nowrap">
+                    {shortDate(s.createdAt)} <span className="text-xs text-stone-400">{shortTime(s.createdAt)}</span>
+                  </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     <button
                       onClick={() =>
