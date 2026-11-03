@@ -85,9 +85,40 @@ export default function AdminAlertsPage() {
       .catch(() => setSubscribers([]))
       .finally(() => setLoading(false));
 
+  const [optOuts, setOptOuts] = useState<{ phone: string; name: string | null; createdAt: string }[]>([]);
+  const [stopPhone, setStopPhone] = useState("");
+  const loadOptOuts = () =>
+    fetch("/api/subscribers/opt-outs")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setOptOuts(Array.isArray(d) ? d : []))
+      .catch(() => {});
+
   useEffect(() => {
     load();
+    loadOptOuts();
   }, []);
+
+  const markStop = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch("/api/subscribers/opt-outs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: stopPhone.trim() }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return alert(data.error || "Couldn't mark that number");
+    setStopPhone("");
+    loadOptOuts();
+    load();
+  };
+
+  const undoStop = async (phone: string) => {
+    if (!confirm(`Allow texts to ${phone} again? Only do this if it was marked by mistake. If they replied STOP, they have to reply START themselves.`)) return;
+    const res = await fetch(`/api/subscribers/opt-outs?phone=${encodeURIComponent(phone)}`, { method: "DELETE" });
+    if (!res.ok) return alert("Couldn't undo that");
+    loadOptOuts();
+    load();
+  };
 
   const remove = async (s: Subscriber) => {
     if (!confirm(`Remove ${s.name ?? s.email ?? s.phone} from the list? (No more drop alerts or Porch Pickup notices.)`)) return;
@@ -282,6 +313,52 @@ export default function AdminAlertsPage() {
           Only add people who asked for drop alerts. Anyone who replied STOP never gets texts.
         </p>
       </form>
+
+      <details className="bg-white rounded-xl border border-stone-200 p-4">
+        <summary className="text-sm font-semibold text-stone-900 cursor-pointer">🚫 Opted out of texts ({optOuts.length})</summary>
+        <div className="mt-3 space-y-3">
+          <p className="text-[11px] text-stone-500">
+            These numbers never get texts from the shop, even if they&apos;re added or imported again, unless they reply START.
+            If you see a STOP on the phone that isn&apos;t here, mark it below.
+          </p>
+          <form onSubmit={markStop} className="flex flex-wrap gap-2">
+            <input
+              type="tel"
+              value={stopPhone}
+              onChange={(e) => setStopPhone(e.target.value)}
+              placeholder="(555) 000-0000"
+              aria-label="Phone number to mark as STOP"
+              className="flex-1 min-w-[150px] text-sm px-3 py-2 border border-stone-200 rounded-lg"
+            />
+            <button
+              disabled={!stopPhone.trim()}
+              className="bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-white font-semibold text-sm px-4 py-2 rounded-lg"
+            >
+              Mark as STOP
+            </button>
+          </form>
+          {optOuts.length === 0 ? (
+            <p className="text-sm text-stone-400">Nobody has opted out.</p>
+          ) : (
+            <ul className="divide-y divide-stone-100 text-sm">
+              {optOuts.map((o) => (
+                <li key={o.phone} className="py-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                  <span className="text-stone-900">
+                    {o.phone}
+                    {o.name && <span className="text-stone-500"> · {o.name}</span>}
+                  </span>
+                  <span className="flex items-center gap-3 text-xs text-stone-500 whitespace-nowrap">
+                    {shortDate(o.createdAt)}
+                    <button onClick={() => undoStop(o.phone)} className="text-stone-400 hover:text-red-600">
+                      Undo
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </details>
 
       {subscribers.length > 0 && (
         <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">

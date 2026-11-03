@@ -4,6 +4,30 @@ import { phoneKey } from "@/lib/phone";
 export type AlertList = "drop" | "stand";
 export type AlertVia = "text" | "email" | "both";
 
+/** Names by email and phone, from what we know about people elsewhere: customer records, accounts, orders. */
+export async function knownNames() {
+  const [contacts, users, orders] = await Promise.all([
+    prisma.contact.findMany({ where: { name: { not: null } }, select: { name: true, email: true, phone: true, otherEmails: true, otherPhones: true } }),
+    prisma.user.findMany({ where: { name: { not: null } }, select: { name: true, email: true, phone: true } }),
+    prisma.order.findMany({
+      where: { guestName: { not: null } },
+      select: { guestName: true, guestEmail: true, guestPhone: true },
+      orderBy: { createdAt: "asc" }, // later orders overwrite, so the newest name wins
+    }),
+  ]);
+  const byEmail = new Map<string, string>();
+  const byPhone = new Map<string, string>();
+  const note = (name: string | null, emails: (string | null)[], phones: (string | null)[]) => {
+    if (!name) return;
+    for (const e of emails) if (e) byEmail.set(e.toLowerCase(), name);
+    for (const p of phones) if (phoneKey(p)) byPhone.set(phoneKey(p), name);
+  };
+  for (const o of orders) note(o.guestName, [o.guestEmail], [o.guestPhone]);
+  for (const u of users) note(u.name, [u.email], [u.phone]);
+  for (const c of contacts) note(c.name, [c.email, ...c.otherEmails], [c.phone, ...c.otherPhones]);
+  return { byEmail, byPhone };
+}
+
 /** How someone gets walk-up alerts, from what they gave: a phone means text, an email means email. */
 export function viaFor(phone: string | null, email: string | null, asked?: unknown): AlertVia {
   if (asked === "text" || asked === "email" || asked === "both") return asked;

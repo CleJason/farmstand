@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { phoneKey } from "@/lib/phone";
 import { cleanEmail, cleanPhone } from "@/lib/drop-alerts";
-import { addSubscriber, type AlertList } from "@/lib/subscribers";
+import { addSubscriber, knownNames, type AlertList } from "@/lib/subscribers";
 import { optedOutSet } from "@/lib/sms-opt-out";
 
 /** Where someone was added from (?list=stand = Porch Pickup); it's all one list. */
@@ -17,32 +17,14 @@ async function isAdmin() {
 /** Everyone subscribed (drop alerts and Porch Pickup notices), for the admin only. */
 export async function GET() {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const [subscribers, contacts, users, orders, optedOut] = await Promise.all([
+  const [subscribers, { byEmail, byPhone }, optedOut] = await Promise.all([
     prisma.subscriber.findMany({
       orderBy: { createdAt: "desc" },
       select: { id: true, email: true, phone: true, createdAt: true, dropVia: true, standVia: true },
     }),
-    prisma.contact.findMany({ where: { name: { not: null } }, select: { name: true, email: true, phone: true, otherEmails: true, otherPhones: true } }),
-    prisma.user.findMany({ where: { name: { not: null } }, select: { name: true, email: true, phone: true } }),
-    prisma.order.findMany({
-      where: { guestName: { not: null } },
-      select: { guestName: true, guestEmail: true, guestPhone: true },
-      orderBy: { createdAt: "asc" }, // later orders overwrite, so the newest name wins
-    }),
+    knownNames(),
     optedOutSet(),
   ]);
-
-  // Names come from what we know about them elsewhere: customer records, accounts, orders
-  const byEmail = new Map<string, string>();
-  const byPhone = new Map<string, string>();
-  const note = (name: string | null, emails: (string | null)[], phones: (string | null)[]) => {
-    if (!name) return;
-    for (const e of emails) if (e) byEmail.set(e.toLowerCase(), name);
-    for (const p of phones) if (phoneKey(p)) byPhone.set(phoneKey(p), name);
-  };
-  for (const o of orders) note(o.guestName, [o.guestEmail], [o.guestPhone]);
-  for (const u of users) note(u.name, [u.email], [u.phone]);
-  for (const c of contacts) note(c.name, [c.email, ...c.otherEmails], [c.phone, ...c.otherPhones]);
 
   return NextResponse.json(
     subscribers.map((s) => ({
