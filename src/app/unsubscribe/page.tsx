@@ -9,7 +9,14 @@ export const metadata = { title: "Unsubscribe", robots: { index: false } };
 async function unsubscribe(formData: FormData) {
   "use server";
   const token = String(formData.get("token") ?? "");
-  if (token) await prisma.subscriber.deleteMany({ where: { unsubscribeToken: token } });
+  const subscriber = token ? await prisma.subscriber.findUnique({ where: { unsubscribeToken: token } }) : null;
+  if (subscriber) {
+    // Remember the email, so an import can't quietly add them back
+    if (subscriber.email) {
+      await prisma.emailOptOut.upsert({ where: { email: subscriber.email }, create: { email: subscriber.email }, update: {} });
+    }
+    await prisma.subscriber.deleteMany({ where: { unsubscribeToken: token } });
+  }
   redirect("/unsubscribe?done=1");
 }
 

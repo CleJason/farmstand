@@ -51,6 +51,8 @@ export async function addSubscriber({
   const choice = via ?? (list === "stand" ? viaFor(phone, email) : undefined);
   const flag = { dropAlerts: true, standAlerts: true, ...(choice ? { dropVia: choice, standVia: choice } : {}) };
   if (email) {
+    // Signing up again is a fresh yes, even after unsubscribing
+    await prisma.emailOptOut.deleteMany({ where: { email } });
     // They're already on the list by phone alone: add the email to that entry instead of a second one
     const phoneOnly = phone
       ? (await prisma.subscriber.findMany({ where: { email: null, phone: { not: null } } })).find((s) => phoneKey(s.phone) === phoneKey(phone))

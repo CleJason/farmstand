@@ -31,6 +31,7 @@ export async function POST(req: Request) {
   let updated = 0;
   let subscribed = 0;
   let skipped = 0;
+  let leftOff = 0; // unsubscribed by email, so not put back on Drop Alerts
   const seen = new Set<string>();
 
   for (const raw of rows) {
@@ -77,7 +78,10 @@ export async function POST(req: Request) {
 
     // Email people get email alerts; phone-only people get text alerts once texting is set up
     // Never re-add a phone-only person who texted STOP
-    if (subscribe && r.subscribed !== false && (email || !(await isOptedOut(phone)))) {
+    // ...or anyone who used the unsubscribe link
+    const unsubscribed = !!email && !!(await prisma.emailOptOut.findUnique({ where: { email } }));
+    if (subscribe && unsubscribed) leftOff++;
+    if (subscribe && !unsubscribed && r.subscribed !== false && (email || !(await isOptedOut(phone)))) {
       const already = email
         ? await prisma.subscriber.findUnique({ where: { email } })
         : await prisma.subscriber.findFirst({ where: { phone: phone! } });
@@ -88,5 +92,5 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ added, updated, subscribed, skipped });
+  return NextResponse.json({ added, updated, subscribed, skipped, leftOff });
 }

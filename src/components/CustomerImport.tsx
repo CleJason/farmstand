@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { customersFromCsv, type ImportedCustomer } from "@/lib/csv";
 
-type Result = { added: number; updated: number; subscribed: number; skipped: number };
+type Result = { added: number; updated: number; subscribed: number; skipped: number; leftOff?: number };
 
 const inputClass =
   "w-full text-sm px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500";
@@ -81,6 +81,7 @@ export default function CustomerImport({ onDone }: { onDone: () => void }) {
       setMessage(
         `Done: ${r.added} added, ${r.updated} updated` +
           (r.subscribed ? `, ${r.subscribed} added to Drop Alerts` : "") +
+          (r.leftOff ? `, ${r.leftOff} not added to Drop Alerts (they unsubscribed)` : "") +
           (r.skipped ? `, ${r.skipped} skipped (no email or phone)` : "") +
           "."
       );

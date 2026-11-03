@@ -365,6 +365,12 @@ model SmsOptOut {
   createdAt DateTime @default(now())
 }
 
+// Emails that used the unsubscribe link: imports don't add them back (signing up again clears it)
+model EmailOptOut {
+  email     String   @id // stored lowercase
+  createdAt DateTime @default(now())
+}
+
 // People who signed up on the home page to hear about new drops
 model Subscriber {
   id          String   @id @default(cuid())
