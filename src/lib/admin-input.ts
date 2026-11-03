@@ -54,7 +54,6 @@ export function parseReview(body: Record<string, unknown>) {
   const text = String(body.body ?? "").trim().slice(0, 4000);
   const rating = Number(body.rating);
   if (!name) throw new InputError("Add the reviewer's name");
-  if (!text) throw new InputError("Add the review text");
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new InputError("Rating must be 1 to 5 stars");
   const reviewDate = body.reviewDate ? new Date(String(body.reviewDate)) : new Date();
   if (Number.isNaN(reviewDate.getTime())) throw new InputError("Invalid review date");

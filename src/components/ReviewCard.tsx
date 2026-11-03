@@ -47,14 +47,16 @@ export default function ReviewCard({ review }: { review: ReviewData }) {
           ))}
         </div>
       )}
-      <blockquote className="text-sm text-stone-700 leading-relaxed whitespace-pre-line">
-        {text}{" "}
-        {isLong && (
-          <button type="button" onClick={() => setExpanded((v) => !v)} className="underline text-stone-900">
-            {expanded ? "See less" : "See more"}
-          </button>
-        )}
-      </blockquote>
+      {review.body && (
+        <blockquote className="text-sm text-stone-700 leading-relaxed whitespace-pre-line">
+          {text}{" "}
+          {isLong && (
+            <button type="button" onClick={() => setExpanded((v) => !v)} className="underline text-stone-900">
+              {expanded ? "See less" : "See more"}
+            </button>
+          )}
+        </blockquote>
+      )}
       {!!review.images?.length && (
         <div className="flex flex-wrap gap-2">
           {review.images.map((src) => (

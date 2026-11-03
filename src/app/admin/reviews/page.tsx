@@ -350,8 +350,8 @@ export default function AdminReviewsPage() {
                 <Stars rating={form.rating} onChange={(rating) => set({ rating })} size="lg" />
               </div>
               <label className="block">
-                <span className="block text-xs font-medium text-stone-600 mb-1">Review *</span>
-                <textarea required rows={4} value={form.body} onChange={(e) => set({ body: e.target.value })} className={inputClass} />
+                <span className="block text-xs font-medium text-stone-600 mb-1">Review (optional)</span>
+                <textarea rows={4} value={form.body} onChange={(e) => set({ body: e.target.value })} className={inputClass} />
               </label>
               <label className="block">
                 <span className="block text-xs font-medium text-stone-600 mb-1">Name *</span>
