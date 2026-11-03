@@ -6,6 +6,10 @@ import { cleanEmail } from "@/lib/drop-alerts";
 
 // Orders that represent a real purchase (not abandoned card checkouts or cancellations)
 const COUNTED = ["AWAITING_CONFIRM", "PAID", "READY", "PICKED_UP"];
+// Loyalty points (not shown to customers yet): 1 per $1 actually paid, so unpaid
+// Venmo/PayPal orders wait, refunds drop off, and buying a gift card doesn't earn.
+const EARNS_POINTS = ["PAID", "READY", "PICKED_UP"];
+const CENTS_PER_POINT = 100;
 
 export type CustomerOrder = {
   id: string;
@@ -30,6 +34,8 @@ export type Customer = {
   signedUpAt: string | null;
   orderCount: number;
   totalSpent: number; // cents, counted orders only
+  pointsSpent: number; // cents that earn points: paid orders here plus imported history
+  points: number;
   lastOrderAt: string | null;
   orders: CustomerOrder[];
 };
@@ -53,6 +59,8 @@ const blank = (key: string, kind: Customer["kind"]): Customer => ({
   signedUpAt: null,
   orderCount: 0,
   totalSpent: 0,
+  pointsSpent: 0,
+  points: 0,
   lastOrderAt: null,
   orders: [],
 });
@@ -142,6 +150,7 @@ export async function GET() {
       c.orderCount += 1;
       c.totalSpent += o.total;
     }
+    if (EARNS_POINTS.includes(o.status) && o.type !== "GIFT") c.pointsSpent += o.total;
     c.lastOrderAt ??= o.createdAt.toISOString();
   }
 
@@ -171,6 +180,7 @@ export async function GET() {
         target.orders.push(...other.orders);
         target.orderCount += other.orderCount;
         target.totalSpent += other.totalSpent;
+        target.pointsSpent += other.pointsSpent;
         if ((other.lastOrderAt ?? "") > (target.lastOrderAt ?? "")) target.lastOrderAt = other.lastOrderAt;
         target.name ??= other.name;
         customers.delete(k);
@@ -196,6 +206,7 @@ export async function GET() {
       };
       target.orderCount += ct.importedOrders;
       target.totalSpent += ct.importedSpent;
+      target.pointsSpent += ct.importedSpent;
       const last = ct.lastOrderAt?.toISOString();
       if (last && last > (target.lastOrderAt ?? "")) target.lastOrderAt = last;
     }
@@ -205,9 +216,9 @@ export async function GET() {
     for (const p of phones) byPhone.set(p, target.key);
   }
 
-  const list = [...customers.values()].sort((a, b) =>
-    (b.lastOrderAt ?? b.signedUpAt ?? "").localeCompare(a.lastOrderAt ?? a.signedUpAt ?? "")
-  );
+  const list = [...customers.values()]
+    .map((c) => ({ ...c, points: Math.floor(c.pointsSpent / CENTS_PER_POINT) }))
+    .sort((a, b) => (b.lastOrderAt ?? b.signedUpAt ?? "").localeCompare(a.lastOrderAt ?? a.signedUpAt ?? ""));
   return NextResponse.json(list);
 }
 

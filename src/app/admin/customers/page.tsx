@@ -15,7 +15,7 @@ function toCsv(rows: Customer[]): string {
     const s = v === null ? "" : String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const header = ["Name", "Email", "Phone", "Type", "Orders", "Total Spent", "Last Order", "Signed Up"];
+  const header = ["Name", "Email", "Phone", "Type", "Orders", "Total Spent", "Points", "Last Order", "Signed Up"];
   const lines = rows.map((c) =>
     [
       c.name,
@@ -24,6 +24,7 @@ function toCsv(rows: Customer[]): string {
       c.kind === "account" ? "Account" : c.kind === "added" ? "Added" : "Guest",
       c.orderCount,
       (c.totalSpent / 100).toFixed(2),
+      c.points,
       c.lastOrderAt?.slice(0, 10) ?? "",
       c.signedUpAt?.slice(0, 10) ?? "",
     ]
@@ -178,6 +179,7 @@ export default function AdminCustomersPage() {
                 <th className="text-left font-semibold px-4 py-3">Phone</th>
                 <th className="text-right font-semibold px-4 py-3">Orders</th>
                 <th className="text-right font-semibold px-4 py-3">Spent</th>
+                <th className="text-right font-semibold px-4 py-3">Points</th>
                 <th className="text-right font-semibold px-4 py-3">Last order</th>
               </tr>
             </thead>
@@ -203,6 +205,7 @@ export default function AdminCustomersPage() {
                   <td className="px-4 py-3 text-stone-600 whitespace-nowrap">{c.phone || "—"}</td>
                   <td className="px-4 py-3 text-right text-stone-900">{c.orderCount}</td>
                   <td className="px-4 py-3 text-right text-stone-900">{formatPrice(c.totalSpent)}</td>
+                  <td className="px-4 py-3 text-right text-stone-900">{c.points}</td>
                   <td className="px-4 py-3 text-right text-stone-600 whitespace-nowrap">
                     {shortDate(c.lastOrderAt)}
                   </td>
@@ -328,6 +331,14 @@ export default function AdminCustomersPage() {
               <div className="bg-stone-50 rounded-lg p-3">
                 <div className="text-xs text-stone-500">Total spent</div>
                 <div className="text-lg font-bold text-stone-900">{formatPrice(selected.totalSpent)}</div>
+              </div>
+              <div className="col-span-2 bg-amber-50 rounded-lg p-3">
+                <div className="text-xs text-stone-500">Loyalty points (only you can see these)</div>
+                <div className="text-lg font-bold text-stone-900">{selected.points}</div>
+                <div className="text-[11px] text-stone-500">
+                  1 point per $1 paid on {formatPrice(selected.pointsSpent)}
+                  {selected.imported?.spent ? `, including ${formatPrice(selected.imported.spent)} of imported history` : ""}
+                </div>
               </div>
             </div>
 
