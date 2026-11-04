@@ -124,6 +124,7 @@ export const COPY = {
   "drop.mixMatch": { group: "Pre-order page", label: "Box label", default: "Mix & match {count}" },
   "drop.buildBox": { group: "Pre-order page", label: "Box button", default: "Build a box" },
   "drop.anotherBox": { group: "Pre-order page", label: "Box button (again)", default: "+ Another box" },
+  "drop.setBox": { group: "Pre-order page", label: "Set box label", default: "Assorted box" },
   "drop.chooseFlavor": { group: "Pre-order page", label: "This-or-that label", default: "Choose your flavor" },
   "drop.chooseFlavors": { group: "Pre-order page", label: "Bundle label", default: "Choose your flavors" },
   "drop.choose": { group: "Pre-order page", label: "This-or-that / bundle button", default: "Choose" },

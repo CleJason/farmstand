@@ -34,7 +34,10 @@ export default function BoxBuilder({
   onClose: () => void;
 }) {
   const text = useText();
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  // A section with only one choice is already decided, e.g. a set box
+  const [counts, setCounts] = useState<Record<string, number>>(() =>
+    Object.fromEntries(groups.filter((g) => g.options.length === 1).map((g) => [g.options[0], g.size]))
+  );
   const [extras, setExtras] = useState<string[]>([]);
   const chosen = Object.values(counts).reduce((a, b) => a + b, 0);
   const left = boxSize - chosen;
@@ -99,7 +102,13 @@ export default function BoxBuilder({
         </div>
 
         <div className="overflow-y-auto px-5 py-3 space-y-4">
-          {sections.map((section, i) => (
+          {sections.map((section, i) =>
+            groups.length > 0 && section.options.length === 1 ? (
+              <div key={i} className="flex items-center justify-between gap-3 py-1 text-sm font-medium text-[#2D1E18]">
+                <span className="min-w-0">{section.options[0]}</span>
+                <span className="font-bold shrink-0">× {section.size}</span>
+              </div>
+            ) : (
             <div key={i}>
               {groups.length > 0 && (
                 <div className="pt-1">
@@ -170,7 +179,8 @@ export default function BoxBuilder({
                 })}
               </div>
             </div>
-          ))}
+            )
+          )}
         </div>
 
         <div className="px-5 py-4 border-t border-stone-100 space-y-2">

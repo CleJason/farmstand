@@ -502,7 +502,9 @@ export default function DropDetailPage() {
                         <span className="text-[11px] font-semibold text-[#735D54]">
                           {sections.length === 0
                             ? text("drop.mixMatch", { count: dp.product.boxSize ?? "" })
-                            : sections.length === 1 && sections[0].allSame
+                            : sections.every((s) => s.options.length === 1)
+                              ? text("drop.setBox")
+                              : sections.length === 1 && sections[0].allSame
                               ? text("drop.chooseFlavor")
                               : text("drop.chooseFlavors")}
                         </span>
@@ -531,7 +533,9 @@ export default function DropDetailPage() {
                       onClick={() => setBuildingBoxFor(dp.id)}
                       className="shrink-0 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed transition shadow-xs"
                     >
-                      {sections.length > 0
+                      {sections.length > 0 && sections.every((s) => s.options.length === 1)
+                        ? text(qty > 0 ? "drop.addMore" : "drop.add")
+                        : sections.length > 0
                         ? text(qty > 0 ? "drop.chooseAnother" : "drop.choose")
                         : text(qty > 0 ? "drop.anotherBox" : "drop.buildBox")}
                     </button>
