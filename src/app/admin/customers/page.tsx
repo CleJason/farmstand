@@ -34,6 +34,8 @@ function toCsv(rows: Customer[]): string {
   return [header.join(","), ...lines].join("\n");
 }
 
+type SortBy = "name" | "phone" | "orders" | "spent" | "points" | "last";
+
 export default function AdminCustomersPage() {
   const site = useSite();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -157,17 +159,53 @@ export default function AdminCustomersPage() {
     await reloadSelected(selected.key);
   };
 
+  // Tap a column heading to sort by it; tap again to flip it
+  const [sort, setSort] = useState<{ by: SortBy; desc: boolean } | null>(null);
+  const sortHeading = (by: SortBy, label: string, align: "left" | "right") => (
+    <th className={`${align === "left" ? "text-left" : "text-right"} font-semibold px-4 py-3`} aria-sort={sort?.by === by ? (sort.desc ? "descending" : "ascending") : "none"}>
+      <button
+        type="button"
+        onClick={() => setSort((s) => (s?.by === by ? { by, desc: !s.desc } : { by, desc: by !== "name" && by !== "phone" }))}
+        className="uppercase tracking-wider hover:text-stone-900"
+      >
+        {label}
+        {sort?.by === by ? (sort.desc ? " ↓" : " ↑") : ""}
+      </button>
+    </th>
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return customers;
     const digits = q.replace(/\D/g, "");
-    return customers.filter(
-      (c) =>
-        c.name?.toLowerCase().includes(q) ||
-        [c.email, ...c.previousEmails].some((e) => e?.toLowerCase().includes(q)) ||
-        (digits.length >= 3 && [c.phone, ...c.previousPhones].some((p) => p?.replace(/\D/g, "").includes(digits)))
-    );
-  }, [customers, query]);
+    const found = !q
+      ? customers
+      : customers.filter(
+          (c) =>
+            c.name?.toLowerCase().includes(q) ||
+            [c.email, ...c.previousEmails].some((e) => e?.toLowerCase().includes(q)) ||
+            (digits.length >= 3 && [c.phone, ...c.previousPhones].some((p) => p?.replace(/\D/g, "").includes(digits)))
+        );
+    if (!sort) return found;
+    const value = (c: Customer): string | number =>
+      sort.by === "name"
+        ? (c.name || c.email || "").toLowerCase()
+        : sort.by === "phone"
+          ? (c.phone ?? "").replace(/\D/g, "")
+          : sort.by === "orders"
+            ? c.orderCount
+            : sort.by === "spent"
+              ? c.totalSpent
+              : sort.by === "points"
+                ? c.points
+                : c.lastOrderAt ?? "";
+    // Blanks always go last
+    return [...found].sort((a, b) => {
+      const [x, y] = [value(a), value(b)];
+      if (x === "" || y === "") return x === y ? 0 : x === "" ? 1 : -1;
+      const order = typeof x === "number" ? x - (y as number) : x.localeCompare(y as string);
+      return sort.desc ? -order : order;
+    });
+  }, [customers, query, sort]);
 
   const exportCsv = () => {
     const blob = new Blob([toCsv(filtered)], { type: "text/csv;charset=utf-8" });
@@ -223,12 +261,12 @@ export default function AdminCustomersPage() {
           <table className="w-full text-sm">
             <thead className="text-xs text-stone-500 uppercase tracking-wider border-b border-stone-200">
               <tr>
-                <th className="text-left font-semibold px-4 py-3">Customer</th>
-                <th className="text-left font-semibold px-4 py-3">Phone</th>
-                <th className="text-right font-semibold px-4 py-3">Orders</th>
-                <th className="text-right font-semibold px-4 py-3">Spent</th>
-                <th className="text-right font-semibold px-4 py-3">Points</th>
-                <th className="text-right font-semibold px-4 py-3">Last order</th>
+                {sortHeading("name", "Customer", "left")}
+                {sortHeading("phone", "Phone", "left")}
+                {sortHeading("orders", "Orders", "right")}
+                {sortHeading("spent", "Spent", "right")}
+                {sortHeading("points", "Points", "right")}
+                {sortHeading("last", "Last order", "right")}
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
