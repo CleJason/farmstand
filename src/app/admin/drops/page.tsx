@@ -19,7 +19,15 @@ interface PickupSlot {
   maxPerTime: number | null;
 }
 
-type DropForecast = { revenue: number; profit: number; costedRevenue: number; noLimit: string[]; noCost: string[] };
+type DropForecast = {
+  revenue: number;
+  profit: number;
+  costedRevenue: number;
+  noLimit: string[];
+  noCost: string[];
+  sold: { revenue: number; profit: number; costedRevenue: number; noCost: string[] };
+};
+const dollars = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
 interface Drop {
   id: string;
@@ -491,6 +499,27 @@ export default function AdminDropsPage() {
 
                   {forecasts[drop.id] && (
                     <div className="text-xs space-y-1 bg-stone-50 rounded-lg p-3">
+                      {forecasts[drop.id].sold.revenue > 0 && (
+                        <div className="pb-2 mb-2 border-b border-stone-200 space-y-1">
+                          <div className="font-semibold text-stone-900">Sold so far</div>
+                          <div className="text-stone-700">
+                            <b>{dollars(forecasts[drop.id].sold.revenue)}</b> paid
+                            {forecasts[drop.id].sold.costedRevenue > 0 && (
+                              <>
+                                {" "}
+                                · about <b>{dollars(forecasts[drop.id].sold.profit)}</b> profit
+                                {forecasts[drop.id].sold.noCost.length > 0 &&
+                                  ` on the ${dollars(forecasts[drop.id].sold.costedRevenue)} with recipes linked`}
+                              </>
+                            )}
+                          </div>
+                          {forecasts[drop.id].sold.noCost.length > 0 && (
+                            <div className="text-[11px] text-amber-800">
+                              No recipe linked yet: {forecasts[drop.id].sold.noCost.join(", ")}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div className="font-semibold text-stone-900">If it all sells</div>
                       <div className="text-stone-700">
                         About <b>${Math.round(forecasts[drop.id].revenue).toLocaleString("en-US")}</b> revenue

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { loadCosts } from "@/lib/costs-data";
 import { linkKey } from "@/lib/costs-plan";
 import { dropBoxGroups, dropBoxOptions, isBox } from "@/lib/box";
+import { isPaidStatus } from "@/lib/pickup";
 
 export type DropForecast = {
   revenue: number; // dollars if every product with a limit sells out
@@ -9,6 +10,12 @@ export type DropForecast = {
   costedRevenue: number; // the part of revenue that profit covers
   noLimit: string[]; // products with no limit: can't be counted
   noCost: string[]; // products with no recipe linked: revenue counted, cost isn't
+  sold: {
+    revenue: number; // dollars paid so far, after discounts
+    profit: number; // on the items with a known cost, from what was actually picked
+    costedRevenue: number;
+    noCost: string[]; // sold items with no recipe linked
+  };
 };
 
 /**
@@ -20,7 +27,12 @@ export async function dropForecasts(): Promise<Record<string, DropForecast>> {
   const [costs, links, drops] = await Promise.all([
     loadCosts(),
     prisma.recipeLink.findMany(),
-    prisma.drop.findMany({ include: { dropProducts: { include: { product: true } } } }),
+    prisma.drop.findMany({
+      include: {
+        dropProducts: { include: { product: true } },
+        orders: { include: { items: { include: { dropProduct: { include: { product: true } } } } } },
+      },
+    }),
   ]);
   const perItem = new Map(costs.recipes.map((r) => [r.id, r.cost.perItem]));
   const linkBy = new Map(links.map((l) => [linkKey(l.name), l]));
@@ -37,7 +49,32 @@ export async function dropForecasts(): Promise<Record<string, DropForecast>> {
 
   const out: Record<string, DropForecast> = {};
   for (const drop of drops) {
-    const f: DropForecast = { revenue: 0, profit: 0, costedRevenue: 0, noLimit: [], noCost: [] };
+    const sold: DropForecast["sold"] = { revenue: 0, profit: 0, costedRevenue: 0, noCost: [] };
+    for (const o of drop.orders) {
+      if (!isPaidStatus(o.status)) continue;
+      sold.revenue += o.total / 100;
+      for (const i of o.items) {
+        const name = i.dropProduct?.product.name ?? i.name ?? "Item";
+        const picks = Array.isArray(i.selections) ? (i.selections as { name: string; quantity: number }[]) : [];
+        // Its own recipe, or what went in the box
+        let cost = itemCost(name);
+        if (cost === null && picks.length > 0) {
+          const each = picks.map((p) => {
+            const c = itemCost(p.name);
+            return c === null ? null : c * p.quantity;
+          });
+          cost = each.some((c) => c === null) ? null : (each as number[]).reduce((a, b) => a + b, 0);
+        }
+        if (cost === null) {
+          if (!sold.noCost.includes(name)) sold.noCost.push(name);
+          continue;
+        }
+        const paid = (i.priceAtPurchase * i.quantity) / 100;
+        sold.costedRevenue += paid;
+        sold.profit += paid - cost * i.quantity;
+      }
+    }
+    const f: DropForecast = { revenue: 0, profit: 0, costedRevenue: 0, noLimit: [], noCost: [], sold };
     for (const dp of drop.dropProducts) {
       if (dp.quantityLimit === null) {
         f.noLimit.push(dp.product.name);
