@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { fireNotification } from "@/lib/notifications";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, labelStripePayment } from "@/lib/stripe";
 import { getSetting } from "@/lib/settings";
 import { DiscountError, evaluateDiscount, normalizeCode } from "@/lib/discounts";
 import { evaluateGift, GiftError, normalizeGiftCode } from "@/lib/gift";
@@ -359,6 +359,7 @@ export async function POST(req: Request) {
         },
         include,
       });
+      await labelStripePayment(stripe, paymentIntent.id, order.id, guestName);
 
       return NextResponse.json({
         orderId: order.id,

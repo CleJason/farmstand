@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, stripeDescription } from "@/lib/stripe";
 import { getSetting } from "@/lib/settings";
 import { getSiteSettings } from "@/lib/site";
 
@@ -43,7 +43,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ],
     customer_email: order.guestEmail || order.user?.email || undefined,
     metadata: { orderId: order.id },
-    payment_intent_data: { metadata: { orderId: order.id } },
+    payment_intent_data: {
+      description: stripeDescription(order.id, order.guestName || order.user?.name),
+      metadata: { orderId: order.id, customerName: order.guestName || order.user?.name || "" },
+    },
     success_url: `${base}/order-paid?order=${order.id}&session={CHECKOUT_SESSION_ID}`,
     cancel_url: back,
   });

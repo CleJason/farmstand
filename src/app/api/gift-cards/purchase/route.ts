@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, labelStripePayment } from "@/lib/stripe";
 import { getSetting } from "@/lib/settings";
 import { fireNotification } from "@/lib/notifications";
 import { generateGiftCode } from "@/lib/gift";
@@ -61,6 +61,10 @@ export async function POST(req: Request) {
       ...(stripeFields ?? {}),
     },
   });
+  if (stripeFields) {
+    const stripe = await getStripe();
+    if (stripe) await labelStripePayment(stripe, stripeFields.stripePaymentIntentId, order.id, order.guestName);
+  }
   await prisma.giftCertificate.create({
     data: {
       code: generateGiftCode(),
