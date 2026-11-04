@@ -47,7 +47,8 @@ export async function GET(
     times: timesWithAvailability(s, counts),
   }));
 
-  return NextResponse.json({ ...drop, pickupSlots });
+  // `preview`: the owner can try the buttons on a drop that isn't open (checkout stays closed)
+  return NextResponse.json({ ...drop, pickupSlots, preview: isAdmin });
 }
 
 /**

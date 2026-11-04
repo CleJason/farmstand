@@ -22,6 +22,7 @@ interface DropDetails {
   id: string;
   title: string;
   description: string | null;
+  preview?: boolean; // the owner is signed in: buttons work before opening, checkout doesn't
   orderOpenAt: string;
   orderCloseAt: string;
   status: string;
@@ -318,6 +319,7 @@ export default function DropDetailPage() {
           ? "soon"
           : "open";
   const canOrder = phase === "open";
+  const canTry = canOrder || !!drop.preview;
   const detailProduct = drop.dropProducts.find((p) => p.id === detailsFor);
 
   return (
@@ -367,6 +369,12 @@ export default function DropDetailPage() {
           )}
           {phase === "closed" && (
             <p className="text-sm font-semibold text-[#2D1E18] bg-stone-100 rounded-xl px-3 py-2">{text("drop.closedNote")}</p>
+          )}
+          {drop.preview && !canOrder && (
+            <p className="text-xs text-[#735D54] bg-white border border-dashed border-stone-300 rounded-xl px-3 py-2">
+              Preview: because you&apos;re signed in as the owner, you can try the buttons and build a box here. There&apos;s no
+              checkout until orders open, and customers can&apos;t use them yet.
+            </p>
           )}
         </div>
       </div>
@@ -514,7 +522,7 @@ export default function DropDetailPage() {
 
                   {box ? (
                     <button
-                      disabled={(remaining !== null && qty >= remaining) || isSoldOut || !canOrder}
+                      disabled={(remaining !== null && qty >= remaining) || isSoldOut || !canTry}
                       onClick={() => setBuildingBoxFor(dp.id)}
                       className="shrink-0 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed transition shadow-xs"
                     >
@@ -522,7 +530,7 @@ export default function DropDetailPage() {
                     </button>
                   ) : extras.length > 0 ? (
                     <button
-                      disabled={(remaining !== null && qty >= remaining) || isSoldOut || !canOrder}
+                      disabled={(remaining !== null && qty >= remaining) || isSoldOut || !canTry}
                       onClick={() => setAddingTo(dp.id)}
                       className="shrink-0 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed transition shadow-xs"
                     >
@@ -543,7 +551,7 @@ export default function DropDetailPage() {
                     </span>
                     <button
                       disabled={
-                        (remaining !== null && qty >= remaining) || isSoldOut || !canOrder
+                        (remaining !== null && qty >= remaining) || isSoldOut || !canTry
                       }
                       onClick={() => updateLine(dp.id, 1)}
                       className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition shadow-xs"
