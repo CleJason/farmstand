@@ -368,6 +368,19 @@ model SmsOptOut {
   createdAt DateTime @default(now())
 }
 
+// Loyalty points added or taken off by the owner, e.g. a cash sale. Matched to a customer by email or phone.
+model PointsAdjustment {
+  id        String   @id @default(cuid())
+  email     String?  // stored lowercase
+  phone     String?  // digits
+  points    Int      // can be negative
+  reason    String
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([phone])
+}
+
 // Emails that used the unsubscribe link: imports don't add them back (signing up again clears it)
 model EmailOptOut {
   email     String   @id // stored lowercase

@@ -35,7 +35,8 @@ export type Customer = {
   orderCount: number;
   totalSpent: number; // cents, counted orders only
   pointsSpent: number; // cents that earn points: paid orders here plus imported history
-  points: number;
+  points: number; // earned from what they've paid, plus adjustments
+  pointAdjustments: { id: string; points: number; reason: string; createdAt: string }[];
   lastOrderAt: string | null;
   orders: CustomerOrder[];
 };
@@ -61,6 +62,7 @@ const blank = (key: string, kind: Customer["kind"]): Customer => ({
   totalSpent: 0,
   pointsSpent: 0,
   points: 0,
+  pointAdjustments: [],
   lastOrderAt: null,
   orders: [],
 });
@@ -75,7 +77,7 @@ const blank = (key: string, kind: Customer["kind"]): Customer => ({
 export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [users, orders, contacts] = await Promise.all([
+  const [users, orders, contacts, adjustments] = await Promise.all([
     prisma.user.findMany({ where: { role: { not: "ADMIN" } } }),
     prisma.order.findMany({
       select: {
@@ -94,6 +96,7 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     }),
     prisma.contact.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.pointsAdjustment.findMany({ orderBy: { createdAt: "desc" } }),
   ]);
 
   const customers = new Map<string, Customer>();
@@ -216,8 +219,17 @@ export async function GET() {
     for (const p of phones) byPhone.set(p, target.key);
   }
 
+  for (const a of adjustments) {
+    const key = (a.email && byEmail.get(a.email)) || (a.phone && byPhone.get(a.phone));
+    const c = key ? customers.get(key) : undefined;
+    c?.pointAdjustments.push({ id: a.id, points: a.points, reason: a.reason, createdAt: a.createdAt.toISOString() });
+  }
+
   const list = [...customers.values()]
-    .map((c) => ({ ...c, points: Math.floor(c.pointsSpent / CENTS_PER_POINT) }))
+    .map((c) => ({
+      ...c,
+      points: Math.floor(c.pointsSpent / CENTS_PER_POINT) + c.pointAdjustments.reduce((sum, a) => sum + a.points, 0),
+    }))
     .sort((a, b) => (b.lastOrderAt ?? b.signedUpAt ?? "").localeCompare(a.lastOrderAt ?? a.signedUpAt ?? ""));
   return NextResponse.json(list);
 }
@@ -349,6 +361,7 @@ export async function DELETE(req: Request) {
     prisma.contact.deleteMany({
       where: { OR: [...(contact ? [{ id: contact.id }] : []), { email: { in: [...emails] } }] },
     }),
+    prisma.pointsAdjustment.deleteMany({ where: { OR: [{ email: { in: [...emails] } }, { phone: { in: [...phones] } }] } }),
   ]);
 
   return NextResponse.json({ ok: true });

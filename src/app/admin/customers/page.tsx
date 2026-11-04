@@ -109,6 +109,37 @@ export default function AdminCustomersPage() {
     load();
   };
 
+  // Points by hand, e.g. a cash sale
+  const [pointsDelta, setPointsDelta] = useState("");
+  const [pointsReason, setPointsReason] = useState("");
+  const reloadSelected = async (key: string) => {
+    const res = await fetch("/api/customers");
+    const data: Customer[] = res.ok ? await res.json() : [];
+    if (!Array.isArray(data)) return;
+    setCustomers(data);
+    setSelected(data.find((c) => c.key === key) ?? null);
+  };
+  const adjustPoints = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selected) return;
+    const res = await fetch("/api/customers/points", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: selected.email, phone: selected.phone, points: Number(pointsDelta), reason: pointsReason }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return alert(data.error || "Couldn't save that");
+    setPointsDelta("");
+    setPointsReason("");
+    await reloadSelected(selected.key);
+  };
+  const removeAdjustment = async (id: string) => {
+    if (!selected || !confirm("Remove this points change?")) return;
+    const res = await fetch(`/api/customers/points?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!res.ok) return alert("Couldn't remove it");
+    await reloadSelected(selected.key);
+  };
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return customers;
@@ -338,7 +369,47 @@ export default function AdminCustomersPage() {
                 <div className="text-[11px] text-stone-500">
                   1 point per $1 paid on {formatPrice(selected.pointsSpent)}
                   {selected.imported?.spent ? `, including ${formatPrice(selected.imported.spent)} of imported history` : ""}
+                  {selected.pointAdjustments.length > 0 ? ", plus the changes below" : ""}
                 </div>
+                {selected.pointAdjustments.length > 0 && (
+                  <ul className="mt-2 space-y-1 text-xs text-stone-700">
+                    {selected.pointAdjustments.map((a) => (
+                      <li key={a.id} className="flex items-center justify-between gap-2">
+                        <span>
+                          <b>{a.points > 0 ? `+${a.points}` : a.points}</b> {a.reason}{" "}
+                          <span className="text-stone-400">{shortDate(a.createdAt)}</span>
+                        </span>
+                        <button onClick={() => removeAdjustment(a.id)} className="text-stone-400 hover:text-red-600">
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <form onSubmit={adjustPoints} className="mt-2 flex flex-wrap gap-1.5">
+                  <input
+                    type="number"
+                    step="1"
+                    value={pointsDelta}
+                    onChange={(e) => setPointsDelta(e.target.value)}
+                    placeholder="+/- points"
+                    aria-label="Points to add, or negative to take off"
+                    className="w-24 text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white"
+                  />
+                  <input
+                    value={pointsReason}
+                    onChange={(e) => setPointsReason(e.target.value)}
+                    placeholder='Reason, e.g. "cash sale $20"'
+                    aria-label="Reason"
+                    className="flex-1 min-w-[140px] text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white"
+                  />
+                  <button
+                    disabled={!pointsDelta || !pointsReason.trim()}
+                    className="text-xs font-semibold px-3 py-1.5 bg-stone-900 hover:bg-stone-800 disabled:opacity-40 text-white rounded-lg"
+                  >
+                    Save
+                  </button>
+                </form>
               </div>
             </div>
 
