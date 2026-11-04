@@ -16,6 +16,7 @@ export async function GET() {
       pickupSlots: { orderBy: { pickupDate: "asc" } },
       dropProducts: {
         include: { product: true },
+        orderBy: [{ position: "asc" }, { id: "asc" }],
       },
       // Order counts/totals are for the admin dashboard only
       orders: isAdmin && {

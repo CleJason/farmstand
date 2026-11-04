@@ -369,7 +369,27 @@ export default function AdminDropsPage() {
   };
 
   // Products shown in the form: active ones plus any already in the drop being edited
-  const formProducts = products.filter((p) => p.active || productForm[p.id]?.included);
+  // Products in the drop first, in the order they'll show on the drop page (the order of productForm)
+  const inDrop = Object.keys(productForm).filter((id) => productForm[id].included);
+  const formProducts = products
+    .filter((p) => p.active || productForm[p.id]?.included)
+    .sort((a, b) => {
+      const [ai, bi] = [inDrop.indexOf(a.id), inDrop.indexOf(b.id)];
+      return ai === -1 ? (bi === -1 ? 0 : 1) : bi === -1 ? -1 : ai - bi;
+    });
+  const moveProduct = (id: string, by: -1 | 1) => {
+    const order = [...inDrop];
+    const from = order.indexOf(id);
+    const to = from + by;
+    if (from < 0 || to < 0 || to >= order.length) return;
+    [order[from], order[to]] = [order[to], order[from]];
+    setProductForm((pf) => {
+      const next: Record<string, ProductForm> = {};
+      for (const k of order) next[k] = pf[k];
+      for (const k of Object.keys(pf)) if (!next[k]) next[k] = pf[k];
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -697,7 +717,8 @@ export default function AdminDropsPage() {
 
               {/* Products */}
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-stone-900">Products in this drop</span>
+                <span className="block text-xs font-semibold text-stone-900">Products in this drop</span>
+                <span className="block text-[11px] text-stone-500">Use the arrows to set the order customers see them in.</span>
                 {formProducts.length === 0 ? (
                   <p className="text-xs text-stone-500">Add products on the Products page first.</p>
                 ) : (
@@ -706,16 +727,40 @@ export default function AdminDropsPage() {
                     const isBoxProduct = !!p.boxSize && p.boxOptions?.length > 0;
                     return (
                       <div key={p.id} className={`rounded-xl border p-3 text-xs ${f.included ? "border-amber-300 bg-amber-50/40" : "border-stone-200"}`}>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={f.included}
-                            onChange={(e) => setProduct(p.id, { included: e.target.checked })}
-                            className="h-4 w-4 accent-amber-600"
-                          />
-                          <span className="font-semibold text-stone-900 flex-1">{p.name}</span>
-                          <span className="text-stone-500">{formatPrice(p.price)}</span>
-                        </label>
+                        <div className="flex items-center gap-2">
+                          <label className="flex flex-1 min-w-0 items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={f.included}
+                              onChange={(e) => setProduct(p.id, { included: e.target.checked })}
+                              className="h-4 w-4 accent-amber-600"
+                            />
+                            <span className="font-semibold text-stone-900 flex-1">{p.name}</span>
+                            <span className="text-stone-500">{formatPrice(p.price)}</span>
+                          </label>
+                          {f.included && (
+                            <span className="flex gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => moveProduct(p.id, -1)}
+                                disabled={inDrop[0] === p.id}
+                                aria-label={`Move ${p.name} up`}
+                                className="w-7 h-7 rounded-md border border-stone-200 bg-white text-stone-600 disabled:opacity-30"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveProduct(p.id, 1)}
+                                disabled={inDrop[inDrop.length - 1] === p.id}
+                                aria-label={`Move ${p.name} down`}
+                                className="w-7 h-7 rounded-md border border-stone-200 bg-white text-stone-600 disabled:opacity-30"
+                              >
+                                ↓
+                              </button>
+                            </span>
+                          )}
+                        </div>
                         {f.included && (
                           <div className="grid grid-cols-2 gap-2 mt-2">
                             <label className="block">

@@ -20,6 +20,7 @@ export type ProductInput = {
   quantityLimit: number | null;
   priceOverride: number | null; // cents
   boxOptions: string[]; // mix & match choices offered this drop; empty = all
+  position: number; // order on the drop page: the order they were sent in
 };
 
 const optionalInt = (v: unknown, min: number) => {
@@ -59,7 +60,7 @@ export function parseSlots(raw: unknown): SlotInput[] {
 export function parseProducts(raw: unknown): ProductInput[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<string>();
-  return raw.map((p) => {
+  return raw.map((p, position) => {
     const productId = String(p?.productId || "");
     if (!productId || seen.has(productId)) throw new DropInputError("Invalid or duplicate product");
     seen.add(productId);
@@ -68,6 +69,7 @@ export function parseProducts(raw: unknown): ProductInput[] {
       quantityLimit: optionalInt(p?.quantityLimit, 0),
       priceOverride: optionalInt(p?.priceOverride, 0),
       boxOptions: cleanBoxOptions(p?.boxOptions),
+      position,
     };
   });
 }

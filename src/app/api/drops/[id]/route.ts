@@ -19,6 +19,7 @@ export async function GET(
       pickupSlots: { orderBy: { pickupDate: "asc" } },
       dropProducts: {
         include: { product: true },
+        orderBy: [{ position: "asc" }, { id: "asc" }],
       },
       orders: isAdmin && {
         include: {
@@ -132,7 +133,7 @@ export async function PUT(
             }
             await tx.dropProduct.update({
               where: { id: old.id },
-              data: { quantityLimit: p.quantityLimit, priceOverride: p.priceOverride, boxOptions: p.boxOptions },
+              data: { quantityLimit: p.quantityLimit, priceOverride: p.priceOverride, boxOptions: p.boxOptions, position: p.position },
             });
           } else {
             await tx.dropProduct.create({ data: { ...p, dropId: id } });
