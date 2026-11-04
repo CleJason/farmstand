@@ -19,6 +19,8 @@ interface PickupSlot {
   maxPerTime: number | null;
 }
 
+type DropForecast = { revenue: number; profit: number; noLimit: string[]; noCost: string[] };
+
 interface Drop {
   id: string;
   title: string;
@@ -184,8 +186,15 @@ export default function AdminDropsPage() {
     }
   };
 
+  // What each drop could bring in if it sold out
+  const [forecasts, setForecasts] = useState<Record<string, DropForecast>>({});
+
   useEffect(() => {
     loadData();
+    fetch("/api/drops/forecast")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then(setForecasts)
+      .catch(() => {});
   }, []);
 
   const openNew = () => {
@@ -459,6 +468,35 @@ export default function AdminDropsPage() {
                       ))}
                     </div>
                   </div>
+
+                  {forecasts[drop.id] && (
+                    <div className="text-xs space-y-1 bg-stone-50 rounded-lg p-3">
+                      <div className="font-semibold text-stone-900">If it all sells</div>
+                      <div className="text-stone-700">
+                        About <b>${Math.round(forecasts[drop.id].revenue).toLocaleString("en-US")}</b> revenue
+                        {forecasts[drop.id].noCost.length < drop.dropProducts.length - forecasts[drop.id].noLimit.length && (
+                          <>
+                            {" "}
+                            · about <b>${Math.round(forecasts[drop.id].profit).toLocaleString("en-US")}</b> profit
+                          </>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-stone-500">
+                        Profit is after ingredients and overhead from your linked recipes, before card fees. Box choices are
+                        averaged.
+                      </div>
+                      {forecasts[drop.id].noCost.length > 0 && (
+                        <div className="text-[11px] text-amber-800">
+                          No recipe linked, so not in profit: {forecasts[drop.id].noCost.join(", ")}
+                        </div>
+                      )}
+                      {forecasts[drop.id].noLimit.length > 0 && (
+                        <div className="text-[11px] text-amber-800">
+                          No limit set, so not counted: {forecasts[drop.id].noLimit.join(", ")}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {boxTally(drop).map((box) => (
                     <div key={box.name} className="text-xs space-y-1">
