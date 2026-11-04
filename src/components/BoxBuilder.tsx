@@ -105,7 +105,9 @@ export default function BoxBuilder({
                 <div className="pt-1">
                   {section.label && <h3 className="font-semibold text-sm text-[#2D1E18]">{section.label}</h3>}
                   <p className="text-xs text-[#735D54]">
-                    {text(section.allSame ? "box.sectionSame" : "box.sectionMix", { count: section.size })}
+                    {section.allSame && section.size === 1
+                      ? text("box.sectionOne")
+                      : text(section.allSame ? "box.sectionSame" : "box.sectionMix", { count: section.size })}
                   </p>
                 </div>
               )}

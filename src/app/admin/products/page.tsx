@@ -447,9 +447,10 @@ export default function AdminProductsPage() {
                       className="mt-0.5 accent-amber-600"
                     />
                     <span>
-                      <span className="font-medium">Bundle with sections</span>
+                      <span className="font-medium">Bundle or this-or-that (sections)</span>
                       <span className="block text-xs text-stone-500">
-                        e.g. 4 cinnamon rolls, all one flavor, plus 4 banana breads, any mix.
+                        e.g. 4 cinnamon rolls, all one flavor, plus 4 banana breads, any mix. For a simple this-or-that,
+                        use one section with All one flavor checked.
                       </span>
                     </span>
                   </label>

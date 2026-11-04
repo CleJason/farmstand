@@ -16,7 +16,7 @@ import AddOnPicker from "@/components/AddOnPicker";
 import ProductDetails from "@/components/ProductDetails";
 import { addOnsKey, productAddOns } from "@/lib/addons";
 import SpamHint from "@/components/SpamHint";
-import { type BoxPick, describePicks, dropBoxGroups, dropBoxOptions, isBox, picksKey } from "@/lib/box";
+import { type BoxPick, describePicks, dropBoxGroups, dropBoxOptions, isBox, picksKey, productBoxGroups } from "@/lib/box";
 
 interface DropDetails {
   id: string;
@@ -452,6 +452,7 @@ export default function DropDetailPage() {
                   : null;
               const isSoldOut = remaining !== null && remaining <= 0;
               const box = isBox(dp.product);
+              const sections = productBoxGroups(dp.product.boxGroups);
               const extras = productAddOns(dp.product.addOns);
               // Boxes and products with add-ons list each different choice as its own line
               const boxLines = box || extras.length > 0 ? cart.filter((l) => l.dropProductId === dp.id) : [];
@@ -499,7 +500,11 @@ export default function DropDetailPage() {
                       </span>
                       {box && (
                         <span className="text-[11px] font-semibold text-[#735D54]">
-                          {text("drop.mixMatch", { count: dp.product.boxSize ?? "" })}
+                          {sections.length === 0
+                            ? text("drop.mixMatch", { count: dp.product.boxSize ?? "" })
+                            : sections.length === 1 && sections[0].allSame
+                              ? text("drop.chooseFlavor")
+                              : text("drop.chooseFlavors")}
                         </span>
                       )}
                       {remaining !== null && (
@@ -526,7 +531,9 @@ export default function DropDetailPage() {
                       onClick={() => setBuildingBoxFor(dp.id)}
                       className="shrink-0 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed transition shadow-xs"
                     >
-                      {qty > 0 ? text("drop.anotherBox") : text("drop.buildBox")}
+                      {sections.length > 0
+                        ? text(qty > 0 ? "drop.chooseAnother" : "drop.choose")
+                        : text(qty > 0 ? "drop.anotherBox" : "drop.buildBox")}
                     </button>
                   ) : extras.length > 0 ? (
                     <button
