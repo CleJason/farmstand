@@ -285,6 +285,8 @@ export const COPY = {
   // ── Boxes & add-ons
   "box.choose": { group: "Boxes & add-ons", label: "Box: how many", default: "Choose {count}" },
   "box.chooseMore": { group: "Boxes & add-ons", label: "Box: still to pick", default: "Choose {count} more" },
+  "box.sectionSame": { group: "Boxes & add-ons", label: "Box section: all one flavor", default: "Pick one flavor. You'll get {count}" },
+  "box.sectionMix": { group: "Boxes & add-ons", label: "Box section: any mix", default: "Choose {count}, any mix" },
   "box.add": { group: "Boxes & add-ons", label: "Box / add-ons: add button", default: "Add to order · {price}" },
   "addon.title": { group: "Boxes & add-ons", label: "Add-ons heading", default: "Add-ons (per item)" },
   "addon.free": { group: "Boxes & add-ons", label: "Free add-on", default: "free" },

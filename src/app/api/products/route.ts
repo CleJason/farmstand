@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { cleanPosition } from "@/lib/image-position";
-import { cleanBoxOptions, cleanBoxSize } from "@/lib/box";
+import { cleanBoxGroups, cleanBoxOptions, cleanBoxSize } from "@/lib/box";
 import { cleanAddOns } from "@/lib/addons";
 
 export async function GET() {
@@ -25,6 +25,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Name and price are required" }, { status: 400 });
   }
 
+  const groups = cleanBoxGroups(data.boxGroups);
   const product = await prisma.product.create({
     data: {
       name,
@@ -34,8 +35,9 @@ export async function POST(req: Request) {
       imagePosition: cleanPosition(data.imagePosition) ?? null,
       category: category || null,
       active: active !== undefined ? Boolean(active) : true,
-      boxSize: cleanBoxSize(data.boxSize),
-      boxOptions: cleanBoxOptions(data.boxOptions),
+      boxSize: groups.length ? groups.reduce((sum, g) => sum + g.size, 0) : cleanBoxSize(data.boxSize),
+      boxOptions: groups.length ? groups.flatMap((g) => g.options) : cleanBoxOptions(data.boxOptions),
+      boxGroups: groups.length ? groups : undefined,
       addOns: cleanAddOns(data.addOns),
     },
   });

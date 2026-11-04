@@ -9,7 +9,7 @@ import { DiscountError, evaluateDiscount, normalizeCode } from "@/lib/discounts"
 import { evaluateGift, GiftError, normalizeGiftCode } from "@/lib/gift";
 import { applyStatusChange } from "@/lib/order-effects";
 import { getSiteSettings } from "@/lib/site";
-import { type BoxPick, describePicks, dropBoxOptions, isBox, picksKey, validatePicks } from "@/lib/box";
+import { type BoxPick, describePicks, dropBoxGroups, dropBoxOptions, isBox, picksKey, validatePicks } from "@/lib/box";
 import { type AddOn, addOnsKey, addOnsTotal, chosenAddOns, describeAddOns, productAddOns } from "@/lib/addons";
 import {
   formatPickup,
@@ -193,7 +193,11 @@ async function priceOrder(
       try {
         if (isBox(dp.product)) {
           picks = validatePicks(
-            { ...dp.product, boxOptions: dropBoxOptions(dp.product.boxOptions, dp.boxOptions) },
+            {
+              ...dp.product,
+              boxOptions: dropBoxOptions(dp.product.boxOptions, dp.boxOptions),
+              boxGroups: dropBoxGroups(dp.product.boxGroups, dp.boxOptions),
+            },
             selections
           );
         }

@@ -3,20 +3,23 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
-import type { BoxPick } from "@/lib/box";
+import type { BoxGroup, BoxPick } from "@/lib/box";
 import type { AddOn } from "@/lib/addons";
 import { AddOnChecklist } from "@/components/AddOnPicker";
 import { useText } from "@/components/SiteProvider";
 
 /**
  * Bottom sheet where the customer fills one mix & match box: a stepper per
- * option, and "Add to order" once the picks add up to the box size.
+ * option, and "Add to order" once the picks add up to the box size. A box in
+ * sections gets a heading per section; a section that's all one flavor is a
+ * single tap on the flavor.
  */
 export default function BoxBuilder({
   name,
   price,
   boxSize,
   options,
+  groups = [],
   addOns = [],
   onAdd,
   onClose,
@@ -25,6 +28,7 @@ export default function BoxBuilder({
   price: number;
   boxSize: number;
   options: string[];
+  groups?: BoxGroup[];
   addOns?: AddOn[];
   onAdd: (picks: BoxPick[], addOnNames: string[]) => void;
   onClose: () => void;
@@ -34,6 +38,8 @@ export default function BoxBuilder({
   const [extras, setExtras] = useState<string[]>([]);
   const chosen = Object.values(counts).reduce((a, b) => a + b, 0);
   const left = boxSize - chosen;
+  const sections: BoxGroup[] = groups.length ? groups : [{ label: "", size: boxSize, options, allSame: false }];
+  const leftIn = (s: BoxGroup) => s.size - s.options.reduce((sum, o) => sum + (counts[o] ?? 0), 0);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -46,19 +52,28 @@ export default function BoxBuilder({
     };
   }, [onClose]);
 
-  const change = (option: string, delta: number) =>
+  const change = (section: BoxGroup, option: string, delta: number) =>
     setCounts((prev) => {
       const next = Math.max(0, (prev[option] ?? 0) + delta);
-      if (delta > 0 && left <= 0) return prev;
+      if (delta > 0 && leftIn(section) <= 0) return prev;
       return { ...prev, [option]: next };
     });
 
-  // One option: just fill the box with it
-  const fillWith = (option: string) => setCounts({ [option]: boxSize });
+  // One option: just fill the section with it
+  const fillWith = (section: BoxGroup, option: string) =>
+    setCounts((prev) => {
+      const next = { ...prev };
+      for (const o of section.options) delete next[o];
+      next[option] = section.size;
+      return next;
+    });
 
   const add = () => {
     onAdd(
-      options.filter((o) => (counts[o] ?? 0) > 0).map((o) => ({ name: o, quantity: counts[o] })),
+      sections
+        .flatMap((s) => s.options)
+        .filter((o) => (counts[o] ?? 0) > 0)
+        .map((o) => ({ name: o, quantity: counts[o] })),
       extras
     );
   };
@@ -75,7 +90,7 @@ export default function BoxBuilder({
           <div>
             <h2 className="font-bold text-lg text-[#2D1E18]">{name}</h2>
             <p className="text-sm text-[#735D54]">
-              {text("box.choose", { count: boxSize })} · {formatPrice(price)}
+              {groups.length ? formatPrice(price) : `${text("box.choose", { count: boxSize })} · ${formatPrice(price)}`}
             </p>
           </div>
           <button onClick={onClose} aria-label="Close" className="p-1 text-stone-400 hover:text-stone-800">
@@ -83,43 +98,77 @@ export default function BoxBuilder({
           </button>
         </div>
 
-        <div className="overflow-y-auto px-5 py-3 divide-y divide-stone-100">
-          {options.map((option) => {
-            const n = counts[option] ?? 0;
-            return (
-              <div key={option} className="flex items-center justify-between gap-3 py-3">
-                <button
-                  type="button"
-                  onClick={() => fillWith(option)}
-                  title={`Make it all ${option}`}
-                  className="text-left text-sm font-medium text-[#2D1E18] min-w-0"
-                >
-                  {option}
-                </button>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    disabled={n === 0}
-                    onClick={() => change(option, -1)}
-                    aria-label={`One less ${option}`}
-                    className="w-8 h-8 rounded-lg border border-stone-200 font-bold disabled:opacity-30 hover:bg-stone-50"
-                  >
-                    -
-                  </button>
-                  <span className="w-6 text-center font-bold text-sm">{n}</span>
-                  <button
-                    type="button"
-                    disabled={left <= 0}
-                    onClick={() => change(option, 1)}
-                    aria-label={`One more ${option}`}
-                    className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold disabled:opacity-30"
-                  >
-                    +
-                  </button>
+        <div className="overflow-y-auto px-5 py-3 space-y-4">
+          {sections.map((section, i) => (
+            <div key={i}>
+              {groups.length > 0 && (
+                <div className="pt-1">
+                  {section.label && <h3 className="font-semibold text-sm text-[#2D1E18]">{section.label}</h3>}
+                  <p className="text-xs text-[#735D54]">
+                    {text(section.allSame ? "box.sectionSame" : "box.sectionMix", { count: section.size })}
+                  </p>
                 </div>
+              )}
+              <div className="divide-y divide-stone-100">
+                {section.options.map((option) => {
+                  const n = counts[option] ?? 0;
+                  if (section.allSame) {
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => fillWith(section, option)}
+                        aria-pressed={n > 0}
+                        className={`w-full flex items-center justify-between gap-3 py-3 text-left text-sm font-medium ${
+                          n > 0 ? "text-amber-700" : "text-[#2D1E18]"
+                        }`}
+                      >
+                        {option}
+                        <span
+                          className={`w-5 h-5 rounded-full border shrink-0 ${
+                            n > 0 ? "bg-amber-600 border-amber-600" : "border-stone-300"
+                          }`}
+                        />
+                      </button>
+                    );
+                  }
+                  return (
+                    <div key={option} className="flex items-center justify-between gap-3 py-3">
+                      <button
+                        type="button"
+                        onClick={() => fillWith(section, option)}
+                        title={`Make it all ${option}`}
+                        className="text-left text-sm font-medium text-[#2D1E18] min-w-0"
+                      >
+                        {option}
+                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          disabled={n === 0}
+                          onClick={() => change(section, option, -1)}
+                          aria-label={`One less ${option}`}
+                          className="w-8 h-8 rounded-lg border border-stone-200 font-bold disabled:opacity-30 hover:bg-stone-50"
+                        >
+                          -
+                        </button>
+                        <span className="w-6 text-center font-bold text-sm">{n}</span>
+                        <button
+                          type="button"
+                          disabled={leftIn(section) <= 0}
+                          onClick={() => change(section, option, 1)}
+                          aria-label={`One more ${option}`}
+                          className="w-8 h-8 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold disabled:opacity-30"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
 
         <div className="px-5 py-4 border-t border-stone-100 space-y-2">

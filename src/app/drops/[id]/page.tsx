@@ -16,7 +16,7 @@ import AddOnPicker from "@/components/AddOnPicker";
 import ProductDetails from "@/components/ProductDetails";
 import { addOnsKey, productAddOns } from "@/lib/addons";
 import SpamHint from "@/components/SpamHint";
-import { type BoxPick, describePicks, dropBoxOptions, isBox, picksKey } from "@/lib/box";
+import { type BoxPick, describePicks, dropBoxGroups, dropBoxOptions, isBox, picksKey } from "@/lib/box";
 
 interface DropDetails {
   id: string;
@@ -46,6 +46,7 @@ interface DropDetails {
       imageUrl: string | null;
       imagePosition: string | null;
       addOns: unknown;
+      boxGroups?: unknown;
       boxSize: number | null;
       boxOptions: string[];
     };
@@ -715,6 +716,7 @@ export default function DropDetailPage() {
           price={priceOf(boxProduct)}
           boxSize={boxProduct.product.boxSize!}
           options={dropBoxOptions(boxProduct.product.boxOptions, boxProduct.boxOptions)}
+          groups={dropBoxGroups(boxProduct.product.boxGroups, boxProduct.boxOptions)}
           addOns={productAddOns(boxProduct.product.addOns)}
           onAdd={(picks, addOnNames) => {
             updateLine(boxProduct.id, 1, picks, addOnNames.length ? addOnNames : undefined);

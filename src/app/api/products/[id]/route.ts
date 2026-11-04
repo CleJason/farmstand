@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { cleanPosition } from "@/lib/image-position";
-import { cleanBoxOptions, cleanBoxSize } from "@/lib/box";
+import { cleanBoxGroups, cleanBoxOptions, cleanBoxSize } from "@/lib/box";
 import { cleanAddOns } from "@/lib/addons";
 
 export async function PUT(
@@ -18,6 +19,7 @@ export async function PUT(
   const data = await req.json();
   const { name, description, price, imageUrl, category, active } = data;
 
+  const groups = cleanBoxGroups(data.boxGroups);
   const product = await prisma.product.update({
     where: { id },
     data: {
@@ -28,8 +30,17 @@ export async function PUT(
       imagePosition: cleanPosition(data.imagePosition),
       category: category !== undefined ? category : undefined,
       active: active !== undefined ? Boolean(active) : undefined,
-      boxSize: data.boxSize !== undefined ? cleanBoxSize(data.boxSize) : undefined,
-      boxOptions: data.boxOptions !== undefined ? cleanBoxOptions(data.boxOptions) : undefined,
+      boxSize: groups.length
+        ? groups.reduce((sum, g) => sum + g.size, 0)
+        : data.boxSize !== undefined
+          ? cleanBoxSize(data.boxSize)
+          : undefined,
+      boxOptions: groups.length
+        ? groups.flatMap((g) => g.options)
+        : data.boxOptions !== undefined
+          ? cleanBoxOptions(data.boxOptions)
+          : undefined,
+      boxGroups: groups.length ? groups : data.boxGroups !== undefined ? Prisma.DbNull : undefined,
       addOns: data.addOns !== undefined ? cleanAddOns(data.addOns) : undefined,
     },
   });

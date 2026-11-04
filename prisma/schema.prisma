@@ -85,6 +85,9 @@ model Product {
   // (e.g. a 6-cookie box from 4 flavors). null = a normal product.
   boxSize     Int?
   boxOptions  String[] @default([])
+  // A box in sections, e.g. 4 rolls all one flavor + 4 breads any mix (see lib/box.ts).
+  // boxSize and boxOptions then hold the total and the full list.
+  boxGroups   Json?
   // Optional extras the customer can tick, e.g. [{ "name": "Extra icing", "price": 100 }] (cents, per item)
   addOns      Json     @default("[]")
   createdAt   DateTime @default(now())
