@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import { getSiteSettings, standHref } from "@/lib/site";
 import { prisma } from "@/lib/prisma";
 import InstallPrompt from "@/components/InstallPrompt";
+import AdminMobileMenu from "@/components/AdminMobileMenu";
 
 export const runtime = "nodejs";
 
@@ -55,8 +56,15 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] flex flex-col md:flex-row">
-      {/* Sidebar */}
-      <aside className="w-full md:w-60 bg-white border-b md:border-b-0 md:border-r border-stone-200 flex flex-col shrink-0">
+      <AdminMobileMenu
+        siteName={site.SITE_NAME}
+        items={navItems}
+        storefrontHref="/"
+        kioskHref={standHref(site)}
+        version={(process.env.APP_VERSION || "dev").slice(0, 7)}
+      />
+      {/* Sidebar (the menu above takes its place on phones) */}
+      <aside className="hidden md:flex md:w-60 bg-white md:border-r border-stone-200 flex-col shrink-0">
         <div className="p-5 border-b border-stone-100">
           <Link href="/admin" className="block">
             <span className="text-xs font-semibold text-amber-600 uppercase tracking-wider">

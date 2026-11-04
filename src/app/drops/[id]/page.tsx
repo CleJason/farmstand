@@ -328,10 +328,10 @@ export default function DropDetailPage() {
       <div className="bg-white border-b border-stone-200 py-6 px-4">
         <div className="max-w-3xl mx-auto space-y-2.5">
           <Link
-            href="/"
+            href={drop.preview ? "/admin/drops" : "/"}
             className="text-xs text-[#8A756C] hover:text-amber-600 flex items-center gap-1 font-medium transition"
           >
-            {text("drop.back")}
+            {drop.preview ? "← Back to drops in Admin" : text("drop.back")}
           </Link>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-2xl md:text-3xl font-black text-[#2D1E18] tracking-tight">
