@@ -19,7 +19,7 @@ interface PickupSlot {
   maxPerTime: number | null;
 }
 
-type DropForecast = { revenue: number; profit: number; noLimit: string[]; noCost: string[] };
+type DropForecast = { revenue: number; profit: number; costedRevenue: number; noLimit: string[]; noCost: string[] };
 
 interface Drop {
   id: string;
@@ -478,6 +478,8 @@ export default function AdminDropsPage() {
                           <>
                             {" "}
                             · about <b>${Math.round(forecasts[drop.id].profit).toLocaleString("en-US")}</b> profit
+                            {forecasts[drop.id].noCost.length > 0 &&
+                              ` on the $${Math.round(forecasts[drop.id].costedRevenue).toLocaleString("en-US")} with recipes linked`}
                           </>
                         )}
                       </div>

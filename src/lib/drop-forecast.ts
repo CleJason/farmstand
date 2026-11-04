@@ -6,6 +6,7 @@ import { dropBoxGroups, dropBoxOptions, isBox } from "@/lib/box";
 export type DropForecast = {
   revenue: number; // dollars if every product with a limit sells out
   profit: number; // dollars, from the products with a known cost
+  costedRevenue: number; // the part of revenue that profit covers
   noLimit: string[]; // products with no limit: can't be counted
   noCost: string[]; // products with no recipe linked: revenue counted, cost isn't
 };
@@ -36,7 +37,7 @@ export async function dropForecasts(): Promise<Record<string, DropForecast>> {
 
   const out: Record<string, DropForecast> = {};
   for (const drop of drops) {
-    const f: DropForecast = { revenue: 0, profit: 0, noLimit: [], noCost: [] };
+    const f: DropForecast = { revenue: 0, profit: 0, costedRevenue: 0, noLimit: [], noCost: [] };
     for (const dp of drop.dropProducts) {
       if (dp.quantityLimit === null) {
         f.noLimit.push(dp.product.name);
@@ -54,7 +55,10 @@ export async function dropForecasts(): Promise<Record<string, DropForecast>> {
         cost = parts.some((c) => c === null) ? null : (parts as number[]).reduce((a, b) => a + b, 0);
       }
       if (cost === null) f.noCost.push(dp.product.name);
-      else f.profit += (price - cost) * dp.quantityLimit;
+      else {
+        f.profit += (price - cost) * dp.quantityLimit;
+        f.costedRevenue += price * dp.quantityLimit;
+      }
     }
     out[drop.id] = f;
   }
