@@ -53,6 +53,43 @@ export function channelsFor(
 }
 
 /**
+ * Make two entries one: the first keeps its details and gains what the other
+ * adds, with the earlier sign-up date. If one got texts and the other emails,
+ * they now get both. Returns false if either is gone.
+ */
+export async function mergeSubscribers(keepId: string, otherId: string): Promise<boolean> {
+  const [keep, other] = await Promise.all([
+    prisma.subscriber.findUnique({ where: { id: keepId } }),
+    prisma.subscriber.findUnique({ where: { id: otherId } }),
+  ]);
+  if (!keep || !other) return false;
+  const via = (a: string | null, b: string | null) => (a && b && a !== b ? "both" : a ?? b);
+  await prisma.$transaction([
+    prisma.subscriber.delete({ where: { id: other.id } }),
+    prisma.subscriber.update({
+      where: { id: keep.id },
+      data: {
+        email: keep.email ?? other.email,
+        phone: keep.phone ?? other.phone,
+        createdAt: other.createdAt < keep.createdAt ? other.createdAt : keep.createdAt,
+        dropAlerts: keep.dropAlerts || other.dropAlerts,
+        standAlerts: keep.standAlerts || other.standAlerts,
+        dropVia: via(keep.dropVia, other.dropVia),
+        standVia: via(keep.standVia, other.standVia) ?? keep.standVia,
+      },
+    }),
+  ]);
+  return true;
+}
+
+/** Every entry matching these emails or numbers becomes one, the earliest. */
+export async function mergeSubscribersFor(emails: string[], phones: string[]) {
+  const all = await prisma.subscriber.findMany({ orderBy: { createdAt: "asc" } });
+  const matches = all.filter((s) => (s.email && emails.includes(s.email)) || (s.phone && phones.includes(phoneKey(s.phone))));
+  for (const other of matches.slice(1)) await mergeSubscribers(matches[0].id, other.id);
+}
+
+/**
  * Add someone to the subscriber list. There's one list: signing up on the home
  * page or the Porch Pickup page gets drop alerts and Porch Pickup notices
  * (`list` is only where they signed up). The same email, or the same phone for

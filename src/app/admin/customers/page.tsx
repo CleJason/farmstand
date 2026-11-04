@@ -109,6 +109,23 @@ export default function AdminCustomersPage() {
     load();
   };
 
+  // Two entries for one person
+  const [mergeSearch, setMergeSearch] = useState<string | null>(null);
+  const mergeWith = async (other: Customer) => {
+    if (!selected) return;
+    if (!confirm(`Merge ${other.name || other.email || other.phone} into ${selected.name || selected.email || selected.phone}? This can't be undone from here.`)) return;
+    const res = await fetch("/api/customers/merge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keep: selected, other }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return alert(data.error || "Couldn't merge them");
+    setMergeSearch(null);
+    setSelected(null);
+    load();
+  };
+
   // Points by hand, e.g. a cash sale
   const [pointsDelta, setPointsDelta] = useState("");
   const [pointsReason, setPointsReason] = useState("");
@@ -299,16 +316,57 @@ export default function AdminCustomersPage() {
               <h2 className="text-lg font-bold text-stone-900">
                 {selected.name || selected.email || selected.phone || "Guest"}
               </h2>
-              <button
-                onClick={() => {
-                  setEditError("");
-                  setEdit({ name: selected.name ?? "", phone: selected.phone ?? "", email: selected.email ?? "" });
-                }}
-                className="text-xs font-medium px-2.5 py-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700 shrink-0"
-              >
-                Edit
-              </button>
+              <span className="flex gap-1.5 shrink-0">
+                <button
+                  onClick={() => setMergeSearch(mergeSearch === null ? "" : null)}
+                  className="text-xs font-medium px-2.5 py-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700"
+                >
+                  Merge
+                </button>
+                <button
+                  onClick={() => {
+                    setEditError("");
+                    setEdit({ name: selected.name ?? "", phone: selected.phone ?? "", email: selected.email ?? "" });
+                  }}
+                  className="text-xs font-medium px-2.5 py-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700"
+                >
+                  Edit
+                </button>
+              </span>
               </div>
+              {mergeSearch !== null && (
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 space-y-2">
+                  <p className="text-xs text-stone-600">
+                    Find their other entry. It joins this one: this customer&apos;s details stay, and the other&apos;s email and
+                    phone go on the profile, so all their orders and points add up.
+                  </p>
+                  <input
+                    autoFocus
+                    value={mergeSearch}
+                    onChange={(e) => setMergeSearch(e.target.value)}
+                    placeholder="Search name, email or phone"
+                    aria-label="Search for the other customer"
+                    className="w-full text-sm px-3 py-2 border border-stone-200 rounded-lg bg-white"
+                  />
+                  {mergeSearch.trim().length >= 2 &&
+                    customers
+                      .filter(
+                        (c) =>
+                          c.key !== selected.key &&
+                          [c.name, c.email, c.phone].some((v) => v?.toLowerCase().includes(mergeSearch.trim().toLowerCase()))
+                      )
+                      .slice(0, 6)
+                      .map((c) => (
+                        <button
+                          key={c.key}
+                          onClick={() => mergeWith(c)}
+                          className="w-full text-left text-xs px-3 py-2 rounded-lg bg-white border border-stone-200 hover:border-amber-400"
+                        >
+                          <b>{c.name || "No name"}</b> {[c.email, c.phone].filter(Boolean).join(" · ")} · {c.orderCount} orders
+                        </button>
+                      ))}
+                </div>
+              )}
               <div className="text-sm text-stone-500 mt-1 space-y-0.5">
                 {selected.email && <div>{selected.email}</div>}
                 {selected.phone && <div>{selected.phone}</div>}

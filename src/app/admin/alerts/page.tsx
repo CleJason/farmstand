@@ -158,6 +158,25 @@ export default function AdminAlertsPage() {
     load();
   };
 
+  // Two entries for one person: pick the one to merge, then the one to keep
+  const [merging, setMerging] = useState<Subscriber | null>(null);
+  const mergeInto = async (keep: Subscriber) => {
+    if (!merging) return;
+    const clash =
+      (keep.email && merging.email && keep.email !== merging.email ? `\n\n${merging.email} will be dropped.` : "") +
+      (keep.phone && merging.phone && keep.phone !== merging.phone ? `\n\n${merging.phone} will be dropped.` : "");
+    if (!confirm(`Merge ${merging.email ?? merging.phone} into ${keep.email ?? keep.phone}? They'll be one entry.${clash}`)) return;
+    const res = await fetch("/api/subscribers/merge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keepId: keep.id, otherId: merging.id }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return alert(data.error || "Couldn't merge them");
+    setMerging(null);
+    load();
+  };
+
   const removeAll = async () => {
     if (!confirm(`Remove all ${subscribers.length} people from Drop Alerts? (Their customer records stay.)`)) return;
     const res = await fetch("/api/subscribers?all=1", { method: "DELETE" });
@@ -432,6 +451,11 @@ export default function AdminAlertsPage() {
               className="basis-full text-sm px-3 py-2 border border-stone-200 rounded-lg"
             />
           </div>
+          {merging && (
+            <p className="px-4 py-2 text-sm bg-amber-50 text-amber-900 border-b border-amber-100">
+              Merging {merging.email ?? merging.phone}. Search for their other entry above, then tap <b>Merge into this</b>.
+            </p>
+          )}
           {shown.length === 0 && <p className="px-4 py-6 text-center text-sm text-stone-400">Nobody on the list matches that.</p>}
           <table className="w-full text-sm">
             <tbody className="divide-y divide-stone-100">
@@ -505,6 +529,21 @@ export default function AdminAlertsPage() {
                     {shortDate(s.createdAt)} <span className="text-xs text-stone-400">{shortTime(s.createdAt)}</span>
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
+                    {merging ? (
+                      merging.id === s.id ? (
+                        <button onClick={() => setMerging(null)} className="text-xs text-stone-500 hover:text-stone-900">
+                          Cancel merge
+                        </button>
+                      ) : (
+                        <button onClick={() => mergeInto(s)} className="text-xs font-semibold text-amber-700 hover:underline">
+                          Merge into this
+                        </button>
+                      )
+                    ) : (
+                    <>
+                    <button onClick={() => setMerging(s)} className="text-xs text-stone-500 hover:text-stone-900 mr-3">
+                      Merge
+                    </button>
                     <button
                       onClick={() =>
                         setEditing({
@@ -521,6 +560,8 @@ export default function AdminAlertsPage() {
                     <button onClick={() => remove(s)} className="text-xs text-stone-400 hover:text-red-600">
                       Remove
                     </button>
+                    </>
+                    )}
                   </td>
                 </tr>
                 )
