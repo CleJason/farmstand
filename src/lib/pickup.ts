@@ -54,11 +54,12 @@ export async function pickupTimeCounts(
   return counts;
 }
 
-/** Window times with whether each one is already full. */
+/** Window times with whether each one is already full (or closed by the owner). */
 export function timesWithAvailability(slot: PickupSlot, counts: Map<string, number>) {
   return pickupTimes(slot).map((t) => {
     const taken = counts.get(`${slot.id}|${t.toISOString()}`) ?? 0;
-    return { time: t.toISOString(), full: slot.maxPerTime !== null && taken >= slot.maxPerTime };
+    const blocked = slot.blockedTimes?.includes(t.toISOString()) ?? false;
+    return { time: t.toISOString(), full: blocked || (slot.maxPerTime !== null && taken >= slot.maxPerTime) };
   });
 }
 

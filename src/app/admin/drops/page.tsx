@@ -17,6 +17,7 @@ interface PickupSlot {
   address: string | null;
   intervalMinutes: number;
   maxPerTime: number | null;
+  blockedTimes?: string[];
 }
 
 type DropForecast = {
@@ -111,7 +112,19 @@ type WindowForm = {
   address: string; // private, sent after payment
   interval: string;
   maxPerTime: string;
+  blocked: string[]; // ISO times closed to new orders
 };
+
+/** Every pickup time in a window, as customers see them (ISO strings). */
+function windowTimes(w: WindowForm): string[] {
+  if (!w.date || !w.start) return [];
+  const start = at(w.date, w.start).getTime();
+  const end = w.end && w.end !== w.start ? at(w.date, w.end).getTime() : start;
+  const step = Math.max(5, Number(w.interval) || 30) * 60_000;
+  const out: string[] = [];
+  for (let t = start; t <= end && out.length < 200; t += step) out.push(new Date(t).toISOString());
+  return out;
+}
 
 // boxOff: mix & match choices NOT offered this drop
 type ProductForm = { included: boolean; limit: string; price: string; boxOff: string[] };
@@ -150,6 +163,7 @@ const emptyWindow = (area = ""): WindowForm => ({
   address: "",
   interval: "30",
   maxPerTime: "",
+  blocked: [],
 });
 
 const inputClass =
@@ -236,6 +250,7 @@ export default function AdminDropsPage() {
           address: s.address ?? "",
           interval: String(s.intervalMinutes || 30),
           maxPerTime: s.maxPerTime ? String(s.maxPerTime) : "",
+          blocked: s.blockedTimes ?? [],
         };
       })
     );
@@ -265,7 +280,7 @@ export default function AdminDropsPage() {
     setTitle("");
     setOrderOpenAt("");
     setOrderCloseAt("");
-    setWindows((ws) => ws.map((w) => ({ ...w, id: undefined, date: "" })));
+    setWindows((ws) => ws.map((w) => ({ ...w, id: undefined, date: "", blocked: [] })));
     setProductForm((pf) => Object.fromEntries(Object.entries(pf).filter(([id]) => products.some((p) => p.id === id))));
   };
 
@@ -297,6 +312,8 @@ export default function AdminDropsPage() {
           address: w.address,
           intervalMinutes: Number(w.interval) || 30,
           maxPerTime: w.maxPerTime ? Number(w.maxPerTime) : null,
+          // Only times still in the window (changing its hours drops the rest)
+          blockedTimes: w.blocked.filter((t) => windowTimes(w).includes(t)),
         };
       });
     const dropProducts = Object.entries(productForm)
@@ -720,6 +737,31 @@ export default function AdminDropsPage() {
                           <input type="number" min="1" value={w.maxPerTime} onChange={(e) => setWindow(idx, { maxPerTime: e.target.value })} placeholder="No limit" className={inputClass} />
                         </label>
                       </div>
+                      {windowTimes(w).length > 1 && (
+                        <div>
+                          <span className="block text-[11px] text-stone-500 mb-1">
+                            Tap a time to close it to new orders. Anyone who already picked it keeps it.
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {windowTimes(w).map((t) => {
+                              const closed = w.blocked.includes(t);
+                              return (
+                                <button
+                                  type="button"
+                                  key={t}
+                                  onClick={() => setWindow(idx, { blocked: closed ? w.blocked.filter((x) => x !== t) : [...w.blocked, t] })}
+                                  aria-pressed={closed}
+                                  className={`px-2 py-1 rounded-md border text-[11px] ${
+                                    closed ? "bg-white border-stone-200 text-stone-400 line-through" : "bg-amber-50 border-amber-200 text-amber-900"
+                                  }`}
+                                >
+                                  {timeLabel(new Date(t))}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                       <label className="block">
                         <span className="block text-[11px] text-stone-500 mb-0.5">
                           Exact address (private — only sent to customers after they pay)

@@ -131,6 +131,7 @@ model PickupSlot {
   address         String?   // exact address — only revealed to customers once paid
   intervalMinutes Int       @default(30)
   maxPerTime      Int?      // null = unlimited
+  blockedTimes    String[]  @default([]) // pickup times (ISO) the owner closed; orders already there keep them
   drop            Drop      @relation(fields: [dropId], references: [id], onDelete: Cascade)
   orders          Order[]
 }

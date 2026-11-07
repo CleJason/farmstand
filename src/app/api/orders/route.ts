@@ -168,6 +168,9 @@ async function priceOrder(
     const times = pickupTimes(slot);
     const chosen = times.length === 1 ? times[0] : times.find((t) => t.toISOString() === input.pickupTime);
     if (!chosen) throw new OrderError("Please choose a pickup time");
+    if (slot.blockedTimes.includes(chosen.toISOString())) {
+      throw new OrderError("That pickup time isn't available anymore — please choose another");
+    }
     if (slot.maxPerTime !== null) {
       const taken = (await pickupTimeCounts(db, [slot.id])).get(`${slot.id}|${chosen.toISOString()}`) ?? 0;
       if (taken >= slot.maxPerTime) {

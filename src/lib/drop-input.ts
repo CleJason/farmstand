@@ -13,6 +13,7 @@ export type SlotInput = {
   address: string | null;
   intervalMinutes: number;
   maxPerTime: number | null;
+  blockedTimes: string[];
 };
 
 export type ProductInput = {
@@ -53,6 +54,12 @@ export function parseSlots(raw: unknown): SlotInput[] {
       address: String(s?.address || "").trim() || null,
       intervalMinutes,
       maxPerTime: optionalInt(s?.maxPerTime, 1),
+      // Times the owner closed: kept as the exact ISO times customers pick from
+      blockedTimes: (Array.isArray(s?.blockedTimes) ? s.blockedTimes : [])
+        .map((t: unknown) => new Date(String(t)))
+        .filter((d: Date) => !Number.isNaN(d.getTime()))
+        .map((d: Date) => d.toISOString())
+        .slice(0, 200),
     };
   });
 }
