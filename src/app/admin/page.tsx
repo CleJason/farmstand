@@ -231,10 +231,12 @@ export default function AdminDashboardPage() {
       (q || dropFilter || isCurrent(o, startOfToday) === (when === "current"))
   );
 
-  const totalRevenue = safeOrders
-    .filter((o) => o.status === "PAID")
+  // The cards follow the drop picked above (all orders otherwise)
+  const statOrders = dropFilter ? safeOrders.filter((o) => o.drop?.title === dropFilter) : safeOrders;
+  const totalRevenue = statOrders
+    .filter((o) => ["PAID", "READY", "PICKED_UP"].includes(o.status))
     .reduce((sum, o) => sum + o.total, 0);
-  const pendingCount = safeOrders.filter((o) => o.status === "AWAITING_CONFIRM").length;
+  const pendingCount = statOrders.filter((o) => o.status === "AWAITING_CONFIRM").length;
 
   return (
     <div className="space-y-6">
@@ -268,7 +270,7 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-xl border border-stone-200">
           <p className="text-xs font-medium text-stone-400 uppercase tracking-wider">
-            Revenue
+            Revenue{dropFilter ? ` · ${dropFilter}` : ""}
           </p>
           <p className="text-2xl font-bold text-stone-900 mt-1">
             {formatPrice(totalRevenue)}
@@ -287,7 +289,7 @@ export default function AdminDashboardPage() {
             Total Orders
           </p>
           <p className="text-2xl font-bold text-stone-900 mt-1">
-            {safeOrders.length}
+            {statOrders.length}
           </p>
         </div>
       </div>

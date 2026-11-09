@@ -73,7 +73,60 @@ export default function ImportExportTab({ data, save }: TabProps) {
       <SheetImport data={data} save={save} />
       <MealieImport data={data} save={save} />
       <Export />
+      <StartOver data={data} save={save} />
     </div>
+  );
+}
+
+/** Wipe imported costs before bringing in a cleaner file. Recipes and their links stay. */
+function StartOver({ data, save }: TabProps) {
+  const [pick, setPick] = useState({ purchases: true, receipts: false, manual: true });
+  const [msg, setMsg] = useState("");
+  const manualCount = data.ingredients.filter((i) => i.manualCost != null).length;
+  const what = [
+    pick.purchases && `all ${data.purchases.length} purchases`,
+    pick.receipts && `all ${data.receipts.length} receipts`,
+    pick.manual && `the set prices on ${manualCount} ingredients`,
+  ].filter(Boolean) as string[];
+
+  const run = async () => {
+    if (!what.length) return;
+    if (!confirm(`Delete ${what.join(", ")}? This can't be undone. Ingredients, recipes and their product links stay.`)) return;
+    const clear = Object.entries(pick).filter(([, on]) => on).map(([k]) => k).join(",");
+    const { error } = await save(`/api/costs?clear=${clear}`, "DELETE");
+    setMsg(error || "Done. Import your cleaned-up file above.");
+  };
+
+  const box = (key: keyof typeof pick, label: string) => (
+    <label className="flex items-center gap-2 text-sm text-stone-700">
+      <input type="checkbox" checked={pick[key]} onChange={(e) => setPick({ ...pick, [key]: e.target.checked })} className="accent-red-600" />
+      {label}
+    </label>
+  );
+
+  return (
+    <section className="bg-white rounded-xl border border-red-200 p-4 space-y-3">
+      <div>
+        <h2 className="text-sm font-semibold text-stone-900">Start over</h2>
+        <p className="text-xs text-stone-500 mt-0.5">
+          Clears what was imported so you can bring in a cleaner file. Your ingredients, recipes and their links to products
+          stay, so costs come back as soon as purchases are imported again.
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        {box("purchases", `Purchase log (${data.purchases.length})`)}
+        {box("manual", `Set prices on ingredients never bought (${manualCount})`)}
+        {box("receipts", `Receipts (${data.receipts.length})`)}
+      </div>
+      <button
+        onClick={run}
+        disabled={!what.length}
+        className="text-sm font-semibold px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white"
+      >
+        Delete selected
+      </button>
+      {msg && <p className="text-xs text-stone-600">{msg}</p>}
+    </section>
   );
 }
 

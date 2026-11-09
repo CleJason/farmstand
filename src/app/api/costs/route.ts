@@ -29,3 +29,17 @@ export async function PUT(req: Request) {
   }
   return NextResponse.json(await loadCosts());
 }
+
+/**
+ * Start over before re-importing: `?clear=` any of `purchases` (the purchase
+ * log), `receipts`, `manual` (prices typed or imported for ingredients never
+ * bought). Ingredients, recipes and their product links stay.
+ */
+export async function DELETE(req: Request) {
+  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const clear = new Set((new URL(req.url).searchParams.get("clear") ?? "").split(","));
+  if (clear.has("purchases")) await prisma.ingredientPurchase.deleteMany({});
+  if (clear.has("receipts")) await prisma.receipt.deleteMany({});
+  if (clear.has("manual")) await prisma.ingredient.updateMany({ data: { manualCost: null } });
+  return NextResponse.json(await loadCosts());
+}
