@@ -222,17 +222,31 @@ export default function AdminDashboardPage() {
   const startOfToday = new Date().setHours(0, 0, 0, 0);
   const currentCount = safeOrders.filter((o) => isCurrent(o, startOfToday)).length;
   const dropTitles = [...new Set(safeOrders.map((o) => o.drop?.title).filter(Boolean))] as string[];
-  // A search, or picking a drop, looks through current and past orders
+  // Porch Pickup has no drop, so its "time frames" are the days it sold on, newest first
+  const porchDay = (o: Order) =>
+    o.type === "FARMSTAND"
+      ? `${site.SITE_FARMSTAND_HEADING} · ${new Date(o.createdAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}`
+      : null;
+  const porchDays = [
+    ...new Set(
+      safeOrders
+        .filter((o) => o.type === "FARMSTAND")
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map(porchDay)
+    ),
+  ] as string[];
+  const picked = (o: Order) => !dropFilter || o.drop?.title === dropFilter || porchDay(o) === dropFilter;
+  // A search, or picking a drop or porch day, looks through current and past orders
   const filteredOrders = safeOrders.filter(
     (o) =>
       (filterType === "ALL" || o.type === filterType) &&
-      (!dropFilter || o.drop?.title === dropFilter) &&
+      picked(o) &&
       matches(o) &&
       (q || dropFilter || isCurrent(o, startOfToday) === (when === "current"))
   );
 
-  // The cards follow the drop picked above (all orders otherwise)
-  const statOrders = dropFilter ? safeOrders.filter((o) => o.drop?.title === dropFilter) : safeOrders;
+  // The cards follow the tab and the drop or porch day picked above
+  const statOrders = safeOrders.filter((o) => (filterType === "ALL" || o.type === filterType) && picked(o));
   const totalRevenue = statOrders
     .filter((o) => ["PAID", "READY", "PICKED_UP"].includes(o.status))
     .reduce((sum, o) => sum + o.total, 0);
@@ -270,7 +284,14 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-xl border border-stone-200">
           <p className="text-xs font-medium text-stone-400 uppercase tracking-wider">
-            Revenue{dropFilter ? ` · ${dropFilter}` : ""}
+            Revenue
+            {dropFilter
+              ? ` · ${dropFilter}`
+              : filterType === "FARMSTAND"
+                ? ` · ${site.SITE_FARMSTAND_HEADING}`
+                : filterType === "DROP"
+                  ? " · Drops"
+                  : ""}
           </p>
           <p className="text-2xl font-bold text-stone-900 mt-1">
             {formatPrice(totalRevenue)}
@@ -321,19 +342,32 @@ export default function AdminDashboardPage() {
           </button>
         ))}
       </div>
-      {dropTitles.length > 0 && (
+      {dropTitles.length + porchDays.length > 0 && (
         <select
           value={dropFilter}
           onChange={(e) => setDropFilter(e.target.value)}
-          aria-label="Filter by drop"
+          aria-label="Filter by drop or porch day"
           className="border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white max-w-full"
         >
-          <option value="">All drops</option>
-          {dropTitles.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
+          <option value="">All drops and days</option>
+          {dropTitles.length > 0 && (
+            <optgroup label="Drops">
+              {dropTitles.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </optgroup>
+          )}
+          {porchDays.length > 0 && (
+            <optgroup label={site.SITE_FARMSTAND_HEADING}>
+              {porchDays.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       )}
       <div className="flex gap-1 bg-stone-100 p-1 rounded-lg w-fit">
