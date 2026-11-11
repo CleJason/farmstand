@@ -70,9 +70,12 @@ export async function PUT(req: Request) {
       if (await nameTaken(name, id)) throw new CostInputError(`"${name}" is already on the list`);
       update.name = name;
     }
+    let convert: number | null = null;
     if (data.baseUnit !== undefined && baseUnit(data.baseUnit) !== current.baseUnit) {
+      // Purchases are stored in the base unit: `convertFactor` = how much of the new unit one old unit is
       if (current._count.purchases) {
-        throw new CostInputError("It already has purchases in that unit. Add a new ingredient instead, or delete its purchases first.");
+        convert = positive(data.convertFactor, "How much one is in the new unit", true);
+        if (!convert) throw new CostInputError("Say how much one is in the new unit, so its purchases can be converted");
       }
       update.baseUnit = baseUnit(data.baseUnit);
       // Now weighed or poured: cups and spoons need grams per cup
@@ -84,7 +87,19 @@ export async function PUT(req: Request) {
     if (data.manualCost !== undefined) {
       update.manualCost = data.manualCost === "" || data.manualCost === null ? null : nonNegative(data.manualCost, "Cost");
     }
-    await prisma.ingredient.update({ where: { id }, data: update });
+    await prisma.$transaction([
+      ...(convert
+        ? [
+            prisma.ingredientPurchase.updateMany({ where: { ingredientId: id }, data: { quantity: { multiply: convert } } }),
+            prisma.stockCount.updateMany({ where: { ingredientId: id }, data: { amount: { multiply: convert } } }),
+          ]
+        : []),
+      // A typed price was per old unit, so it's per new unit divided by the same amount
+      ...(convert && current.manualCost != null && data.manualCost === undefined
+        ? [prisma.ingredient.update({ where: { id }, data: { manualCost: current.manualCost / convert } })]
+        : []),
+      prisma.ingredient.update({ where: { id }, data: update }),
+    ]);
     return NextResponse.json(await loadCosts());
   } catch (e) {
     return bad(e);

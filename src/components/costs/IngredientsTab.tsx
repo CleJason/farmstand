@@ -149,9 +149,22 @@ function Row({ i, all, save }: { i: IngredientRow; all: IngredientRow[]; save: T
         <span className="font-medium text-stone-900">{i.name}</span>
         <select
           value={i.baseUnit}
-          disabled={i.purchases > 0}
-          title={i.purchases > 0 ? "It has purchases in this unit; to change it, delete those first" : "How it's measured"}
-          onChange={(e) => put({ baseUnit: e.target.value })}
+          title="How it's measured"
+          onChange={(e) => {
+            const to = e.target.value;
+            if (!i.purchases) return put({ baseUnit: to });
+            // Purchases are stored in the old unit: convert them with how much one of it is in the new unit
+            const word: Record<string, string> = { g: "grams", ml: "ml", pc: "pieces" };
+            const one: Record<string, string> = { g: "gram", ml: "ml", pc: "piece" };
+            const answer = prompt(
+              `${i.name} has ${i.purchases} purchase${i.purchases === 1 ? "" : "s"} recorded by ${one[i.baseUnit]}. ` +
+                `How many ${word[to]} is 1 ${one[i.baseUnit]}? (e.g. one wafer weighs about 4 grams)`
+            );
+            if (answer === null) return;
+            const factor = Number(answer);
+            if (!(factor > 0)) return alert("Enter a number above 0");
+            put({ baseUnit: to, convertFactor: factor });
+          }}
           className="block mt-0.5 text-[11px] text-stone-500 bg-transparent border-0 p-0 pr-4 disabled:opacity-100"
         >
           <option value="g">weighed (g, oz, cups…)</option>
