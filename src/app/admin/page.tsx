@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { formatPrice } from "@/lib/utils";
 import { useSite } from "@/components/SiteProvider";
 import { describePicks } from "@/lib/box";
@@ -37,6 +37,44 @@ interface Order {
     farmstandItem: { name: string } | null;
     name: string | null; // a Porch Pickup item's name, kept if the item was deleted
   }[];
+}
+
+// Orders that need baking: everything placed, paid or not yet, but not cancelled
+const BAKE_STATUSES = ["AWAITING_CONFIRM", "PAID", "READY", "PICKED_UP"];
+
+/** The pickup day an order is for, e.g. "Fri, Nov 6" (null for orders with no pickup). */
+function pickupDay(o: Order): string | null {
+  const when = o.pickupTime ?? o.pickupSlot?.pickupDate;
+  return when ? new Date(when).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : null;
+}
+
+type BakeLine = { name: string; count: number; extras: [string, number][] };
+
+/**
+ * What to make for a set of orders: each product with how many, then under it
+ * what went in its boxes and how many of each add-on ("+ Extra Icing × 1").
+ */
+function bakeList(orders: Order[]): BakeLine[] {
+  const lines = new Map<string, { count: number; extras: Map<string, number> }>();
+  for (const o of orders) {
+    if (!BAKE_STATUSES.includes(o.status)) continue;
+    for (const item of o.items) {
+      const name = item.dropProduct?.product.name ?? item.farmstandItem?.name ?? item.name ?? "Item";
+      const line = lines.get(name) ?? { count: 0, extras: new Map<string, number>() };
+      line.count += item.quantity;
+      const bump = (label: string, n: number) => line.extras.set(label, (line.extras.get(label) ?? 0) + n);
+      if (Array.isArray(item.selections)) {
+        for (const p of item.selections as { name: string; quantity: number }[]) bump(p.name, p.quantity * item.quantity);
+      }
+      if (Array.isArray(item.addOns)) {
+        for (const a of item.addOns as { name: string }[]) bump(`+ ${a.name}`, item.quantity);
+      }
+      lines.set(name, line);
+    }
+  }
+  return [...lines]
+    .map(([name, l]) => ({ name, count: l.count, extras: [...l.extras].sort((a, b) => b[1] - a[1]) }))
+    .sort((a, b) => b.count - a.count);
 }
 
 const statusConfig: Record<string, { label: string; classes: string }> = {
@@ -245,6 +283,15 @@ export default function AdminDashboardPage() {
       (q || dropFilter || isCurrent(o, startOfToday) === (when === "current"))
   );
 
+  // A drop picked: its orders by pickup day, each day with what to bake
+  const byDay = !!dropFilter && dropTitles.includes(dropFilter);
+  const shownOrders = byDay
+    ? [...filteredOrders].sort((a, b) =>
+        String(a.pickupTime ?? a.pickupSlot?.pickupDate ?? "").localeCompare(String(b.pickupTime ?? b.pickupSlot?.pickupDate ?? ""))
+      )
+    : filteredOrders;
+  const days = byDay ? ([...new Set(shownOrders.map(pickupDay).filter(Boolean))] as string[]) : [];
+
   // The cards follow the tab and the drop or porch day picked above
   const statOrders = safeOrders.filter((o) => (filterType === "ALL" || o.type === filterType) && picked(o));
   const totalRevenue = statOrders
@@ -414,7 +461,48 @@ export default function AdminDashboardPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredOrders.map((order) => {
+          {byDay && (
+            <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-4">
+              <h2 className="text-sm font-semibold text-stone-900">What to bake, by pickup day</h2>
+              {days.map((day) => {
+                const list = bakeList(filteredOrders.filter((o) => pickupDay(o) === day));
+                return (
+                  <div key={day}>
+                    <div className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-1">{day}</div>
+                    {list.length === 0 ? (
+                      <p className="text-xs text-stone-400">Nothing to bake.</p>
+                    ) : (
+                      <ul className="text-sm text-stone-800 space-y-0.5">
+                        {list.map((l) => (
+                          <li key={l.name}>
+                            <b>{l.count}</b> × {l.name}
+                            {l.extras.length > 0 && (
+                              <ul className="ml-5 text-xs text-stone-600">
+                                {l.extras.map(([label, n]) => (
+                                  <li key={label}>
+                                    {n} × {label}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+              <p className="text-[11px] text-stone-400">Counts every order that isn&apos;t cancelled, including ones still waiting on payment.</p>
+            </div>
+          )}
+          {shownOrders.map((order, i) => {
+            const day = byDay ? pickupDay(order) : null;
+            const dayHeader =
+              byDay && (i === 0 || pickupDay(shownOrders[i - 1]) !== day) ? (
+                <h3 key={`day-${day}`} className="text-sm font-bold text-stone-900 pt-2">
+                  Pickup {day ?? "day not set"}
+                </h3>
+              ) : null;
             const email = order.guestEmail || order.user?.email || "Guest";
             const name = order.guestName || order.user?.name;
             const phone = order.guestPhone || order.user?.phone;
@@ -424,8 +512,9 @@ export default function AdminDashboardPage() {
             };
 
             return (
+              <Fragment key={order.id}>
+              {dayHeader}
               <div
-                key={order.id}
                 id={`order-${order.id}`}
                 className="bg-white rounded-xl border border-stone-200 p-5 hover:shadow-sm transition-shadow"
               >
@@ -623,6 +712,7 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
               </div>
+              </Fragment>
             );
           })}
         </div>
