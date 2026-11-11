@@ -279,6 +279,8 @@ export default function HomeClient() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                         {drop.dropProducts.map((dp) => {
                           const gone = dp.quantityLimit !== null && dp.quantitySold >= dp.quantityLimit;
+                          const lowAt = Number(site.SITE_LOW_STOCK_AT) || 0;
+                          const low = !gone && lowAt > 0 && dp.quantityLimit !== null && dp.quantityLimit - dp.quantitySold <= lowAt;
                           return (
                           <div
                             key={dp.id}
@@ -287,6 +289,11 @@ export default function HomeClient() {
                             {gone && (
                               <span className="absolute top-4 left-1/2 -translate-x-1/2 z-10 text-[10px] font-bold uppercase tracking-wider bg-stone-900 text-white px-2 py-0.5 rounded-full">
                                 {text("drop.soldOut")}
+                              </span>
+                            )}
+                            {low && (
+                              <span className="absolute top-4 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap text-[10px] font-bold uppercase tracking-wider bg-amber-600 text-white px-2 py-0.5 rounded-full">
+                                {text("drop.almostGone")}
                               </span>
                             )}
                             {dp.product.imageUrl ? (

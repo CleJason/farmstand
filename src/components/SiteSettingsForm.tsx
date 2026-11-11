@@ -37,6 +37,11 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
       { key: "SITE_ABOUT", label: "About section", multiline: true, hint: "Optional. Shown below the intro." },
       { key: "SITE_DROPS_HEADING", label: "Drops heading" },
       { key: "SITE_DROPS_BLURB", label: "Drops description", multiline: true },
+      {
+        key: "SITE_LOW_STOCK_AT",
+        label: "\"Almost gone\" label",
+        hint: "Shows on items with this many or fewer left, on the home page and drop page. 0 turns it off.",
+      },
     ],
   },
   {

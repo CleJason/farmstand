@@ -7,7 +7,7 @@ import Link from "next/link";
 import { formatDate, formatPrice } from "@/lib/utils";
 import CheckoutModal from "@/components/CheckoutModal";
 import ContactDetailsModal, { type ContactDetails } from "@/components/ContactDetailsModal";
-import { useText, useViewer } from "@/components/SiteProvider";
+import { useSite, useText, useViewer } from "@/components/SiteProvider";
 import DiscountInput, { type AppliedDiscount } from "@/components/DiscountInput";
 import GiftCardInput, { type AppliedGift } from "@/components/GiftCardInput";
 import LegalFooter from "@/components/LegalFooter";
@@ -59,6 +59,7 @@ type CartLine = { key: string; dropProductId: string; quantity: number; selectio
 
 export default function DropDetailPage() {
   const text = useText();
+  const lowStockAt = Number(useSite().SITE_LOW_STOCK_AT) || 0; // "Almost gone" at this many or fewer (0 = off)
   const viewer = useViewer();
   const params = useParams();
   const id = params?.id as string;
@@ -518,6 +519,11 @@ export default function DropDetailPage() {
                           }`}
                         >
                           {isSoldOut ? text("drop.soldOut") : text("drop.left", { count: remaining })}
+                        </span>
+                      )}
+                      {remaining !== null && !isSoldOut && lowStockAt > 0 && remaining <= lowStockAt && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-600 text-white">
+                          {text("drop.almostGone")}
                         </span>
                       )}
                       <span className="text-[11px] font-semibold text-amber-700 underline underline-offset-2">

@@ -35,6 +35,8 @@ export const SITE_DEFAULTS = {
   SITE_NAME_IN_HEADER: "true",
   SITE_NAME_IN_TAB: "true",
   SITE_NAME_IN_NOTIFICATIONS: "true",
+  // "Almost gone" on items with this many or fewer left (0 = off)
+  SITE_LOW_STOCK_AT: "3",
   SITE_BRAND_COLOR: "#D97706",
   SITE_BUTTON_TEXT_COLOR: "#FFFFFF", // text on brand-colored buttons
   // Web address of the walk-up page: yoursite.com/<this>. /farmstand always works too.

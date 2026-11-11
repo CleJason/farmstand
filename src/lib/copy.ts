@@ -122,6 +122,7 @@ export const COPY = {
   "drop.details": { group: "Pre-order page", label: "Item: details link", default: "Details" },
   "drop.soldOut": { group: "Pre-order page", label: "Sold out", default: "Sold out" },
   "drop.left": { group: "Pre-order page", label: "Stock left", default: "{count} left" },
+  "drop.almostGone": { group: "Pre-order page", label: "Low stock", default: "Almost gone" },
   "drop.mixMatch": { group: "Pre-order page", label: "Box label", default: "Mix & match {count}" },
   "drop.buildBox": { group: "Pre-order page", label: "Box button", default: "Build a box" },
   "drop.anotherBox": { group: "Pre-order page", label: "Box button (again)", default: "+ Another box" },
