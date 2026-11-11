@@ -39,8 +39,8 @@ interface Order {
   }[];
 }
 
-// Orders that need baking: everything placed, paid or not yet, but not cancelled
-const BAKE_STATUSES = ["AWAITING_CONFIRM", "PAID", "READY", "PICKED_UP"];
+// Orders that need baking: paid ones only (unpaid Venmo/PayPal checkouts are often never paid)
+const BAKE_STATUSES = ["PAID", "READY", "PICKED_UP"];
 
 /** The pickup day an order is for, e.g. "Fri, Nov 6" (null for orders with no pickup). */
 function pickupDay(o: Order): string | null {
@@ -492,7 +492,13 @@ export default function AdminDashboardPage() {
                   </div>
                 );
               })}
-              <p className="text-[11px] text-stone-400">Counts every order that isn&apos;t cancelled, including ones still waiting on payment.</p>
+              <p className="text-[11px] text-stone-400">
+                Paid orders only.
+                {(() => {
+                  const waiting = filteredOrders.filter((o) => o.status === "AWAITING_CONFIRM").length;
+                  return waiting ? ` ${waiting} more ${waiting === 1 ? "is" : "are"} waiting on payment and not counted.` : "";
+                })()}
+              </p>
             </div>
           )}
           {shownOrders.map((order, i) => {

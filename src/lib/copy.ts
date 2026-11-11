@@ -265,7 +265,8 @@ export const COPY = {
   "checkout.paypalText": {
     group: "Checkout",
     label: "PayPal: instructions",
-    default: "Click below to send {total} to PayPal. Include your Order ID #{order} in the note!",
+    default:
+      "Click below to send {total} on PayPal. Please choose Friends & Family (not Goods & Services, which adds a fee) and include your Order ID #{order} in the note!",
     long: true,
   },
   "checkout.paypalButton": { group: "Checkout", label: "PayPal: button", default: "Open PayPal.me ({total}) →" },
