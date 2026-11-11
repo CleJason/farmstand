@@ -184,6 +184,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>("ALL");
   const [dropFilter, setDropFilter] = useState(""); // one drop's orders, e.g. with two drops open at once
+  const [statusFilter, setStatusFilter] = useState(""); // e.g. only the ones waiting on Venmo/PayPal
   const [when, setWhen] = useState<"current" | "past">("current");
   const [search, setSearch] = useState("");
   const [isUnauthorized, setIsUnauthorized] = useState(false);
@@ -318,13 +319,16 @@ export default function AdminDashboardPage() {
     ),
   ] as string[];
   const picked = (o: Order) => !dropFilter || o.drop?.title === dropFilter || porchDay(o) === dropFilter;
-  // A search, or picking a drop or porch day, looks through current and past orders
+  const statusMatch = (o: Order) =>
+    !statusFilter || (statusFilter === "CLOSED" ? ["CANCELLED", "REFUNDED"].includes(o.status) : o.status === statusFilter);
+  // A search, or picking a drop, porch day or status, looks through current and past orders
   const filteredOrders = safeOrders.filter(
     (o) =>
       (filterType === "ALL" || o.type === filterType) &&
       picked(o) &&
+      statusMatch(o) &&
       matches(o) &&
-      (q || dropFilter || isCurrent(o, startOfToday) === (when === "current"))
+      (q || dropFilter || statusFilter || isCurrent(o, startOfToday) === (when === "current"))
   );
 
   // A drop picked: its orders by pickup day, each day with what to bake
@@ -337,7 +341,7 @@ export default function AdminDashboardPage() {
   const days = byDay ? ([...new Set(shownOrders.map(pickupDay).filter(Boolean))] as string[]) : [];
 
   // The cards follow the tab and the drop or porch day picked above
-  const statOrders = safeOrders.filter((o) => (filterType === "ALL" || o.type === filterType) && picked(o));
+  const statOrders = safeOrders.filter((o) => (filterType === "ALL" || o.type === filterType) && picked(o) && statusMatch(o));
   const totalRevenue = statOrders
     .filter((o) => ["PAID", "READY", "PICKED_UP"].includes(o.status))
     .reduce((sum, o) => sum + o.total, 0);
@@ -433,6 +437,22 @@ export default function AdminDashboardPage() {
           </button>
         ))}
       </div>
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        aria-label="Filter by status"
+        className="border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white max-w-full"
+      >
+        <option value="">Any status</option>
+        <option value="AWAITING_CONFIRM">
+          Needs payment confirmed ({safeOrders.filter((o) => o.status === "AWAITING_CONFIRM").length})
+        </option>
+        <option value="PAID">Paid, not ready yet</option>
+        <option value="READY">Ready for pickup</option>
+        <option value="PICKED_UP">Picked up</option>
+        <option value="PENDING">Card checkout not finished</option>
+        <option value="CLOSED">Cancelled or refunded</option>
+      </select>
       {dropTitles.length + porchDays.length > 0 && (
         <select
           value={dropFilter}
