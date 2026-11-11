@@ -277,11 +277,18 @@ export default function HomeClient() {
                     {/* Product Preview Grid */}
                     {drop.dropProducts.length > 0 && (
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                        {drop.dropProducts.map((dp) => (
+                        {drop.dropProducts.map((dp) => {
+                          const gone = dp.quantityLimit !== null && dp.quantitySold >= dp.quantityLimit;
+                          return (
                           <div
                             key={dp.id}
-                            className="bg-[#FAFAF8] rounded-xl p-3 text-center"
+                            className={`relative bg-[#FAFAF8] rounded-xl p-3 text-center ${gone ? "opacity-50" : ""}`}
                           >
+                            {gone && (
+                              <span className="absolute top-4 left-1/2 -translate-x-1/2 z-10 text-[10px] font-bold uppercase tracking-wider bg-stone-900 text-white px-2 py-0.5 rounded-full">
+                                {text("drop.soldOut")}
+                              </span>
+                            )}
                             {dp.product.imageUrl ? (
                               <div className="relative w-full aspect-square rounded-lg overflow-hidden mb-2">
                                 <Image
@@ -300,13 +307,14 @@ export default function HomeClient() {
                             <p className="text-xs font-medium text-stone-800 truncate">
                               {dp.product.name}
                             </p>
-                            <p className="text-xs text-amber-600 font-semibold mt-0.5">
+                            <p className={`text-xs font-semibold mt-0.5 ${gone ? "text-stone-400 line-through" : "text-amber-600"}`}>
                               {formatPrice(
                                 dp.priceOverride ?? dp.product.price
                               )}
                             </p>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -314,7 +322,9 @@ export default function HomeClient() {
                   {/* Drop Footer CTA */}
                   <div className="border-t border-stone-100 px-6 md:px-8 py-4 flex items-center justify-between bg-[#FAFAF8]">
                     <span className="text-xs text-stone-400">
-                      {text("home.itemsAvailable", { count: drop.dropProducts.length })}
+                      {text("home.itemsAvailable", {
+                        count: drop.dropProducts.filter((dp) => dp.quantityLimit === null || dp.quantitySold < dp.quantityLimit).length,
+                      })}
                     </span>
                     <Link
                       href={`/drops/${drop.id}`}
