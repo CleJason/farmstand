@@ -218,6 +218,50 @@ export default function AdminDashboardPage() {
     loadOrders();
   }, []);
 
+  // Unpaid Venmo/PayPal orders cancel themselves after this many hours (0 = never)
+  const [unpaidHours, setUnpaidHours] = useState<string>("");
+  useEffect(() => {
+    fetch("/api/settings/unpaid")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setUnpaidHours(String(d.hours)))
+      .catch(() => {});
+  }, []);
+  const saveUnpaidHours = async () => {
+    const res = await fetch("/api/settings/unpaid", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hours: Number(unpaidHours) }),
+    });
+    if (!res.ok) alert((await res.json().catch(() => ({}))).error || "Couldn't save that");
+  };
+
+  // "Payment reminder" on an unpaid order: a text and email in the shop's name
+  const remindToPay = async (order: Order) => {
+    const no = order.id.slice(-6).toUpperCase();
+    const hours = Number(unpaidHours) || 0;
+    const until = hours
+      ? new Date(new Date(order.createdAt).getTime() + hours * 3600_000).toLocaleString("en-US", {
+          weekday: "short",
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : null;
+    const method = order.paymentMethod === "PAYPAL" ? "PayPal" : order.paymentMethod === "VENMO" ? "Venmo" : "your payment method";
+    const message =
+      `Hi${order.guestName ? ` ${order.guestName.split(" ")[0]}` : ""}! A reminder from ${site.SITE_NAME}: your order #${no} ` +
+      `(${formatPrice(order.total)}) hasn't been paid yet${until ? `, so we're holding it until ${until}` : ""}. ` +
+      `Please send it by ${method} with #${no} in the note. If you've changed your mind, no need to do anything.`;
+    const edited = prompt("Send this reminder by text and email?", message);
+    if (!edited) return;
+    const res = await fetch(`/api/orders/${order.id}/message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: edited, via: "both" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    alert(res.ok ? `Sent by ${data.sent.join(" and ")}.${data.problems?.length ? ` (${data.problems.join("; ")})` : ""}` : data.error || "Couldn't send it");
+  };
+
   // Links like /admin#order-<id> (from Customers) scroll to and highlight that order
   useEffect(() => {
     if (loading || !window.location.hash.startsWith("#order-")) return;
@@ -461,6 +505,22 @@ export default function AdminDashboardPage() {
         </div>
       ) : (
         <div className="space-y-3">
+          {unpaidHours !== "" && (
+            <label className="flex flex-wrap items-center gap-2 text-xs text-stone-500">
+              Unpaid Venmo/PayPal orders cancel themselves after
+              <input
+                type="number"
+                min={0}
+                max={720}
+                value={unpaidHours}
+                onChange={(e) => setUnpaidHours(e.target.value)}
+                onBlur={saveUnpaidHours}
+                aria-label="Hours before an unpaid order cancels"
+                className="w-16 text-xs px-2 py-1 border border-stone-200 rounded-lg"
+              />
+              hours (0 = never). Cancelling gives back their items and pickup time.
+            </label>
+          )}
           {byDay && (
             <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-4">
               <h2 className="text-sm font-semibold text-stone-900">What to bake, by pickup day</h2>
@@ -622,6 +682,14 @@ export default function AdminDashboardPage() {
 
                 {/* Actions */}
                 <div className="flex flex-wrap items-center gap-2">
+                  {order.status === "AWAITING_CONFIRM" && (
+                    <button
+                      onClick={() => remindToPay(order)}
+                      className="bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Payment reminder
+                    </button>
+                  )}
                   {order.status === "AWAITING_CONFIRM" && (
                     <button
                       onClick={() => updateOrderStatus(order.id, "PAID")}

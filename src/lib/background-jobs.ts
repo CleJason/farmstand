@@ -2,6 +2,7 @@ import { announceDueDrops } from "@/lib/drop-alerts";
 import { remindDueDrops } from "@/lib/drop-reminders";
 import { sweepCardPayments } from "@/lib/stripe-paid";
 import { sendScheduled } from "@/lib/marketing-send";
+import { cancelStaleUnpaid } from "@/lib/unpaid-orders";
 
 let running = false;
 
@@ -14,6 +15,7 @@ export async function runBackgroundJobs(): Promise<void> {
     await remindDueDrops();
     await sendScheduled();
     await sweepCardPayments();
+    await cancelStaleUnpaid();
   } finally {
     running = false;
   }
