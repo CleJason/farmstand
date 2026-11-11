@@ -34,9 +34,22 @@ export async function GET() {
     },
     orderBy: { orderOpenAt: "desc" },
   });
+  // Sold out: every product hit its limit, or the drop hit its max orders
+  const placed = await prisma.order.groupBy({
+    by: ["dropId"],
+    where: { dropId: { in: drops.map((d) => d.id) }, status: { in: ["AWAITING_CONFIRM", "PAID", "READY", "PICKED_UP"] } },
+    _count: true,
+  });
+  const placedBy = new Map(placed.map((p) => [p.dropId, p._count]));
+  const withSoldOut = drops.map((d) => ({
+    ...d,
+    soldOut:
+      (d.dropProducts.length > 0 && d.dropProducts.every((dp) => dp.quantityLimit !== null && dp.quantitySold >= dp.quantityLimit)) ||
+      (!!d.maxOrders && (placedBy.get(d.id) ?? 0) >= d.maxOrders),
+  }));
   // Exact pickup addresses only go to paid customers
   return NextResponse.json(
-    isAdmin ? drops : drops.map((d) => ({ ...d, pickupSlots: d.pickupSlots.map(hideAddress) }))
+    isAdmin ? withSoldOut : withSoldOut.map((d) => ({ ...d, pickupSlots: d.pickupSlots.map(hideAddress) }))
   );
 }
 

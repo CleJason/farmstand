@@ -20,6 +20,7 @@ interface Drop {
   orderOpenAt: string;
   orderCloseAt: string;
   status: string;
+  soldOut?: boolean;
   pickupSlots: { id: string; label: string; pickupDate: string }[];
   dropProducts: {
     id: string;
@@ -229,12 +230,14 @@ export default function HomeClient() {
                         <div className="flex items-center gap-2 mb-2">
                           <span
                             className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                              isOpen
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-amber-50 text-amber-700"
+                              drop.soldOut
+                                ? "bg-stone-100 text-stone-600"
+                                : isOpen
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-amber-50 text-amber-700"
                             }`}
                           >
-                            {isOpen ? text("home.badgeOpen") : text("home.badgeSoon")}
+                            {drop.soldOut ? text("home.badgeSoldOut") : isOpen ? text("home.badgeOpen") : text("home.badgeSoon")}
                           </span>
                         </div>
                         <h3 className="text-xl md:text-2xl font-bold text-stone-900">

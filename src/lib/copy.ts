@@ -64,6 +64,7 @@ export const COPY = {
   "home.alertsLink": { group: "Home page", label: "No drops: alerts link", default: "Get an alert when the next drop opens" },
   "home.badgeOpen": { group: "Home page", label: "Drop badge: open", default: "Ordering Open" },
   "home.badgeSoon": { group: "Home page", label: "Drop badge: coming soon", default: "Coming Soon" },
+  "home.badgeSoldOut": { group: "Home page", label: "Drop badge: sold out", default: "Sold Out" },
   "home.opens": { group: "Home page", label: "Drop: opens (coming soon)", default: "Opens" },
   "home.badgeClosed": { group: "Home page", label: "Drop badge: closed", default: "Closed" },
   "home.closes": { group: "Home page", label: "Drop: closes", default: "Closes" },
