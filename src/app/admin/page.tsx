@@ -249,7 +249,7 @@ export default function AdminDashboardPage() {
     const method = order.paymentMethod === "PAYPAL" ? "PayPal" : order.paymentMethod === "VENMO" ? "Venmo" : "your payment method";
     const message =
       `Hi${order.guestName ? ` ${order.guestName.split(" ")[0]}` : ""}! A reminder from ${site.SITE_NAME}: your order #${no} ` +
-      `(${formatPrice(order.total)}) hasn't been paid yet${until ? `, so we're holding it until ${until}` : ""}. ` +
+      `(${formatPrice(order.total)}) hasn't been paid yet${until ? ` and will be cancelled ${until} if it's still unpaid` : ""}. ` +
       `Please send it by ${method} with #${no} in the note. If you've changed your mind, no need to do anything.`;
     const edited = prompt("Send this reminder by text and email?", message);
     if (!edited) return;

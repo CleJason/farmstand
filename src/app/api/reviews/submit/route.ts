@@ -5,6 +5,8 @@ import { getSetting } from "@/lib/settings";
 import { fireNotification } from "@/lib/notifications";
 import { generateRewardCode, orderProductNames, reviewSettings } from "@/lib/review-requests";
 import { reviewImages } from "@/lib/admin-input";
+import { sendShopEmail } from "@/lib/send-email";
+import { getSiteSettings } from "@/lib/site";
 
 class ReviewError extends Error {}
 
@@ -73,6 +75,19 @@ export async function POST(req: Request) {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
     );
+
+    // Let the owner know there's a review waiting for approval
+    const owner = await getSetting("ADMIN_EMAIL");
+    if (owner) {
+      const appUrl = await getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || "");
+      const site = await getSiteSettings();
+      const err = await sendShopEmail({
+        to: owner,
+        subject: `${site.SITE_NAME}: new ${"★".repeat(rating)} review from ${name} to approve`,
+        text: `${name} left a ${rating}-star review:\n\n${body}\n\nIt's hidden until you approve it: ${appUrl}/admin/reviews`,
+      });
+      if (err) console.error("[reviews] Couldn't email the owner about a new review:", err);
+    }
 
     if (result.rewardCode && result.email) {
       const appUrl = await getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || "");

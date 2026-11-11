@@ -67,6 +67,7 @@ export async function GET(req: Request) {
 class OrderError extends Error {}
 
 const PAYMENT_METHODS = ["STRIPE", "PAYPAL", "VENMO"];
+const CHECKOUT_HOLD_MS = 5 * 60_000; // how long an unfinished card checkout holds its items
 
 type RequestedItem = { id: string; quantity: number; selections: unknown; addOns: unknown };
 
@@ -221,10 +222,20 @@ async function priceOrder(
       };
     })
   );
+  // Card checkouts started in the last few minutes hold their items, so two people
+  // paying for the last one at the same time don't both get it
+  const held = new Map<string, number>();
+  const checkingOut = await db.order.findMany({
+    where: { dropId: drop.id, status: "PENDING", createdAt: { gt: new Date(Date.now() - CHECKOUT_HOLD_MS) } },
+    select: { items: { select: { dropProductId: true, quantity: true } } },
+  });
+  for (const o of checkingOut) {
+    for (const i of o.items) if (i.dropProductId) held.set(i.dropProductId, (held.get(i.dropProductId) ?? 0) + i.quantity);
+  }
   for (const [id, quantity] of totalsById(lines, "dropProductId")) {
     const dp = drop.dropProducts.find((d) => d.id === id)!;
     if (dp.quantityLimit !== null) {
-      checkStock(dp.product.name, quantity, dp.quantityLimit - dp.quantitySold);
+      checkStock(dp.product.name, quantity, dp.quantityLimit - dp.quantitySold - (held.get(id) ?? 0));
     }
   }
   return { lines, pickupTime };
