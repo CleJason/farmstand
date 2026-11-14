@@ -40,7 +40,7 @@ export default function AdminMobileMenu({
   return (
     <>
     {/* The main pages one tap away at the bottom; More opens the full menu */}
-    <nav className="md:hidden print:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-stone-200 grid grid-cols-5 pb-[env(safe-area-inset-bottom)]">
+    <nav className="md:hidden print:hidden fixed bottom-0 inset-x-0 z-40 bg-white/85 backdrop-blur-md border-t border-stone-200 grid grid-cols-5 pb-[env(safe-area-inset-bottom)]">
       {tabs.map(({ href, label, Icon, badge }) => (
         <Link
           key={href}
@@ -67,7 +67,7 @@ export default function AdminMobileMenu({
         More
       </button>
     </nav>
-    <div className="md:hidden print:hidden sticky top-0 z-40 bg-white border-b border-stone-200">
+    <div className="md:hidden print:hidden sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-stone-200">
       <div className="flex items-center justify-between gap-3 px-4 h-14">
         <Link href="/admin" className="min-w-0 font-bold text-stone-900 truncate">
           {siteName}

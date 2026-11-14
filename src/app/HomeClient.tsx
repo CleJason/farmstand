@@ -12,6 +12,7 @@ import ReviewsSection from "@/components/ReviewsSection";
 import LegalFooter from "@/components/LegalFooter";
 import DropAlertsSignup from "@/components/DropAlertsSignup";
 import StandHours from "@/components/StandHours";
+import Countdown from "@/components/Countdown";
 
 interface Drop {
   id: string;
@@ -255,6 +256,7 @@ export default function HomeClient() {
                           <span className="font-medium text-stone-600">
                             {formatDate(isOpen ? drop.orderCloseAt : drop.orderOpenAt)}
                           </span>
+                          {isOpen && !drop.soldOut && <Countdown to={drop.orderCloseAt} className="font-semibold text-amber-700" />}
                         </div>
                       </div>
                     </div>
@@ -273,6 +275,20 @@ export default function HomeClient() {
                         ))}
                       </div>
                     )}
+
+                    {/* How much is left, when every item has a limit */}
+                    {isOpen && !drop.soldOut && drop.dropProducts.length > 0 && drop.dropProducts.every((dp) => dp.quantityLimit !== null) && (() => {
+                      const total = drop.dropProducts.reduce((s, dp) => s + dp.quantityLimit!, 0);
+                      const left = drop.dropProducts.reduce((s, dp) => s + Math.max(0, dp.quantityLimit! - dp.quantitySold), 0);
+                      return total > 0 ? (
+                        <div className="mb-5">
+                          <div className="h-1.5 rounded-full bg-stone-100 overflow-hidden">
+                            <div className="h-full rounded-full bg-amber-500" style={{ width: `${(left / total) * 100}%` }} />
+                          </div>
+                          <p className="text-xs text-stone-500 mt-1.5">{text("home.stockLeft", { left, total })}</p>
+                        </div>
+                      ) : null;
+                    })()}
 
                     {/* Product Preview Grid */}
                     {drop.dropProducts.length > 0 && (

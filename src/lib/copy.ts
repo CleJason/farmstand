@@ -68,6 +68,8 @@ export const COPY = {
   "home.opens": { group: "Home page", label: "Drop: opens (coming soon)", default: "Opens" },
   "home.badgeClosed": { group: "Home page", label: "Drop badge: closed", default: "Closed" },
   "home.closes": { group: "Home page", label: "Drop: closes", default: "Closes" },
+  "home.stockLeft": { group: "Home page", label: "Drop: stock bar", default: "{left} of {total} left" },
+  "countdown.left": { group: "Home page", label: "Time left to order", default: "{time} left" },
   "home.itemsAvailable": { group: "Home page", label: "Drop: item count", default: "{count} items available" },
   "home.orderNow": { group: "Home page", label: "Drop button (open)", default: "Order Now →" },
   "home.viewMenu": { group: "Home page", label: "Drop button (coming soon)", default: "View Menu →" },

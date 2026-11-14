@@ -16,6 +16,7 @@ import AddOnPicker from "@/components/AddOnPicker";
 import ProductDetails from "@/components/ProductDetails";
 import { addOnsKey, productAddOns } from "@/lib/addons";
 import SpamHint from "@/components/SpamHint";
+import Countdown from "@/components/Countdown";
 import { type BoxPick, describePicks, dropBoxGroups, dropBoxOptions, isBox, picksKey, productBoxGroups } from "@/lib/box";
 
 interface DropDetails {
@@ -362,6 +363,7 @@ export default function DropDetailPage() {
             <span className="font-bold text-[#2D1E18]">
               {formatDate(drop.orderCloseAt)}
             </span>
+            {phase === "open" && <Countdown to={drop.orderCloseAt} className="font-bold text-amber-700" />}
           </div>
           {(phase === "soon" || phase === "draft") && (
             <p className="text-sm font-semibold text-[#2D1E18] bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
@@ -703,7 +705,7 @@ export default function DropDetailPage() {
 
       {/* Floating Checkout Bar */}
       {canOrder && totalItemsCount > 0 && (
-        <div className="fixed bottom-0 inset-x-0 bg-white border-t border-stone-200 p-4 shadow-2xl z-40 max-w-3xl mx-auto rounded-t-2xl">
+        <div className="fixed bottom-0 inset-x-0 bg-white/85 backdrop-blur-md border-t border-stone-200 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl z-40 max-w-3xl mx-auto rounded-t-2xl">
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="text-xs text-[#735D54]">{text("drop.selected", { count: totalItemsCount })}</div>
