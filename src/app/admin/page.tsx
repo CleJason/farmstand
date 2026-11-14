@@ -640,7 +640,11 @@ export default function AdminDashboardPage() {
                       }}
                       className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
                     >
-                      {order.reviewRequestedAt ? "⭐ Asked for review · ask again" : "⭐ Ask for a review"}
+                      {order.reviewRequestedAt
+                        ? "⭐ Asked for review · ask again"
+                        : order.reviewDueAt
+                          ? `⭐ Review request goes out ${new Date(order.reviewDueAt).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })} · send now`
+                          : "⭐ Ask for a review"}
                     </button>
                   )}
                   {order.status === "READY" && (

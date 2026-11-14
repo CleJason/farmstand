@@ -204,6 +204,7 @@ model Order {
   manualPaymentRef      String?
   // "How was it?" email after pickup (not every order: see lib/review-requests)
   reviewToken     String?  @unique
+  reviewDueAt     DateTime? // picked up: when its review request goes out (spread over the next day)
   reviewRequestedAt DateTime?
   reviewVia       String?  // how the review request went: email | text | both
   createdAt       DateTime      @default(now())

@@ -8,7 +8,7 @@ import { formatPickup, pickupAddressFor } from "@/lib/pickup";
 import { getSiteSettings } from "@/lib/site";
 import { countsStock } from "@/lib/stock";
 import { getStripe } from "@/lib/stripe";
-import { maybeRequestReview } from "@/lib/review-requests";
+import { scheduleReviewRequest } from "@/lib/review-requests";
 
 export async function GET(
   _req: Request,
@@ -161,8 +161,8 @@ export async function PUT(
       pickupAddress: order.type === "DROP" ? pickupAddressFor(order.pickupSlot, await getSiteSettings()) : null,
     });
   } else if (statusChanged && status === "PICKED_UP") {
-    // "How was it?" email, if this customer is due one (`notify: false` skips it)
-    if (data.notify !== false) await maybeRequestReview(order.id);
+    // "How was it?" request about a day later, if this customer is due one then (`notify: false` skips it)
+    if (data.notify !== false) await scheduleReviewRequest(order.id);
   } else if (statusChanged && (status === "CANCELLED" || status === "REFUNDED") && data.notify !== false) {
     // (`notify: false` cancels quietly, e.g. a duplicate the customer already paid for another way)
     await fireNotification("order.cancelled", {

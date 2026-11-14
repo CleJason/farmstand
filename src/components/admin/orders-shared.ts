@@ -18,6 +18,7 @@ export interface Order {
   manualPaymentRef: string | null;
   createdAt: string;
   reviewRequestedAt: string | null;
+  reviewDueAt: string | null; // picked up: when the review request goes out
   pickupSlot: { label: string; location: string | null; pickupDate: string; endDate: string | null } | null;
   pickupTime: string | null;
   user: { name: string | null; email: string; phone: string | null } | null;

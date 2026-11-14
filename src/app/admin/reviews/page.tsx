@@ -55,7 +55,7 @@ function ReviewRequestSettings() {
       <div>
         <h2 className="text-sm font-semibold text-stone-900">Customer reviews</h2>
         <p className="text-xs text-stone-500 mt-0.5">
-          When you mark an order Picked Up, the customer gets a review link by email, or by text if they gave only a
+          About a day after you mark an order Picked Up (at a random time in texting hours, so they don't all go at once), the customer gets a review link by email, or by text if they gave only a
           phone or chose texts. You can also send one any time with &quot;Ask for a review&quot; on an order. New reviews stay
           hidden until you click Approve.
         </p>
@@ -115,7 +115,7 @@ function ReviewRequestsSent() {
         </span>
       </div>
       {list.length === 0 ? (
-        <p className="text-xs text-stone-500">None yet. They go out when you mark an order Picked Up, or use &quot;Ask for a review&quot; on an order.</p>
+        <p className="text-xs text-stone-500">None yet. They go out about a day after you mark an order Picked Up, or use &quot;Ask for a review&quot; on an order.</p>
       ) : (
         <table className="w-full text-xs">
           <tbody className="divide-y divide-stone-100">

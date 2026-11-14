@@ -6,6 +6,7 @@ import { phoneKey } from "@/lib/phone";
 import { isOptedOut } from "@/lib/sms-opt-out";
 import { getSiteSettings, isOn } from "@/lib/site";
 import { sendMarketing } from "@/lib/marketing-send";
+import { isTextingTime, nextTextingTime } from "@/lib/text-hours";
 
 /**
  * Customer reviews: after an order is picked up, the customer may get a
@@ -98,9 +99,40 @@ export async function maybeRequestReview(orderId: string, { force = false } = {}
   if (!how) return { sent: false, reason: "They replied STOP and have no email" };
 
   const token = order.reviewToken ?? crypto.randomBytes(18).toString("base64url");
-  await prisma.order.update({ where: { id: order.id }, data: { reviewToken: token, reviewRequestedAt: new Date(), reviewVia: how.via } });
+  await prisma.order.update({ where: { id: order.id }, data: { reviewToken: token, reviewRequestedAt: new Date(), reviewVia: how.via, reviewDueAt: null } });
   await sendReviewLink({ token, email, phone, how, name: order.user?.name ?? null, products: orderProductNames(order.items), percent });
   return { sent: true, via: how.via };
+}
+
+const HOUR = 3_600_000;
+
+/**
+ * Marked Picked Up: the review request goes out about a day later (they've
+ * eaten it by then), at a random time inside texting hours, so a busy pickup
+ * day's requests don't all go at once.
+ */
+export async function scheduleReviewRequest(orderId: string) {
+  const now = Date.now();
+  let due = new Date(now + 20 * HOUR + Math.random() * 8 * HOUR); // 20–28 hours later
+  for (let i = 0; i < 20 && !(await isTextingTime(due)); i++) due = new Date(now + 20 * HOUR + Math.random() * 8 * HOUR);
+  // Still outside texting hours (a short window): somewhere in the first 3 hours after it opens
+  if (!(await isTextingTime(due))) due = new Date((await nextTextingTime(due)).getTime() + Math.random() * 3 * HOUR);
+  await prisma.order.update({ where: { id: orderId }, data: { reviewDueAt: due } });
+}
+
+/** Background job: send review requests that are due, a couple a minute. */
+export async function sendDueReviewRequests() {
+  const due = await prisma.order.findMany({
+    where: { reviewDueAt: { lte: new Date() } },
+    select: { id: true, status: true },
+    orderBy: { reviewDueAt: "asc" },
+    take: 2,
+  });
+  for (const o of due) {
+    await prisma.order.update({ where: { id: o.id }, data: { reviewDueAt: null } });
+    // Changed after being marked picked up (e.g. refunded): no request
+    if (o.status === "PICKED_UP") await maybeRequestReview(o.id).catch((e) => console.error("Review request failed", e));
+  }
 }
 
 /**
