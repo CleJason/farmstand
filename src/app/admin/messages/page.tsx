@@ -67,6 +67,12 @@ export default function AdminMessagesPage() {
     if (open) loadConvo(open).then(loadThreads);
   }, [open, loadConvo, loadThreads]);
 
+  // /admin/messages?phone=… (Reply on the Today page) opens that conversation
+  useEffect(() => {
+    const phone = new URLSearchParams(window.location.search).get("phone");
+    if (phone) setOpen(phone);
+  }, []);
+
   // Braces matter: newer browsers return a Promise from scrollIntoView, and an
   // effect must not return anything but a cleanup function (React crashes)
   useEffect(() => {

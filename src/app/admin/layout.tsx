@@ -37,6 +37,7 @@ export default async function AdminLayout({
   ]);
 
   const navItems = [
+    { href: "/admin/today", label: "Today", icon: "\u2600\uFE0F" },
     { href: "/admin", label: "Orders", icon: "📋" },
     { href: "/admin/sales", label: "Sales", icon: "📈" },
     { href: "/admin/messages", label: unreadTexts ? `Messages (${unreadTexts})` : "Messages", icon: "💬" },
@@ -62,9 +63,10 @@ export default async function AdminLayout({
         storefrontHref="/"
         kioskHref={standHref(site)}
         version={(process.env.APP_VERSION || "dev").slice(0, 7)}
+        unreadTexts={unreadTexts}
       />
       {/* Sidebar (the menu above takes its place on phones) */}
-      <aside className="hidden md:flex md:w-60 bg-white md:border-r border-stone-200 flex-col shrink-0">
+      <aside className="hidden md:flex print:hidden! md:w-60 bg-white md:border-r border-stone-200 flex-col shrink-0">
         <div className="p-5 border-b border-stone-100">
           <Link href="/admin" className="block">
             <span className="text-xs font-semibold text-amber-600 uppercase tracking-wider">
@@ -120,7 +122,7 @@ export default async function AdminLayout({
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-5 md:p-8 overflow-y-auto">
+      <main className="flex-1 p-5 pb-24 md:p-8 print:p-0 overflow-y-auto">
         <div className="max-w-6xl">{children}</div>
         <InstallPrompt />
       </main>

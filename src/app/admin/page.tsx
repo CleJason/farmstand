@@ -6,87 +6,7 @@ import { useSite } from "@/components/SiteProvider";
 import { describePicks } from "@/lib/box";
 import { describeAddOns } from "@/lib/addons";
 
-interface Order {
-  id: string;
-  type: string;
-  status: string;
-  paymentMethod: string;
-  total: number;
-  discount: number;
-  discountCode: string | null;
-  giftCode: string | null;
-  giftAmount: number;
-  notes: string | null;
-  guestName: string | null;
-  guestEmail: string | null;
-  guestPhone: string | null;
-  manualPaymentRef: string | null;
-  createdAt: string;
-  reviewRequestedAt: string | null;
-  pickupSlot: { label: string; location: string | null; pickupDate: string; endDate: string | null } | null;
-  pickupTime: string | null;
-  user: { name: string | null; email: string; phone: string | null } | null;
-  drop: { title: string; orderCloseAt: string } | null;
-  items: {
-    id: string;
-    quantity: number;
-    priceAtPurchase: number;
-    selections: unknown;
-    addOns: unknown;
-    dropProduct: { product: { name: string } } | null;
-    farmstandItem: { name: string } | null;
-    name: string | null; // a Porch Pickup item's name, kept if the item was deleted
-  }[];
-}
-
-// Orders that need baking: paid ones only (unpaid Venmo/PayPal checkouts are often never paid)
-const BAKE_STATUSES = ["PAID", "READY", "PICKED_UP"];
-
-/** The pickup day an order is for, e.g. "Fri, Nov 6" (null for orders with no pickup). */
-function pickupDay(o: Order): string | null {
-  const when = o.pickupTime ?? o.pickupSlot?.pickupDate;
-  return when ? new Date(when).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : null;
-}
-
-type BakeLine = { name: string; count: number; extras: [string, number][] };
-
-/**
- * What to make for a set of orders: each product with how many, then under it
- * what went in its boxes and how many of each add-on ("+ Extra Icing × 1").
- */
-function bakeList(orders: Order[]): BakeLine[] {
-  const lines = new Map<string, { count: number; extras: Map<string, number> }>();
-  for (const o of orders) {
-    if (!BAKE_STATUSES.includes(o.status)) continue;
-    for (const item of o.items) {
-      const name = item.dropProduct?.product.name ?? item.farmstandItem?.name ?? item.name ?? "Item";
-      const line = lines.get(name) ?? { count: 0, extras: new Map<string, number>() };
-      line.count += item.quantity;
-      const bump = (label: string, n: number) => line.extras.set(label, (line.extras.get(label) ?? 0) + n);
-      if (Array.isArray(item.selections)) {
-        for (const p of item.selections as { name: string; quantity: number }[]) bump(p.name, p.quantity * item.quantity);
-      }
-      if (Array.isArray(item.addOns)) {
-        for (const a of item.addOns as { name: string }[]) bump(`+ ${a.name}`, item.quantity);
-      }
-      lines.set(name, line);
-    }
-  }
-  return [...lines]
-    .map(([name, l]) => ({ name, count: l.count, extras: [...l.extras].sort((a, b) => b[1] - a[1]) }))
-    .sort((a, b) => b.count - a.count);
-}
-
-const statusConfig: Record<string, { label: string; classes: string }> = {
-  PAID: { label: "Paid", classes: "bg-emerald-50 text-emerald-700" },
-  AWAITING_CONFIRM: { label: "Awaiting Confirm", classes: "bg-amber-50 text-amber-700" },
-  READY: { label: "Ready", classes: "bg-blue-50 text-blue-700" },
-  PICKED_UP: { label: "Picked Up", classes: "bg-stone-100 text-stone-600" },
-  // A card checkout that hasn't been paid (yet): the shop checks with Stripe every minute
-  PENDING: { label: "Card not paid (yet)", classes: "bg-stone-100 text-stone-500" },
-  CANCELLED: { label: "Cancelled", classes: "bg-red-50 text-red-600" },
-  REFUNDED: { label: "Refunded", classes: "bg-purple-50 text-purple-600" },
-};
+import { bakeList, pickupDay, remindToPay as sendPayReminder, setOrderStatus, statusConfig, type Order } from "@/components/admin/orders-shared";
 
 /**
  * Current or past: a drop order is past once its pickup day is over; a Porch
@@ -237,31 +157,7 @@ export default function AdminDashboardPage() {
   };
 
   // "Payment reminder" on an unpaid order: a text and email in the shop's name
-  const remindToPay = async (order: Order) => {
-    const no = order.id.slice(-6).toUpperCase();
-    const hours = Number(unpaidHours) || 0;
-    const until = hours
-      ? new Date(new Date(order.createdAt).getTime() + hours * 3600_000).toLocaleString("en-US", {
-          weekday: "short",
-          hour: "numeric",
-          minute: "2-digit",
-        })
-      : null;
-    const method = order.paymentMethod === "PAYPAL" ? "PayPal" : order.paymentMethod === "VENMO" ? "Venmo" : "your payment method";
-    const message =
-      `Hi${order.guestName ? ` ${order.guestName.split(" ")[0]}` : ""}! A reminder from ${site.SITE_NAME}: your order #${no} ` +
-      `(${formatPrice(order.total)}) hasn't been paid yet${until ? ` and will be cancelled ${until} if it's still unpaid` : ""}. ` +
-      `Please send it by ${method} with #${no} in the note. If you've changed your mind, no need to do anything.`;
-    const edited = prompt("Send this reminder by text and email?", message);
-    if (!edited) return;
-    const res = await fetch(`/api/orders/${order.id}/message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: edited, via: "both" }),
-    });
-    const data = await res.json().catch(() => ({}));
-    alert(res.ok ? `Sent by ${data.sent.join(" and ")}.${data.problems?.length ? ` (${data.problems.join("; ")})` : ""}` : data.error || "Couldn't send it");
-  };
+  const remindToPay = (order: Order) => sendPayReminder(order, site.SITE_NAME, Number(unpaidHours) || 0);
 
   // Links like /admin#order-<id> (from Customers) scroll to and highlight that order
   useEffect(() => {
@@ -273,17 +169,7 @@ export default function AdminDashboardPage() {
   }, [loading]);
 
   const updateOrderStatus = async (orderId: string, status: string, notify = true) => {
-    try {
-      const res = await fetch(`/api/orders/${orderId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, notify }),
-      });
-      if (res.ok) loadOrders();
-      else alert((await res.json().catch(() => ({}))).error || "Failed to update status");
-    } catch {
-      alert("Failed to update status");
-    }
+    if (await setOrderStatus(orderId, status, notify)) loadOrders();
   };
 
   const deleteOrder = async (orderId: string) => {
