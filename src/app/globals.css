@@ -75,3 +75,89 @@ body {
   outline-offset: 2px;
   border-radius: 8px;
 }
+
+/*
+ * Admin dark mode: follows the phone/computer setting. The admin pages use
+ * Tailwind's palette, which reads these variables, so swapping them here
+ * darkens every page at once: whites become dark surfaces and the stone
+ * (gray) scale flips, so dark text on light stays light text on dark.
+ * The storefront isn't inside .admin-theme and stays light.
+ */
+@media (prefers-color-scheme: dark) {
+  body:has(.admin-theme) {
+    background-color: #171412;
+  }
+  .admin-theme {
+    color-scheme: dark;
+    color: #ece7e2;
+    --color-white: #211d1a;
+    --color-stone-50: #1a1715;
+    --color-stone-100: #2b2623;
+    --color-stone-200: #3a3431;
+    --color-stone-300: #4f4844;
+    --color-stone-400: #857b74;
+    --color-stone-500: #a69d96;
+    --color-stone-600: #c0b8b1;
+    --color-stone-700: #d6cfc9;
+    --color-stone-800: #e8e3de;
+    --color-stone-900: #f5f2ef;
+    --color-stone-950: #ffffff;
+    --color-gray-50: var(--color-stone-50);
+    --color-gray-300: var(--color-stone-300);
+    --color-gray-400: var(--color-stone-400);
+    --color-gray-500: var(--color-stone-500);
+    --color-gray-600: var(--color-stone-600);
+    --color-gray-700: var(--color-stone-700);
+    --color-gray-900: var(--color-stone-900);
+
+    /* Brand tints: dark washes of the brand color; text shades get lighter */
+    --color-amber-50: color-mix(in oklab, var(--brand) 14%, #211d1a);
+    --color-amber-100: color-mix(in oklab, var(--brand) 22%, #211d1a);
+    --color-amber-200: color-mix(in oklab, var(--brand) 35%, #211d1a);
+    --color-amber-300: color-mix(in oklab, var(--brand) 55%, #211d1a);
+    --color-amber-400: color-mix(in oklab, var(--brand) 80%, #211d1a);
+    --color-amber-500: var(--brand);
+    --color-amber-600: var(--brand);
+    --color-amber-700: color-mix(in oklab, var(--brand) 70%, white);
+    --color-amber-800: color-mix(in oklab, var(--brand) 55%, white);
+    --color-amber-900: color-mix(in oklab, var(--brand) 40%, white);
+
+    --color-emerald-50: #11261d;
+    --color-emerald-100: #173326;
+    --color-emerald-600: #2f9e74;
+    --color-emerald-700: #6ee7b7;
+    --color-emerald-800: #a7f3d0;
+    --color-green-700: #86efac;
+    --color-red-50: #2d1515;
+    --color-red-100: #3b1a1a;
+    --color-red-200: #5c2626;
+    --color-red-500: #f87171;
+    --color-red-600: #f87171;
+    --color-red-700: #fca5a5;
+    --color-blue-50: #14213a;
+    --color-blue-100: #1b2b4b;
+    --color-blue-600: #60a5fa;
+    --color-blue-700: #93c5fd;
+    --color-blue-900: #dbeafe;
+    --color-sky-50: #10242f;
+    --color-sky-100: #15303e;
+    --color-sky-900: #e0f2fe;
+    --color-purple-50: #26183a;
+    --color-purple-600: #c4b5fd;
+    --color-pink-50: #2e1524;
+    --color-pink-600: #f472b6;
+    --color-pink-700: #f9a8d4;
+    --color-orange-50: #2e1c10;
+    --color-orange-600: #fb923c;
+  }
+  /* Filled red/green buttons keep white text */
+  .admin-theme :is(.bg-red-600, .bg-emerald-600, .bg-blue-600).text-white {
+    color: #ffffff;
+  }
+  .admin-theme .bg-red-600 {
+    background-color: #c93a3a;
+  }
+  .admin-theme ::-webkit-scrollbar-thumb {
+    background: #4f4844;
+  }
+}

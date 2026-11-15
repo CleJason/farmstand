@@ -56,7 +56,7 @@ export default async function AdminLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8] flex flex-col md:flex-row">
+    <div className="admin-theme min-h-screen bg-stone-50 flex flex-col md:flex-row">
       <AdminMobileMenu
         siteName={site.SITE_NAME}
         items={navItems}
