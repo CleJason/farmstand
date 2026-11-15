@@ -192,7 +192,7 @@ export default function CheckoutModal({
         {paymentMethod === "STRIPE" && clientSecret && stripePromise ? (
           <Elements
             stripe={stripePromise}
-            options={{ clientSecret, appearance: { theme: "stripe" } }}
+            options={{ clientSecret, appearance: { theme: typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "night" : "stripe" } }}
           >
             <StripeCheckoutForm orderId={orderId} total={total} onSuccess={onSuccess} />
           </Elements>
