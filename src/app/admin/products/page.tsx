@@ -6,6 +6,7 @@ import { formatPrice } from "@/lib/utils";
 import { productBoxGroups } from "@/lib/box";
 import ImageUpload from "@/components/ImageUpload";
 import ImagePositioner from "@/components/ImagePositioner";
+import ProductRecipes, { saveTags, tagsFor, useCostsData, type RecipeTag } from "@/components/costs/ProductRecipes";
 
 interface Product {
   id: string;
@@ -46,6 +47,10 @@ export default function AdminProductsPage() {
   const [sections, setSections] = useState<SectionForm[]>([]);
   // Add-ons as typed: name + dollars
   const [addOns, setAddOns] = useState<{ name: string; price: string }[]>([]);
+  // Costs: the recipes one of this product uses (saved with the product)
+  const costs = useCostsData(showModal);
+  const [tags, setTags] = useState<RecipeTag[] | null>(null);
+  const [editingName, setEditingName] = useState<string | null>(null);
 
   const loadProducts = async () => {
     try {
@@ -78,6 +83,8 @@ export default function AdminProductsPage() {
     setUseSections(false);
     setSections([]);
     setAddOns([]);
+    setTags(null);
+    setEditingName(null);
     setShowModal(true);
   };
 
@@ -96,6 +103,8 @@ export default function AdminProductsPage() {
     setUseSections(groups.length > 0);
     setSections(groups.map((g) => ({ label: g.label, size: String(g.size), options: g.options.join("\n"), allSame: g.allSame })));
     setAddOns((product.addOns ?? []).map((a) => ({ name: a.name, price: (a.price / 100).toFixed(2) })));
+    setTags(null);
+    setEditingName(product.name);
     setShowModal(true);
   };
 
@@ -155,6 +164,8 @@ export default function AdminProductsPage() {
             body: JSON.stringify({ ...body, active: true }),
           });
       if (!res.ok) throw new Error();
+      // Recipe tags only when they were loaded and touched (or the name changed)
+      if (tags !== null || (editingName && editingName !== name)) await saveTags(name, tags ?? tagsFor(costs, editingName ?? name), editingName);
       setShowModal(false);
       loadProducts();
     } catch {
@@ -376,6 +387,24 @@ export default function AdminProductsPage() {
                   />
                 </div>
               </div>
+
+              {!isBox && (
+                <div className="rounded-lg border border-stone-200 p-3 space-y-2">
+                  <div>
+                    <span className="block text-sm font-medium text-stone-800">Recipes used</span>
+                    <span className="block text-xs text-stone-500">
+                      For costs: what goes into one, in each recipe&apos;s own units. E.g. a 4-pack uses 4 rolls from Cinnamon Rolls
+                      plus 4 rolls&apos; worth of Frosting.
+                    </span>
+                  </div>
+                  <ProductRecipes
+                    data={costs}
+                    tags={tags ?? tagsFor(costs, editingName ?? "")}
+                    onChange={setTags}
+                    priceDollars={priceDollars}
+                  />
+                </div>
+              )}
 
               <div className="rounded-lg border border-stone-200 p-3 space-y-2">
                 <div>
