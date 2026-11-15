@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { costRecipe, guessBaseUnit, money, UNITS, type CostIngredient } from "@/lib/costs";
-import { buttonClass, ghostClass, fieldClass, inputClass, unitPrice, type RecipeRow, type TabProps } from "@/components/costs/shared";
+import { buttonClass, ghostClass, fieldClass, unitPrice, type RecipeRow, type TabProps } from "@/components/costs/shared";
 
 type Line = { ingredientId: string; quantity: string; unit: string; note: string };
 
@@ -10,7 +10,7 @@ type Line = { ingredientId: string; quantity: string; unit: string; note: string
 const unitsFor = (baseUnit: string | undefined) =>
   baseUnit === "pc" ? [...UNITS.count, ...UNITS.volume, ...UNITS.weight] : [...UNITS.volume, ...UNITS.weight, ...UNITS.count];
 
-/** Add or change a recipe: its ingredients, how many it makes, bake time and price. Costs update as you type. */
+/** Add or change a recipe: its ingredients, how many it makes and bake time. Costs update as you type. Prices are on the Products tab. */
 export default function RecipeEditor({
   data,
   save,
@@ -21,18 +21,9 @@ export default function RecipeEditor({
   const [yieldCount, setYieldCount] = useState(String(recipe?.yieldCount ?? 12));
   const [yieldLabel, setYieldLabel] = useState(recipe?.yieldLabel ?? "cookies");
   const [hours, setHours] = useState(String(recipe?.overheadHours ?? 0));
-  const [sellPrice, setSellPrice] = useState(recipe?.sellPrice != null ? (recipe.sellPrice / 100).toFixed(2) : "");
-  const [sellPer, setSellPer] = useState(recipe?.sellPer ?? "batch");
   const [notes, setNotes] = useState(recipe?.notes ?? "");
   const [lines, setLines] = useState<Line[]>(
     recipe?.lines.map((l) => ({ ingredientId: l.ingredientId, quantity: String(l.quantity), unit: l.unit, note: l.note ?? "" })) ?? []
-  );
-  const [links, setLinks] = useState<{ name: string; itemsPerUnit: string }[]>(
-    recipe?.links.map((l) => ({
-      // Saved lowercase; show it as the shop spells it
-      name: data.soldNames.find((n) => n.toLowerCase().replace(/\s+/g, " ") === l.name) ?? l.name,
-      itemsPerUnit: String(l.itemsPerUnit),
-    })) ?? []
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -44,8 +35,7 @@ export default function RecipeEditor({
     {
       yieldCount: Number(yieldCount) || 1,
       overheadHours: Number(hours) || 0,
-      sellPrice: sellPrice ? Math.round(Number(sellPrice) * 100) : null,
-      sellPer,
+      sellPer: "batch",
       lines: lines.map((l) => ({ ingredientId: l.ingredientId, quantity: Number(l.quantity) || 0, unit: l.unit })),
     },
     ingredients,
@@ -101,11 +91,8 @@ export default function RecipeEditor({
       yieldCount,
       yieldLabel,
       overheadHours: hours,
-      sellPrice,
-      sellPer,
       notes,
       lines: lines.filter((l) => l.ingredientId),
-      links: links.filter((l) => l.name.trim()),
     });
     setBusy(false);
     if (err) return setError(err);
@@ -121,7 +108,7 @@ export default function RecipeEditor({
 
   return (
     <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <label className="col-span-2 sm:col-span-2">
           <span className="block text-xs font-medium text-stone-600 mb-1">Recipe</span>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Cinnamon Rolls" className={fieldClass} />
@@ -137,16 +124,6 @@ export default function RecipeEditor({
         <label>
           <span className="block text-xs font-medium text-stone-600 mb-1">Bake/labor hours</span>
           <input type="number" min={0} step="0.05" value={hours} onChange={(e) => setHours(e.target.value)} className={fieldClass} />
-        </label>
-        <label>
-          <span className="block text-xs font-medium text-stone-600 mb-1">Sells for ($)</span>
-          <div className="flex gap-1">
-            <input type="number" min={0} step="0.01" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} className={fieldClass} />
-            <select value={sellPer} onChange={(e) => setSellPer(e.target.value)} className={`${inputClass} w-auto`}>
-              <option value="batch">batch</option>
-              <option value="item">each</option>
-            </select>
-          </div>
         </label>
       </div>
 
@@ -222,7 +199,7 @@ export default function RecipeEditor({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm bg-stone-50 rounded-lg p-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm bg-stone-50 rounded-lg p-3">
         <div>
           <span className="block text-[11px] text-stone-500">Ingredients</span>
           {money(cost.ingredientsCost)}
@@ -241,53 +218,18 @@ export default function RecipeEditor({
           <span className="block text-[11px] text-stone-500">Per {yieldLabel.replace(/s$/, "") || "item"}</span>
           <b>{money(cost.perItem)}</b>
         </div>
-        <div>
-          <span className="block text-[11px] text-stone-500">Profit / margin</span>
-          {cost.profit === null || !cost.batchPrice ? "—" : `${money(cost.profit)} · ${cost.margin?.toFixed(0) ?? "—"}%`}
-        </div>
       </div>
 
-      <div className="space-y-2">
-        <div>
-          <span className="block text-xs font-medium text-stone-600">Sold in the shop as</span>
-          <span className="block text-[11px] text-stone-500">
-            Link the products (or mix &amp; match box choices) made from this recipe, so a drop&apos;s orders turn into how
-            many batches to bake. E.g. a 4-pack uses 4 {yieldLabel || "items"}.
-          </span>
-        </div>
-        {links.map((l, i) => (
-          <div key={i} className="flex flex-wrap items-center gap-2 text-sm">
-            <input
-              list="sold-names"
-              value={l.name}
-              onChange={(e) => setLinks(links.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
-              placeholder="Product or box choice"
-              className={`${inputClass} w-64`}
-            />
-            each uses
-            <input
-              type="number"
-              min={0}
-              step="any"
-              value={l.itemsPerUnit}
-              onChange={(e) => setLinks(links.map((x, j) => (j === i ? { ...x, itemsPerUnit: e.target.value } : x)))}
-              className={`${inputClass} w-20`}
-            />
-            {yieldLabel || "items"}
-            <button onClick={() => setLinks(links.filter((_, j) => j !== i))} className="text-stone-400 hover:text-red-600" aria-label="Remove link">
-              ✕
-            </button>
-          </div>
-        ))}
-        <datalist id="sold-names">
-          {data.soldNames.map((n) => (
-            <option key={n} value={n} />
-          ))}
-        </datalist>
-        <button onClick={() => setLinks([...links, { name: "", itemsPerUnit: "1" }])} className="text-xs font-semibold text-amber-700 hover:underline">
-          + Link a product
-        </button>
-      </div>
+      {recipe && (
+        <p className="text-xs text-stone-500">
+          Used in:{" "}
+          {data.products
+            .filter((p) => p.links.some((l) => l.recipeId === recipe.id))
+            .map((p) => `${p.name} (${p.links.find((l) => l.recipeId === recipe.id)!.itemsPerUnit} ${yieldLabel})`)
+            .join(", ") || "nothing yet"}
+          . Tag products with the recipes they use on the Products tab.
+        </p>
+      )}
 
       <label className="block">
         <span className="block text-xs font-medium text-stone-600 mb-1">Notes</span>

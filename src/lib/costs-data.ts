@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSetting } from "@/lib/settings";
 import { costRecipe, unitCosts, type CostIngredient } from "@/lib/costs";
-import { soldNames } from "@/lib/costs-plan";
+import { linkKey, soldNames } from "@/lib/costs-plan";
 
 export type PriceBasis = "average" | "latest";
 
@@ -16,7 +16,7 @@ type Usage = { ingredientId: string; amount: number }[];
 
 /** Everything the Costs page shows, with each ingredient's cost and each recipe's totals worked out. */
 export async function loadCosts() {
-  const [settings, ingredients, purchases, recipes, receipts, counts, bakes, itemsOut, names, drops] = await Promise.all([
+  const [settings, ingredients, purchases, recipes, receipts, counts, bakes, itemsOut, names, drops, shopProducts] = await Promise.all([
     costSettings(),
     prisma.ingredient.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { recipeLines: true } } } }),
     prisma.ingredientPurchase.findMany({ orderBy: [{ date: "desc" }, { createdAt: "desc" }] }),
@@ -32,6 +32,7 @@ export async function loadCosts() {
       take: 8,
       select: { id: true, title: true, orderOpenAt: true, orderCloseAt: true },
     }),
+    prisma.product.findMany({ select: { name: true, price: true, boxSize: true, active: true } }),
   ]);
 
   // What's itemized in the purchase log for each receipt: same day, same store
@@ -142,6 +143,19 @@ export async function loadCosts() {
       cost: o.cost,
     })),
     soldNames: names,
+    // Products tab: each product / box choice, its price and the recipes it uses
+    products: names.map((name) => {
+      const k = linkKey(name);
+      const product = shopProducts.find((p) => linkKey(p.name) === k);
+      return {
+        name,
+        key: k,
+        price: product?.price ?? null, // cents; box choices have none
+        isBox: !!product?.boxSize,
+        active: product?.active ?? true,
+        links: recipes.flatMap((r) => r.links.filter((l) => l.name === k).map((l) => ({ recipeId: r.id, itemsPerUnit: l.itemsPerUnit }))),
+      };
+    }),
     drops: drops.map((d) => ({ id: d.id, title: d.title, orderOpenAt: d.orderOpenAt.toISOString(), orderCloseAt: d.orderCloseAt.toISOString() })),
   };
 }

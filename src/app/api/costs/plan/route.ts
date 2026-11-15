@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/admin-input";
 import { loadCosts } from "@/lib/costs-data";
-import { batchUsage, itemsNeeded, linkKey, soldInDrop } from "@/lib/costs-plan";
+import { batchUsage, groupLinks, itemsNeeded, soldInDrop } from "@/lib/costs-plan";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     prisma.recipeLink.findMany(),
     prisma.bake.findMany({ where: { dropId }, select: { recipeId: true, batches: true } }),
   ]);
-  const { items, unlinked } = itemsNeeded(sold, new Map(links.map((l) => [linkKey(l.name), l])));
+  const { items, unlinked } = itemsNeeded(sold, groupLinks(links));
   const ingredients = new Map(costs.ingredients.map((i) => [i.id, i]));
   const need = new Map<string, number>();
   const recipes = [...items].map(([recipeId, count]) => {

@@ -522,10 +522,12 @@ model Recipe {
 // in a 6-cookie box). Each one sold uses `itemsPerUnit` of what the recipe makes.
 model RecipeLink {
   id           String @id @default(cuid())
-  name         String @unique // stored lowercase
+  name         String // product or box option, stored lowercase; one can use several recipes
   recipeId     String
-  itemsPerUnit Float  @default(1)
+  itemsPerUnit Float  @default(1) // how many of the recipe's items (its yield) one uses
   recipe       Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([name, recipeId])
 }
 
 // Batches baked (for a drop, the porch, trying a new recipe…): uses up ingredients

@@ -8,8 +8,10 @@ import PurchasesTab from "@/components/costs/PurchasesTab";
 import ImportExportTab from "@/components/costs/ImportExportTab";
 import ReceiptsTab from "@/components/costs/ReceiptsTab";
 import BakingTab from "@/components/costs/BakingTab";
+import ProductsTab from "@/components/costs/ProductsTab";
 
 const TABS = [
+  { key: "products", label: "Products" },
   { key: "recipes", label: "Recipes" },
   { key: "baking", label: "Baking" },
   { key: "ingredients", label: "Ingredients" },
@@ -21,7 +23,7 @@ type Tab = (typeof TABS)[number]["key"];
 
 /**
  * Admin → Costs: what ingredients cost (from the purchase log) and what each
- * recipe costs to make, per batch and per item, against what it sells for.
+ * recipe costs to make, and each product (from the recipes it uses) against its price.
  */
 export default function AdminCostsPage() {
   const [data, setData] = useState<CostsData | null>(null);
@@ -89,6 +91,7 @@ export default function AdminCostsPage() {
           to bring in your cost spreadsheet or Mealie recipes, or add ingredients and purchases by hand.
         </div>
       )}
+      {data && tab === "products" && <ProductsTab data={data} save={save} />}
       {data && tab === "recipes" && <RecipesTab data={data} save={save} />}
       {data && tab === "baking" && <BakingTab data={data} save={save} />}
       {data && tab === "ingredients" && <IngredientsTab data={data} save={save} />}

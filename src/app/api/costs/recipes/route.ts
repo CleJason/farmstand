@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       notes: String(data.notes ?? "").trim().slice(0, 4000) || null,
     };
 
-    // What it's sold as (product names / box options); a name moves here from any other recipe
+    // What it's sold as (product names / box options); a product can use other recipes too
     const rawLinks: unknown[] = Array.isArray(data.links) ? data.links.slice(0, 50) : [];
     const links = [
       ...new Map(
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
     }
     if (data.links !== undefined) {
       await prisma.$transaction([
-        prisma.recipeLink.deleteMany({ where: { OR: [{ recipeId: recipeId! }, { name: { in: links.map((l) => l.name) } }] } }),
+        prisma.recipeLink.deleteMany({ where: { recipeId: recipeId! } }),
         prisma.recipeLink.createMany({ data: links.map((l) => ({ ...l, recipeId: recipeId! })) }),
       ]);
     }

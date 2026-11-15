@@ -5,7 +5,7 @@ import { money } from "@/lib/costs";
 import RecipeEditor from "@/components/costs/RecipeEditor";
 import { inputClass, type TabProps } from "@/components/costs/shared";
 
-/** Every recipe's cost per batch and per item, and its margin. Click one to edit it. */
+/** Every recipe's cost per batch and per item (ingredients and overhead), and the products using it. Click one to edit it. */
 export default function RecipesTab({ data, save }: TabProps) {
   const [open, setOpen] = useState<string | null>(null); // recipe id, or "new"
   const [rate, setRate] = useState(String(data.settings.overheadRate));
@@ -67,14 +67,12 @@ export default function RecipesTab({ data, save }: TabProps) {
                 <th className="px-4 py-2.5 font-medium">Makes</th>
                 <th className="px-4 py-2.5 font-medium text-right">Batch cost</th>
                 <th className="px-4 py-2.5 font-medium text-right">Per item</th>
-                <th className="px-4 py-2.5 font-medium text-right">Sells for</th>
-                <th className="px-4 py-2.5 font-medium text-right">Profit</th>
-                <th className="px-4 py-2.5 font-medium text-right">Margin</th>
+                <th className="px-4 py-2.5 font-medium">Used in</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
               {data.recipes.map((r) => (
-                <RecipeRowView key={r.id} r={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)}>
+                <RecipeRowView key={r.id} r={r} usedIn={data.products.filter((p) => p.links.some((l) => l.recipeId === r.id)).map((p) => p.name).join(", ")} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)}>
                   <RecipeEditor data={data} save={save} recipe={r} onClose={() => setOpen(null)} />
                 </RecipeRowView>
               ))}
@@ -88,11 +86,13 @@ export default function RecipesTab({ data, save }: TabProps) {
 
 function RecipeRowView({
   r,
+  usedIn,
   open,
   onToggle,
   children,
 }: {
   r: TabProps["data"]["recipes"][number];
+  usedIn: string;
   open: boolean;
   onToggle: () => void;
   children: React.ReactNode;
@@ -123,15 +123,11 @@ function RecipeRowView({
         </td>
         <td className="px-4 py-3 text-right whitespace-nowrap">{money(c.batch)}</td>
         <td className="px-4 py-3 text-right whitespace-nowrap font-semibold text-stone-900">{money(c.perItem)}</td>
-        <td className="px-4 py-3 text-right whitespace-nowrap text-stone-600">{money(c.batchPrice)}</td>
-        <td className={`px-4 py-3 text-right whitespace-nowrap ${c.profit !== null && c.profit < 0 ? "text-red-600" : "text-stone-600"}`}>
-          {money(c.profit)}
-        </td>
-        <td className="px-4 py-3 text-right whitespace-nowrap text-stone-600">{c.margin === null ? "—" : `${c.margin.toFixed(0)}%`}</td>
+        <td className="px-4 py-3 text-xs text-stone-600">{usedIn || <span className="text-stone-400">not tagged</span>}</td>
       </tr>
       {open && (
         <tr>
-          <td colSpan={7} className="px-4 py-4 bg-stone-50">
+          <td colSpan={5} className="px-4 py-4 bg-stone-50">
             {children}
           </td>
         </tr>

@@ -20,6 +20,22 @@ export function batchUsage(lines: LineLike[], ingredients: Map<string, Ingredien
 /** Links are matched by name, any case: a product name or a box option. */
 export const linkKey = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
 
+export type Link = { recipeId: string; itemsPerUnit: number };
+
+/** Each product / box option's recipes: one can use several (rolls, frosting, streusel…). */
+export function groupLinks(links: ({ name: string } & Link)[]): Map<string, Link[]> {
+  const by = new Map<string, Link[]>();
+  for (const l of links) by.set(linkKey(l.name), [...(by.get(linkKey(l.name)) ?? []), l]);
+  return by;
+}
+
+/** What one of `name` costs to make: the sum of its tagged recipes; null when it has none. */
+export function linkedCost(name: string, links: Map<string, Link[]>, perItem: Map<string, number>): number | null {
+  const ls = links.get(linkKey(name));
+  if (!ls?.length) return null;
+  return ls.reduce((s, l) => s + (perItem.get(l.recipeId) ?? 0) * l.itemsPerUnit, 0);
+}
+
 export type Sold = { name: string; quantity: number; picks: Map<string, { name: string; quantity: number }> };
 
 /**
@@ -58,17 +74,19 @@ export async function soldInDrop(dropId: string): Promise<Map<string, Sold>> {
  * product counts as itself; an unlinked box counts by what's in it. Names
  * with no recipe come back in `unlinked`.
  */
-export function itemsNeeded(sold: Map<string, Sold>, links: Map<string, { recipeId: string; itemsPerUnit: number }>) {
+export function itemsNeeded(sold: Map<string, Sold>, links: Map<string, Link[]>) {
   const items = new Map<string, number>();
   const unlinked = new Map<string, number>();
-  const add = (recipeId: string, n: number) => items.set(recipeId, (items.get(recipeId) ?? 0) + n);
+  const add = (ls: Link[], n: number) => {
+    for (const l of ls) items.set(l.recipeId, (items.get(l.recipeId) ?? 0) + n * l.itemsPerUnit);
+  };
   for (const [k, s] of sold) {
-    const link = links.get(k);
-    if (link) add(link.recipeId, s.quantity * link.itemsPerUnit);
+    const own = links.get(k);
+    if (own?.length) add(own, s.quantity);
     else if (s.picks.size) {
       for (const [pk, p] of s.picks) {
         const pl = links.get(pk);
-        if (pl) add(pl.recipeId, p.quantity * pl.itemsPerUnit);
+        if (pl?.length) add(pl, p.quantity);
         else unlinked.set(p.name, (unlinked.get(p.name) ?? 0) + p.quantity);
       }
     } else unlinked.set(s.name, (unlinked.get(s.name) ?? 0) + s.quantity);

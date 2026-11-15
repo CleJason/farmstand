@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { loadCosts } from "@/lib/costs-data";
-import { linkKey } from "@/lib/costs-plan";
+import { groupLinks, linkedCost } from "@/lib/costs-plan";
 import { dropBoxGroups, dropBoxOptions, isBox } from "@/lib/box";
 import { isPaidStatus } from "@/lib/pickup";
 
@@ -35,11 +35,8 @@ export async function dropForecasts(): Promise<Record<string, DropForecast>> {
     }),
   ]);
   const perItem = new Map(costs.recipes.map((r) => [r.id, r.cost.perItem]));
-  const linkBy = new Map(links.map((l) => [linkKey(l.name), l]));
-  const itemCost = (name: string) => {
-    const l = linkBy.get(linkKey(name));
-    return l ? (perItem.get(l.recipeId) ?? 0) * l.itemsPerUnit : null;
-  };
+  const linkBy = groupLinks(links);
+  const itemCost = (name: string) => linkedCost(name, linkBy, perItem);
   /** Average cost of `size` picks from these choices; null when any choice has no recipe. */
   const pickCost = (options: string[], size: number) => {
     const each = options.map(itemCost);

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { isPaidStatus } from "@/lib/pickup";
 import { loadCosts } from "@/lib/costs-data";
-import { linkKey } from "@/lib/costs-plan";
+import { groupLinks, linkedCost } from "@/lib/costs-plan";
 
 type SoldItem = { name: string; quantity: number; picks?: { name: string; quantity: number }[] };
 
@@ -43,11 +43,8 @@ export async function accounting(from: Date, to: Date) {
     prisma.recipeLink.findMany(),
   ]);
   const perItem = new Map(costs.recipes.map((r) => [r.id, r.cost.perItem]));
-  const linkBy = new Map(links.map((l) => [linkKey(l.name), l]));
-  const itemCost = (name: string) => {
-    const l = linkBy.get(linkKey(name));
-    return l ? (perItem.get(l.recipeId) ?? 0) * l.itemsPerUnit : null;
-  };
+  const linkBy = groupLinks(links);
+  const itemCost = (name: string) => linkedCost(name, linkBy, perItem);
   /** Cost to make what was sold; null when none of it is linked to a recipe. */
   const estCost = (items: SoldItem[]) => {
     let total = 0;
