@@ -34,6 +34,7 @@ interface Drop {
   id: string;
   title: string;
   description: string | null;
+  alertNote: string | null;
   orderOpenAt: string;
   orderCloseAt: string;
   status: string;
@@ -188,6 +189,7 @@ export default function AdminDropsPage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [alertNote, setAlertNote] = useState("");
   const [orderOpenAt, setOrderOpenAt] = useState("");
   const [orderCloseAt, setOrderCloseAt] = useState("");
   const [maxOrders, setMaxOrders] = useState("");
@@ -223,6 +225,7 @@ export default function AdminDropsPage() {
     setEditingId(null);
     setTitle("This Week's Drop");
     setDescription("");
+    setAlertNote("");
     setOrderOpenAt("");
     setOrderCloseAt("");
     setMaxOrders("");
@@ -235,6 +238,7 @@ export default function AdminDropsPage() {
     setEditingId(drop.id);
     setTitle(drop.title);
     setDescription(drop.description ?? "");
+    setAlertNote(drop.alertNote ?? "");
     setOrderOpenAt(toDateTimeInput(drop.orderOpenAt));
     setOrderCloseAt(toDateTimeInput(drop.orderCloseAt));
     setMaxOrders(drop.maxOrders ? String(drop.maxOrders) : "");
@@ -343,6 +347,7 @@ export default function AdminDropsPage() {
         body: JSON.stringify({
           title,
           description,
+          alertNote,
           orderOpenAt: new Date(orderOpenAt).toISOString(),
           orderCloseAt: new Date(orderCloseAt).toISOString(),
           maxOrders: maxOrders || null,
@@ -669,6 +674,19 @@ export default function AdminDropsPage() {
                 <label className="block">
                   <span className="block text-xs font-medium text-stone-600 mb-1">Description</span>
                   <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} className={`${inputClass} resize-y`} />
+                </label>
+                <label className="block">
+                  <span className="block text-xs font-medium text-stone-600 mb-1">Extra line for the &quot;now open&quot; text (optional)</span>
+                  <input
+                    value={alertNote}
+                    maxLength={300}
+                    onChange={(e) => setAlertNote(e.target.value)}
+                    placeholder="e.g. Last chance for fall flavors before December's new lineup!"
+                    className={inputClass}
+                  />
+                  <span className="block text-[11px] text-stone-500 mt-1">
+                    The text reads: &quot;{title || "Drop title"} is open for orders!{alertNote ? ` ${alertNote}` : ""} [link] Orders close …&quot;
+                  </span>
                 </label>
                 <div className="grid sm:grid-cols-3 gap-3">
                   <label className="block">

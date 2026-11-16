@@ -104,6 +104,7 @@ model Drop {
   id            String   @id @default(cuid())
   title         String
   description   String?
+  alertNote     String?    // extra line in the "now open" text, e.g. "Last call for fall flavors!"
   orderOpenAt   DateTime   // when ordering opens (e.g. Monday 6am)
   orderCloseAt  DateTime   // cutoff (e.g. Wednesday 11:59pm)
   status        String     @default("DRAFT")

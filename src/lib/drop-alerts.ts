@@ -69,7 +69,7 @@ async function sendAnnouncement(dropId: string): Promise<boolean> {
   const closes = formatPickup(drop.orderCloseAt);
   // The text everyone with a phone gets (n8n sends it, one every few seconds)
   const smsMessage =
-    `${shop ? `${shop}: ` : ""}${drop.title} is open for orders! ${dropUrl}` +
+    `${shop ? `${shop}: ` : ""}${drop.title} is open for orders!${drop.alertNote ? ` ${drop.alertNote}` : ""} ${dropUrl}` +
     `${closes ? ` Orders close ${closes}.` : ""} Reply STOP to opt out.`;
 
   // Text, email or both, as each person chose (people from before the choice: email plus a text)
@@ -85,6 +85,7 @@ async function sendAnnouncement(dropId: string): Promise<boolean> {
     dropId: drop.id,
     title: drop.title,
     description: drop.description,
+    alertNote: drop.alertNote,
     orderCloseAt: closes,
     // Texts expire then (SMS Gate validUntil), so an alert never goes out after the drop closed
     orderCloseAtIso: drop.orderCloseAt.toISOString(),

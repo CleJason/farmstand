@@ -68,7 +68,7 @@ export async function PUT(
 
   const { id } = await params;
   const data = await req.json();
-  const { title, description, orderOpenAt, orderCloseAt, status, maxOrders } = data;
+  const { title, description, alertNote, orderOpenAt, orderCloseAt, status, maxOrders } = data;
 
   try {
     const slots = data.pickupSlots !== undefined ? parseSlots(data.pickupSlots) : null;
@@ -89,6 +89,7 @@ export async function PUT(
         data: {
           title,
           description,
+          ...(alertNote !== undefined ? { alertNote: String(alertNote ?? "").trim().slice(0, 300) || null } : {}),
           orderOpenAt: orderOpenAt ? new Date(orderOpenAt) : undefined,
           orderCloseAt: orderCloseAt ? new Date(orderCloseAt) : undefined,
           status: status || undefined,

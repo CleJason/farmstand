@@ -60,7 +60,7 @@ export async function POST(req: Request) {
   }
 
   const data = await req.json();
-  const { title, description, orderOpenAt, orderCloseAt, status, maxOrders, pickupSlots, products } = data;
+  const { title, description, alertNote, orderOpenAt, orderCloseAt, status, maxOrders, pickupSlots, products } = data;
 
   if (!title || !orderOpenAt || !orderCloseAt) {
     return NextResponse.json({ error: "Title and order open/close dates are required" }, { status: 400 });
@@ -79,6 +79,7 @@ export async function POST(req: Request) {
     data: {
       title,
       description: description || null,
+      alertNote: String(alertNote ?? "").trim().slice(0, 300) || null,
       orderOpenAt: new Date(orderOpenAt),
       orderCloseAt: new Date(orderCloseAt),
       status: status || "DRAFT",
