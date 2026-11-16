@@ -4,6 +4,7 @@ import { sweepCardPayments } from "@/lib/stripe-paid";
 import { sendScheduled } from "@/lib/marketing-send";
 import { cancelStaleUnpaid } from "@/lib/unpaid-orders";
 import { sendDueReviewRequests } from "@/lib/review-requests";
+import { issueDueRewards } from "@/lib/rewards";
 
 let running = false;
 
@@ -18,6 +19,7 @@ export async function runBackgroundJobs(): Promise<void> {
     await sweepCardPayments();
     await cancelStaleUnpaid();
     await sendDueReviewRequests();
+    await issueDueRewards();
   } finally {
     running = false;
   }

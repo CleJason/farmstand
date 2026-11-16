@@ -50,6 +50,7 @@ export default async function AdminLayout({
     { href: "/admin/bulk-message", label: "Bulk Message", icon: "✉️" },
     { href: "/admin/discounts", label: "Discounts", icon: "🏷️" },
     { href: "/admin/gift-cards", label: "Gift Cards", icon: "🎁" },
+    { href: "/admin/rewards", label: "Rewards", icon: "\uD83C\uDFC5" },
     { href: "/admin/reviews", label: "Reviews", icon: "⭐" },
     { href: "/admin/site", label: "Site", icon: "🎨" },
     { href: "/admin/settings", label: "Settings", icon: "⚙️" },
