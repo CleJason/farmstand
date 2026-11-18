@@ -285,6 +285,7 @@ export default function SiteSettingsForm() {
       </div>
 
       {toggle("SITE_LOGO_IN_HEADER", "Show the logo in the header (top-left)", values.SITE_LOGO_URL ? undefined : "upload a logo above")}
+      {toggle("SITE_LOGO_ROUND", "Show the header logo as a circle (for a round logo on a white square)")}
 
       {GROUPS.map((group) => (
         <div key={group.title} className="space-y-3">

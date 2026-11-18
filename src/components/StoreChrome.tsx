@@ -26,9 +26,12 @@ export function ShopBrand({ className = "" }: { className?: string }) {
           src={site.SITE_LOGO_URL}
           alt=""
           className={
-            showName
-              ? "h-16 w-16 sm:h-24 sm:w-24 rounded-lg object-contain"
-              : "h-20 sm:h-28 max-w-[200px] sm:max-w-[480px] object-contain"
+            isOn(site.SITE_LOGO_ROUND)
+              ? // A round badge: cropped to a circle with a soft ring, so its white corners don't show
+                "h-16 w-16 sm:h-24 sm:w-24 rounded-full object-cover ring-1 ring-black/10 shadow-sm bg-white"
+              : showName
+                ? "h-16 w-16 sm:h-24 sm:w-24 rounded-lg object-contain"
+                : "h-20 sm:h-28 max-w-[200px] sm:max-w-[480px] object-contain"
           }
         />
       )}

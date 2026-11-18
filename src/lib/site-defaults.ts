@@ -32,6 +32,8 @@ export const SITE_DEFAULTS = {
   SITE_COVER_POSITION: "",
   // Where the logo / business name appear ("true" | "false")
   SITE_LOGO_IN_HEADER: "true",
+  // Header logo cropped to a circle (a round badge logo on a white square)
+  SITE_LOGO_ROUND: "false",
   SITE_NAME_IN_HEADER: "true",
   SITE_NAME_IN_TAB: "true",
   SITE_NAME_IN_NOTIFICATIONS: "true",
@@ -57,6 +59,7 @@ export const SITE_KEYS = Object.keys(SITE_DEFAULTS) as SiteKey[];
 
 export const TOGGLE_KEYS: SiteKey[] = [
   "SITE_LOGO_IN_HEADER",
+  "SITE_LOGO_ROUND",
   "SITE_NAME_IN_HEADER",
   "SITE_NAME_IN_TAB",
   "SITE_NAME_IN_NOTIFICATIONS",
