@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDate, formatPrice } from "@/lib/utils";
 import { countsStock } from "@/lib/stock";
@@ -99,6 +99,7 @@ interface Product {
   name: string;
   price: number;
   active: boolean;
+  category: string | null;
   boxSize: number | null;
   boxOptions: string[];
 }
@@ -398,6 +399,7 @@ export default function AdminDropsPage() {
     else alert((await res.json().catch(() => ({}))).error || "Couldn't delete the drop");
   };
 
+  const catOf = (p: Product) => p.category?.trim() || "No category";
   // Products shown in the form: active ones plus any already in the drop being edited
   // Products in the drop first, in the order they'll show on the drop page (the order of productForm)
   const inDrop = Object.keys(productForm).filter((id) => productForm[id].included);
@@ -405,7 +407,13 @@ export default function AdminDropsPage() {
     .filter((p) => p.active || productForm[p.id]?.included)
     .sort((a, b) => {
       const [ai, bi] = [inDrop.indexOf(a.id), inDrop.indexOf(b.id)];
-      return ai === -1 ? (bi === -1 ? 0 : 1) : bi === -1 ? -1 : ai - bi;
+      // The rest grouped by category (no category last), then by name
+      if (ai === -1 && bi === -1) {
+        const [ac, bc] = [catOf(a), catOf(b)];
+        if (ac !== bc) return ac === "No category" ? 1 : bc === "No category" ? -1 : ac.localeCompare(bc);
+        return a.name.localeCompare(b.name);
+      }
+      return ai === -1 ? 1 : bi === -1 ? -1 : ai - bi;
     });
   const moveProduct = (id: string, by: -1 | 1) => {
     const order = [...inDrop];
@@ -811,11 +819,17 @@ export default function AdminDropsPage() {
                 {formProducts.length === 0 ? (
                   <p className="text-xs text-stone-500">Add products on the Products page first.</p>
                 ) : (
-                  formProducts.map((p) => {
+                  formProducts.map((p, idx) => {
                     const f = productForm[p.id] ?? emptyProductForm;
                     const isBoxProduct = !!p.boxSize && p.boxOptions?.length > 0;
+                    // A heading where each category starts, among the ones not in the drop yet
+                    const prev = formProducts[idx - 1];
+                    const heading =
+                      !f.included && (!prev || productForm[prev.id]?.included || catOf(prev) !== catOf(p)) ? catOf(p) : null;
                     return (
-                      <div key={p.id} className={`rounded-xl border p-3 text-xs ${f.included ? "border-amber-300 bg-amber-50/40" : "border-stone-200"}`}>
+                      <Fragment key={p.id}>
+                      {heading && <p className="pt-2 text-[11px] font-semibold uppercase tracking-wider text-stone-500">{heading}</p>}
+                      <div className={`rounded-xl border p-3 text-xs ${f.included ? "border-amber-300 bg-amber-50/40" : "border-stone-200"}`}>
                         <div className="flex items-center gap-2">
                           <label className="flex flex-1 min-w-0 items-center gap-2 cursor-pointer">
                             <input
@@ -891,6 +905,7 @@ export default function AdminDropsPage() {
                           </div>
                         )}
                       </div>
+                      </Fragment>
                     );
                   })
                 )}

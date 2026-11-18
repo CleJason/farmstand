@@ -181,6 +181,31 @@ export default function AdminProductsPage() {
     }
   };
 
+  // Grouped by category (no category last), with a filter when there are several
+  const [catFilter, setCatFilter] = useState("All");
+  const [merging, setMerging] = useState<string | null>(null);
+  const categories = [...new Set(products.map((p) => p.category?.trim() || "No category"))].sort((a, b) =>
+    a === "No category" ? 1 : b === "No category" ? -1 : a.localeCompare(b)
+  );
+  const grouped = categories
+    .filter((c) => catFilter === "All" || c === catFilter)
+    .map((c) => [c, products.filter((p) => (p.category?.trim() || "No category") === c)] as const);
+
+  /** A duplicate product: its drops and orders move to the kept one, then it's deleted. */
+  const mergeInto = async (product: Product, intoId: string) => {
+    setMerging(null);
+    const into = products.find((x) => x.id === intoId);
+    if (!into) return;
+    if (!confirm(`Merge "${product.name}" into "${into.name}"?\n\nIts drops and orders move to "${into.name}" (order history and sales stay complete), then "${product.name}" is deleted. This can't be undone.`)) return;
+    const res = await fetch("/api/products/merge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from: product.id, into: into.id }),
+    });
+    if (!res.ok) alert((await res.json().catch(() => ({}))).error || "Couldn't merge them");
+    loadProducts();
+  };
+
   const toggleActive = async (product: Product) => {
     try {
       await fetch(`/api/products/${product.id}`, {
@@ -224,8 +249,31 @@ export default function AdminProductsPage() {
           </p>
         </div>
       ) : (
+        <div className="space-y-6">
+          {categories.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              {["All", ...categories].map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setCatFilter(c)}
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${
+                    catFilter === c ? "bg-stone-900 text-white border-stone-900" : "bg-white text-stone-600 border-stone-200 hover:border-stone-300"
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          )}
+          {grouped.map(([cat, list]) => (
+          <section key={cat} className="space-y-3">
+          {categories.length > 1 && (
+            <h2 className="text-sm font-semibold text-stone-700">
+              {cat} <span className="text-stone-400 font-normal">· {list.length}</span>
+            </h2>
+          )}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {products.map((product) => (
+          {list.map((product) => (
             <div
               key={product.id}
               className={`bg-white rounded-xl border border-stone-200 overflow-hidden hover:shadow-sm transition-shadow ${
@@ -296,8 +344,34 @@ export default function AdminProductsPage() {
                     {product.active ? "Active" : "Archived"}
                   </button>
                 </div>
+                {merging === product.id ? (
+                  <select
+                    autoFocus
+                    defaultValue=""
+                    onChange={(e) => mergeInto(product, e.target.value)}
+                    onBlur={() => setMerging(null)}
+                    className="mt-2 w-full text-xs px-2 py-1.5 border border-stone-200 rounded-lg bg-white"
+                  >
+                    <option value="">Merge into… (keeps that one)</option>
+                    {products
+                      .filter((x) => x.id !== product.id)
+                      .map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {x.name} · {formatPrice(x.price)}
+                          {x.active ? "" : " (archived)"}
+                        </option>
+                      ))}
+                  </select>
+                ) : (
+                  <button onClick={() => setMerging(product.id)} className="mt-2 text-[11px] text-stone-400 hover:text-stone-700">
+                    Duplicate? Merge into another product
+                  </button>
+                )}
               </div>
             </div>
+          ))}
+        </div>
+          </section>
           ))}
         </div>
       )}
