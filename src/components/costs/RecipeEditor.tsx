@@ -16,7 +16,8 @@ export default function RecipeEditor({
   save,
   recipe,
   onClose,
-}: TabProps & { recipe?: RecipeRow; onClose: () => void }) {
+  onOpen,
+}: TabProps & { recipe?: RecipeRow; onClose: () => void; onOpen?: (id: string) => void }) {
   const [name, setName] = useState(recipe?.name ?? "");
   const [yieldCount, setYieldCount] = useState(String(recipe?.yieldCount ?? 12));
   const [yieldLabel, setYieldLabel] = useState(recipe?.yieldLabel ?? "cookies");
@@ -97,6 +98,27 @@ export default function RecipeEditor({
     setBusy(false);
     if (err) return setError(err);
     onClose();
+  };
+
+  /** A copy to make a variation from (e.g. a Christmas version with additions); opens it. */
+  const duplicate = async () => {
+    if (!recipe) return;
+    const copyName = prompt("Name for the copy:", `${name} (copy)`)?.trim();
+    if (!copyName) return;
+    setBusy(true);
+    const { error: err, data: fresh } = await save("/api/costs/recipes", "POST", {
+      name: copyName,
+      yieldCount,
+      yieldLabel,
+      overheadHours: hours,
+      notes,
+      lines: lines.filter((l) => l.ingredientId),
+    });
+    setBusy(false);
+    if (err) return alert(err);
+    const made = fresh?.recipes.find((r) => r.name.toLowerCase() === copyName.replace(/\s+/g, " ").toLowerCase());
+    if (made && onOpen) onOpen(made.id);
+    else onClose();
   };
 
   const remove = async () => {
@@ -244,6 +266,11 @@ export default function RecipeEditor({
         <button onClick={onClose} className={ghostClass}>
           Cancel
         </button>
+        {recipe && (
+          <button onClick={duplicate} disabled={busy} className={ghostClass} title="Make a copy to change, e.g. a holiday version">
+            Duplicate
+          </button>
+        )}
         {recipe && (
           <button onClick={remove} className="ml-auto text-xs text-stone-400 hover:text-red-600">
             Delete recipe

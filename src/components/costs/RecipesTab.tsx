@@ -73,7 +73,7 @@ export default function RecipesTab({ data, save }: TabProps) {
             <tbody className="divide-y divide-stone-100">
               {data.recipes.map((r) => (
                 <RecipeRowView key={r.id} r={r} usedIn={data.products.filter((p) => p.links.some((l) => l.recipeId === r.id)).map((p) => p.name).join(", ")} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)}>
-                  <RecipeEditor data={data} save={save} recipe={r} onClose={() => setOpen(null)} />
+                  <RecipeEditor data={data} save={save} recipe={r} onClose={() => setOpen(null)} onOpen={setOpen} />
                 </RecipeRowView>
               ))}
             </tbody>
