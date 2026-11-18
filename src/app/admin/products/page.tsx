@@ -197,12 +197,24 @@ export default function AdminProductsPage() {
     const into = products.find((x) => x.id === intoId);
     if (!into) return;
     if (!confirm(`Merge "${product.name}" into "${into.name}"?\n\nIts drops and orders move to "${into.name}" (order history and sales stay complete), then "${product.name}" is deleted. This can't be undone.`)) return;
+    // Merging into a mix & match box: the moved orders had no choice; say which one they were
+    let label = "";
+    if (into.boxSize && into.boxOptions?.length) {
+      const answer = prompt(
+        `"${product.name}" orders had no choice picked. Which of ${into.name}'s choices were they?\n\n${into.boxOptions.join(", ")}\n\nType one, or leave blank to leave them without a choice.`,
+        ""
+      );
+      if (answer === null) return;
+      label = answer.trim();
+    }
     const res = await fetch("/api/products/merge", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ from: product.id, into: into.id }),
+      body: JSON.stringify({ from: product.id, into: into.id, label }),
     });
-    if (!res.ok) alert((await res.json().catch(() => ({}))).error || "Couldn't merge them");
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) alert(d.error || "Couldn't merge them");
+    else if (d.labeled) alert(`Merged. ${d.labeled} order line${d.labeled === 1 ? "" : "s"} marked "${label}".`);
     loadProducts();
   };
 

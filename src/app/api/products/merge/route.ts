@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/admin-input";
 import { linkKey } from "@/lib/costs-plan";
+import { Prisma } from "@prisma/client";
 
 /**
  * Merge a duplicate product (`from`) into the one to keep (`into`): its drops
  * and their orders move over, so order history and sales stay complete, then
  * the duplicate is deleted. If both were in the same drop, that drop's orders
- * for the duplicate join the kept one's.
+ * for the duplicate join the kept one's. When the kept one is a mix & match
+ * box, `label` (one of its choices) is filled in on the moved orders that had
+ * no choice, e.g. old Dinner Rolls orders become "Garlic".
  */
 export async function POST(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -20,6 +23,18 @@ export async function POST(req: Request) {
     prisma.product.findUnique({ where: { id: intoId }, include: { dropProducts: true } }),
   ]);
   if (!from || !into) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const label = String(data.label ?? "").trim();
+  const choice = label ? into.boxOptions.find((o) => o.toLowerCase() === label.toLowerCase()) : undefined;
+  if (label && (!into.boxSize || !choice)) {
+    return NextResponse.json({ error: `"${label}" isn't one of ${into.name}'s choices` }, { status: 400 });
+  }
+  // The duplicate's order lines with no choice, to label after they move
+  const unlabeled = choice
+    ? await prisma.orderItem.findMany({
+        where: { dropProductId: { in: from.dropProducts.map((d) => d.id) }, selections: { equals: Prisma.DbNull } },
+        select: { id: true },
+      })
+    : [];
 
   await prisma.$transaction(async (tx) => {
     for (const dp of from.dropProducts) {
@@ -41,7 +56,13 @@ export async function POST(req: Request) {
       if (has) await tx.recipeLink.deleteMany({ where: { name: fromKey } });
       else await tx.recipeLink.updateMany({ where: { name: fromKey }, data: { name: intoKey } });
     }
+    if (choice && unlabeled.length) {
+      await tx.orderItem.updateMany({
+        where: { id: { in: unlabeled.map((i) => i.id) } },
+        data: { selections: [{ name: choice, quantity: into.boxSize }] },
+      });
+    }
     await tx.product.delete({ where: { id: from.id } });
   });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, labeled: unlabeled.length });
 }
