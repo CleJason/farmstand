@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { isPaidStatus } from "@/lib/pickup";
 import { loadCosts } from "@/lib/costs-data";
-import { groupLinks, linkedCost } from "@/lib/costs-plan";
+import { groupLinks, linkedCost, soldItemCost } from "@/lib/costs-plan";
 
 type SoldItem = { name: string; quantity: number; picks?: { name: string; quantity: number }[] };
 
@@ -45,26 +45,15 @@ export async function accounting(from: Date, to: Date) {
   const perItem = new Map(costs.recipes.map((r) => [r.id, r.cost.perItem]));
   const linkBy = groupLinks(links);
   const itemCost = (name: string) => linkedCost(name, linkBy, perItem);
-  /** Cost to make what was sold; null when none of it is linked to a recipe. */
+  /** Cost to make what was sold; null unless every item has recipes tagged (so profit isn't overstated). */
   const estCost = (items: SoldItem[]) => {
     let total = 0;
-    let known = false;
     for (const i of items) {
-      const own = itemCost(i.name);
-      if (own !== null) {
-        total += own * i.quantity;
-        known = true;
-      } else {
-        for (const p of i.picks ?? []) {
-          const c = itemCost(p.name);
-          if (c !== null) {
-            total += c * p.quantity * i.quantity;
-            known = true;
-          }
-        }
-      }
+      const c = soldItemCost(i.name, i.picks, itemCost);
+      if (c === null) return null;
+      total += c * i.quantity;
     }
-    return known ? Math.round(total * 100) / 100 : null;
+    return items.length ? Math.round(total * 100) / 100 : null;
   };
   const describe = (items: SoldItem[]) => items.map((i) => `${i.quantity} × ${i.name}`).join("; ");
   // The shop's day, not UTC: an 9 PM order belongs to that evening

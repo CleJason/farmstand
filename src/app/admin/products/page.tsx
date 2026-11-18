@@ -50,6 +50,9 @@ export default function AdminProductsPage() {
   // Costs: the recipes one of this product uses (saved with the product)
   const costs = useCostsData(showModal);
   const [tags, setTags] = useState<RecipeTag[] | null>(null);
+  // A box's choices: the recipes each one uses, by choice name (only the ones changed)
+  const [choiceTags, setChoiceTags] = useState<Record<string, RecipeTag[]>>({});
+  const [openChoice, setOpenChoice] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
 
   const loadProducts = async () => {
@@ -84,6 +87,8 @@ export default function AdminProductsPage() {
     setSections([]);
     setAddOns([]);
     setTags(null);
+    setChoiceTags({});
+    setOpenChoice(null);
     setEditingName(null);
     setShowModal(true);
   };
@@ -104,6 +109,8 @@ export default function AdminProductsPage() {
     setSections(groups.map((g) => ({ label: g.label, size: String(g.size), options: g.options.join("\n"), allSame: g.allSame })));
     setAddOns((product.addOns ?? []).map((a) => ({ name: a.name, price: (a.price / 100).toFixed(2) })));
     setTags(null);
+    setChoiceTags({});
+    setOpenChoice(null);
     setEditingName(product.name);
     setShowModal(true);
   };
@@ -166,6 +173,7 @@ export default function AdminProductsPage() {
       if (!res.ok) throw new Error();
       // Recipe tags only when they were loaded and touched (or the name changed)
       if (tags !== null || (editingName && editingName !== name)) await saveTags(name, tags ?? tagsFor(costs, editingName ?? name), editingName);
+      for (const [choice, t] of Object.entries(choiceTags)) await saveTags(choice, t);
       setShowModal(false);
       loadProducts();
     } catch {
@@ -388,21 +396,80 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
-              {!isBox && (
+              {(
                 <div className="rounded-lg border border-stone-200 p-3 space-y-2">
                   <div>
-                    <span className="block text-sm font-medium text-stone-800">Recipes used</span>
+                    <span className="block text-sm font-medium text-stone-800">{isBox ? "Recipes used by the box itself" : "Recipes used"}</span>
                     <span className="block text-xs text-stone-500">
-                      For costs: what goes into one, in each recipe&apos;s own units. E.g. a 4-pack uses 4 rolls from Cinnamon Rolls
-                      plus 4 rolls&apos; worth of Frosting.
+                      {isBox ? (
+                        <>For costs: anything every box has no matter what&apos;s picked, like the box, packaging or a set extra. What&apos;s picked is costed from each choice below.</>
+                      ) : (
+                        <>
+                          For costs: what goes into one, in each recipe&apos;s own units. E.g. a 4-pack uses 4 rolls from Cinnamon Rolls
+                          plus 4 rolls&apos; worth of Frosting.
+                        </>
+                      )}
                     </span>
                   </div>
                   <ProductRecipes
                     data={costs}
                     tags={tags ?? tagsFor(costs, editingName ?? "")}
                     onChange={setTags}
-                    priceDollars={priceDollars}
+                    priceDollars={isBox ? "" : priceDollars}
                   />
+                </div>
+              )}
+
+              {isBox && (
+                <div className="rounded-lg border border-stone-200 p-3 space-y-2">
+                  <div>
+                    <span className="block text-sm font-medium text-stone-800">Recipes for each choice</span>
+                    <span className="block text-xs text-stone-500">
+                      Tag each choice once with what ONE of it uses (e.g. Pumpkin Roll: 1 roll from Pumpkin Rolls + 1 roll of Frosting).
+                      Boxes cost what was actually picked; the drop forecast averages the choices. A choice with the same name in
+                      another box shares its tags.
+                    </span>
+                  </div>
+                  {(() => {
+                    const choices = [
+                      ...new Set(
+                        (useSections ? sections.flatMap((s) => s.options.split("\n")) : boxOptions.split("\n"))
+                          .map((o) => o.trim())
+                          .filter(Boolean)
+                      ),
+                    ];
+                    if (!choices.length) return <p className="text-xs text-stone-400">Add the box&apos;s choices below first.</p>;
+                    const perItem = new Map((costs?.recipes ?? []).map((r) => [r.id, r.cost.perItem]));
+                    return (
+                      <ul className="divide-y divide-stone-100">
+                        {choices.map((c) => {
+                          const t = choiceTags[c] ?? tagsFor(costs, c);
+                          const each = t.reduce((s, x) => s + (perItem.get(x.recipeId) ?? 0) * (Number(x.amount) || 0), 0);
+                          const open = openChoice === c;
+                          return (
+                            <li key={c} className="py-2">
+                              <button type="button" onClick={() => setOpenChoice(open ? null : c)} className="w-full flex justify-between gap-3 text-sm text-left">
+                                <span className="text-stone-800">{c}</span>
+                                <span className={t.length ? "text-stone-600" : "text-amber-700"}>
+                                  {t.length ? `$${each.toFixed(2)} each` : "tag recipes"} {open ? "▴" : "▾"}
+                                </span>
+                              </button>
+                              {open && (
+                                <div className="mt-2">
+                                  <ProductRecipes
+                                    data={costs}
+                                    tags={t}
+                                    onChange={(next) => setChoiceTags({ ...choiceTags, [c]: next })}
+                                    priceDollars=""
+                                  />
+                                </div>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    );
+                  })()}
                 </div>
               )}
 

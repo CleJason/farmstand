@@ -30,7 +30,7 @@ export default function ProductsTab({ data, save }: TabProps) {
           24 rolls&apos; worth, that&apos;s <b>4</b> of it too; a streusel that tops 6 batches is <b>1</b> of it per batch.
         </p>
         <p>
-          Mix &amp; match boxes cost what&apos;s picked, so tag their choices (listed below the products) instead of the box.
+          Mix &amp; match boxes cost what&apos;s picked, so tag their choices (listed below the products, or in the product editor); tag the box itself only with what every box has, like packaging.
           {untagged > 0 && <span className="text-amber-700"> {untagged} product{untagged === 1 ? "" : "s"} have no recipes yet.</span>}
         </p>
       </div>

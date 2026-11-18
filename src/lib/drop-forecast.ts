@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { loadCosts } from "@/lib/costs-data";
-import { groupLinks, linkedCost } from "@/lib/costs-plan";
+import { groupLinks, linkedCost, soldItemCost } from "@/lib/costs-plan";
 import { dropBoxGroups, dropBoxOptions, isBox } from "@/lib/box";
 import { isPaidStatus } from "@/lib/pickup";
 
@@ -53,15 +53,8 @@ export async function dropForecasts(): Promise<Record<string, DropForecast>> {
       for (const i of o.items) {
         const name = i.dropProduct?.product.name ?? i.name ?? "Item";
         const picks = Array.isArray(i.selections) ? (i.selections as { name: string; quantity: number }[]) : [];
-        // Its own recipe, or what went in the box
-        let cost = itemCost(name);
-        if (cost === null && picks.length > 0) {
-          const each = picks.map((p) => {
-            const c = itemCost(p.name);
-            return c === null ? null : c * p.quantity;
-          });
-          cost = each.some((c) => c === null) ? null : (each as number[]).reduce((a, b) => a + b, 0);
-        }
+        // Its own recipes plus what went in the box
+        const cost = soldItemCost(name, picks, itemCost);
         if (cost === null) {
           if (!sold.noCost.includes(name)) sold.noCost.push(name);
           continue;
@@ -80,13 +73,14 @@ export async function dropForecasts(): Promise<Record<string, DropForecast>> {
       const price = (dp.priceOverride ?? dp.product.price) / 100;
       f.revenue += price * dp.quantityLimit;
 
+      // Its own recipes, plus for a box the average of its choices (unknown until ordered)
       let cost = itemCost(dp.product.name);
-      if (cost === null && isBox(dp.product)) {
+      if (isBox(dp.product)) {
         const groups = dropBoxGroups(dp.product.boxGroups, dp.boxOptions);
         const parts = groups.length
           ? groups.map((g) => pickCost(g.options, g.size))
           : [pickCost(dropBoxOptions(dp.product.boxOptions, dp.boxOptions), dp.product.boxSize ?? 0)];
-        cost = parts.some((c) => c === null) ? null : (parts as number[]).reduce((a, b) => a + b, 0);
+        if (!parts.some((c) => c === null)) cost = (cost ?? 0) + (parts as number[]).reduce((a, b) => a + b, 0);
       }
       if (cost === null) f.noCost.push(dp.product.name);
       else {

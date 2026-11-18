@@ -36,6 +36,23 @@ export function linkedCost(name: string, links: Map<string, Link[]>, perItem: Ma
   return ls.reduce((s, l) => s + (perItem.get(l.recipeId) ?? 0) * l.itemsPerUnit, 0);
 }
 
+/**
+ * Cost to make one sold item: its own tagged recipes (a box's packaging or a
+ * fixed part) plus what was picked for it. When a pick has no recipe, only
+ * the item's own tags count (null when it has none either).
+ */
+export function soldItemCost(name: string, picks: { name: string; quantity: number }[] | undefined, cost: (name: string) => number | null) {
+  const own = cost(name);
+  if (!picks?.length) return own;
+  let total = 0;
+  for (const p of picks) {
+    const c = cost(p.name);
+    if (c === null) return own;
+    total += c * p.quantity;
+  }
+  return (own ?? 0) + total;
+}
+
 export type Sold = { name: string; quantity: number; picks: Map<string, { name: string; quantity: number }> };
 
 /**
@@ -81,15 +98,16 @@ export function itemsNeeded(sold: Map<string, Sold>, links: Map<string, Link[]>)
     for (const l of ls) items.set(l.recipeId, (items.get(l.recipeId) ?? 0) + n * l.itemsPerUnit);
   };
   for (const [k, s] of sold) {
+    // Its own recipes (a box's packaging, or the whole thing), plus what went in it
     const own = links.get(k);
     if (own?.length) add(own, s.quantity);
-    else if (s.picks.size) {
+    if (s.picks.size) {
       for (const [pk, p] of s.picks) {
         const pl = links.get(pk);
         if (pl?.length) add(pl, p.quantity);
-        else unlinked.set(p.name, (unlinked.get(p.name) ?? 0) + p.quantity);
+        else if (!own?.length) unlinked.set(p.name, (unlinked.get(p.name) ?? 0) + p.quantity);
       }
-    } else unlinked.set(s.name, (unlinked.get(s.name) ?? 0) + s.quantity);
+    } else if (!own?.length) unlinked.set(s.name, (unlinked.get(s.name) ?? 0) + s.quantity);
   }
   return { items, unlinked };
 }

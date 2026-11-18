@@ -99,6 +99,11 @@ export default function AdminSalesPage() {
   const tips = rows.reduce((n, r) => n + r.tip, 0);
   const discounts = rows.reduce((n, r) => n + r.discount, 0);
   const fees = rows.reduce((n, r) => n + (r.fees ?? 0), 0);
+  // Profit: from orders whose products all have recipes tagged (Costs → Products)
+  const costed = rows.filter((r) => r.estCost !== null);
+  const costedRevenue = costed.reduce((n, r) => n + r.revenue, 0);
+  const cost = costed.reduce((n, r) => n + (r.estCost ?? 0), 0);
+  const profit = costedRevenue - cost;
   const products = new Map<string, { quantity: number; amount: number }>();
   for (const r of rows) {
     for (const l of r.lines) {
@@ -114,8 +119,8 @@ export default function AdminSalesPage() {
       const s = v == null ? "" : String(v);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const head = ["Date", "Source", "Order #", "Type", "Payment", "Customer", "Items", "Subtotal ($)", "Discount ($)", "Paid with Gift Card ($)", "Tip ($)", "Tax ($)", "Fees ($)", "Refunded ($)", "Revenue ($)"];
-    const body = rows.map((r) => [r.date, r.source, r.orderNumber, r.type, r.payment, r.customer, r.items, r.subtotal, r.discount, r.giftCardUsed, r.tip, r.tax, r.fees ?? "", r.refunded, r.revenue]);
+    const head = ["Date", "Source", "Order #", "Type", "Payment", "Customer", "Items", "Subtotal ($)", "Discount ($)", "Paid with Gift Card ($)", "Tip ($)", "Tax ($)", "Fees ($)", "Refunded ($)", "Revenue ($)", "Est. Cost ($)", "Est. Profit ($)"];
+    const body = rows.map((r) => [r.date, r.source, r.orderNumber, r.type, r.payment, r.customer, r.items, r.subtotal, r.discount, r.giftCardUsed, r.tip, r.tax, r.fees ?? "", r.refunded, r.revenue, r.estCost ?? "", r.estCost !== null ? Math.round((r.revenue - r.estCost) * 100) / 100 : ""]);
     const csv = [head, ...body].map((r) => r.map(esc).join(",")).join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -193,9 +198,11 @@ export default function AdminSalesPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
             {[
               ["Revenue", money(revenue)],
+              ["Cost to make (est.)", costed.length ? money(cost) : "—"],
+              ["Profit (est.)", costed.length ? `${money(profit)}${costedRevenue ? ` · ${Math.round((profit / costedRevenue) * 100)}%` : ""}` : "—"],
               ["Orders", String(rows.length)],
               ["Average order", money(rows.length ? revenue / rows.length : 0)],
               ["Tips", money(tips)],
@@ -207,6 +214,12 @@ export default function AdminSalesPage() {
               </div>
             ))}
           </div>
+          {rows.length > 0 && (
+            <p className="text-xs text-stone-500">
+              Cost and profit are estimates from the recipes tagged in Costs → Products, counted on the {costed.length} of {rows.length} orders
+              where every item has recipes{costed.length < rows.length ? " (tag the rest to include them)" : ""}. Overhead hours are included; card fees aren&apos;t.
+            </p>
+          )}
           {fees > 0 && <p className="text-xs text-stone-500">Platform/card fees in imported sales: {money(fees)} (card fees for this shop&apos;s orders are in Stripe).</p>}
 
           <div className="grid md:grid-cols-3 gap-3">
@@ -243,6 +256,7 @@ export default function AdminSalesPage() {
                   <th className="px-4 py-2.5 font-medium">Items</th>
                   <th className="px-4 py-2.5 font-medium">Payment</th>
                   <th className="px-4 py-2.5 font-medium text-right">Revenue</th>
+                  <th className="px-4 py-2.5 font-medium text-right">Profit (est.)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
@@ -256,6 +270,12 @@ export default function AdminSalesPage() {
                     <td className="px-4 py-2 text-stone-600 text-xs">{r.items}</td>
                     <td className="px-4 py-2 text-stone-600">{r.payment}</td>
                     <td className="px-4 py-2 text-right font-medium">{money(r.revenue)}</td>
+                    <td
+                      className={`px-4 py-2 text-right ${r.estCost !== null && r.revenue - r.estCost < 0 ? "text-red-600" : "text-stone-600"}`}
+                      title={r.estCost !== null ? `Cost to make about ${money(r.estCost)}` : "Not every item has recipes tagged"}
+                    >
+                      {r.estCost !== null ? money(r.revenue - r.estCost) : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
