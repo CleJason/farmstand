@@ -27,8 +27,16 @@ export const linkRef = (l: Link) => (l.ingredientId ? `i:${l.ingredientId}` : `r
 
 /** A product's current tags, for the editor's starting state. */
 export function tagsFor(data: CostsData | null, name: string): RecipeTag[] {
-  const p = data?.products.find((x) => x.key === key(name));
-  return p ? p.links.map((l) => ({ ref: linkRef(l), amount: String(l.itemsPerUnit) })) : [];
+  return (data?.tags[key(name)] ?? []).map((l) => ({ ref: linkRef(l), amount: String(l.itemsPerUnit) }));
+}
+
+/** A box choice's tags are its own: "<box> › <choice>" (older ones saved under the choice's name still apply, unless that's a product of its own). */
+export const choiceName = (box: string, choice: string) => `${box} › ${choice}`;
+export function choiceTagsFor(data: CostsData | null, box: string, choice: string): RecipeTag[] {
+  const own = tagsFor(data, choiceName(box, choice));
+  if (own.length || !data) return own;
+  const isProduct = data.products.some((p) => p.key === key(choice) && p.price !== null);
+  return isProduct ? [] : tagsFor(data, choice);
 }
 
 /** What one of `ref` costs, and the unit its amount is in. */

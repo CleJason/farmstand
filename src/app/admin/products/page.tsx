@@ -6,7 +6,7 @@ import { formatPrice } from "@/lib/utils";
 import { productBoxGroups } from "@/lib/box";
 import ImageUpload from "@/components/ImageUpload";
 import ImagePositioner from "@/components/ImagePositioner";
-import ProductRecipes, { saveTags, tagsCost, tagsFor, useCostsData, type RecipeTag } from "@/components/costs/ProductRecipes";
+import ProductRecipes, { choiceName, choiceTagsFor, saveTags, tagsCost, tagsFor, useCostsData, type RecipeTag } from "@/components/costs/ProductRecipes";
 
 interface Product {
   id: string;
@@ -173,13 +173,27 @@ export default function AdminProductsPage() {
       if (!res.ok) throw new Error();
       // Recipe tags only when they were loaded and touched (or the name changed)
       if (tags !== null || (editingName && editingName !== name)) await saveTags(name, tags ?? tagsFor(costs, editingName ?? name), editingName);
-      for (const [choice, t] of Object.entries(choiceTags)) await saveTags(choice, t);
+      // Box choices' own tags, under this box's name (moved along when it was renamed)
+      const renamed = editingName && editingName !== name ? editingName : null;
+      if (isBox) {
+        for (const c of currentChoices()) {
+          const t = choiceTags[c] ?? (renamed ? tagsFor(costs, choiceName(renamed, c)) : null);
+          if (t) await saveTags(choiceName(name, c), t, renamed ? choiceName(renamed, c) : null);
+        }
+      }
       setShowModal(false);
       loadProducts();
     } catch {
       alert(editingId ? "Failed to save changes" : "Failed to create product");
     }
   };
+
+  /** The box's choices as typed in the form. */
+  const currentChoices = () => [
+    ...new Set(
+      (useSections ? sections.flatMap((s) => s.options.split("\n")) : boxOptions.split("\n")).map((o) => o.trim()).filter(Boolean)
+    ),
+  ];
 
   // Grouped by category (no category last), with a filter when there are several
   const [catFilter, setCatFilter] = useState("All");
@@ -511,24 +525,18 @@ export default function AdminProductsPage() {
                   <div>
                     <span className="block text-sm font-medium text-stone-800">Recipes for each choice</span>
                     <span className="block text-xs text-stone-500">
-                      Tag each choice once with what ONE of it uses (e.g. Pumpkin Roll: 1 roll from Pumpkin Rolls + 1 roll of Frosting).
-                      Boxes cost what was actually picked; the drop forecast averages the choices. A choice with the same name in
-                      another box shares its tags.
+                      Tag each choice with what ONE of it uses in this box (e.g. 1 cookie from its recipe). Only what customers actually
+                      pick is counted; the drop forecast averages the choices. These belong to this box, separate from a product with
+                      the same name.
                     </span>
                   </div>
                   {(() => {
-                    const choices = [
-                      ...new Set(
-                        (useSections ? sections.flatMap((s) => s.options.split("\n")) : boxOptions.split("\n"))
-                          .map((o) => o.trim())
-                          .filter(Boolean)
-                      ),
-                    ];
+                    const choices = currentChoices();
                     if (!choices.length) return <p className="text-xs text-stone-400">Add the box&apos;s choices below first.</p>;
                     return (
                       <ul className="divide-y divide-stone-100">
                         {choices.map((c) => {
-                          const t = choiceTags[c] ?? tagsFor(costs, c);
+                          const t = choiceTags[c] ?? choiceTagsFor(costs, editingName ?? name, c);
                           const each = tagsCost(costs, t);
                           const open = openChoice === c;
                           return (

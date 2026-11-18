@@ -21,6 +21,13 @@ export function batchUsage(lines: LineLike[], ingredients: Map<string, Ingredien
 export const linkKey = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
 
 /** A tag: a recipe (in its yield units) or one ingredient/packaging item (in its base unit). */
+/**
+ * A box choice's own tags are saved under "<box> › <choice>", so a choice can
+ * cost differently from a product with the same name (1 cookie in a box vs a
+ * 6-pack). Older tags saved under the choice's name alone still count.
+ */
+export const choiceKey = (box: string, choice: string) => linkKey(`${box} › ${choice}`);
+
 export type Link = { recipeId: string | null; ingredientId?: string | null; itemsPerUnit: number };
 
 /** Each product / box option's recipes: one can use several (rolls, frosting, streusel…). */
@@ -47,7 +54,7 @@ export function soldItemCost(name: string, picks: { name: string; quantity: numb
   if (!picks?.length) return own;
   let total = 0;
   for (const p of picks) {
-    const c = cost(p.name);
+    const c = cost(choiceKey(name, p.name)) ?? cost(p.name);
     if (c === null) return own;
     total += c * p.quantity;
   }
@@ -105,7 +112,8 @@ export function itemsNeeded(sold: Map<string, Sold>, links: Map<string, Link[]>)
     if (own?.length) add(own, s.quantity);
     if (s.picks.size) {
       for (const [pk, p] of s.picks) {
-        const pl = links.get(pk);
+        const scoped = links.get(choiceKey(s.name, p.name));
+        const pl = scoped?.length ? scoped : links.get(pk);
         if (pl?.length) add(pl, p.quantity);
         else if (!own?.length) unlinked.set(p.name, (unlinked.get(p.name) ?? 0) + p.quantity);
       }

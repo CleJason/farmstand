@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { loadCosts } from "@/lib/costs-data";
-import { groupLinks, linkedCost, soldItemCost } from "@/lib/costs-plan";
+import { choiceKey, groupLinks, linkedCost, soldItemCost } from "@/lib/costs-plan";
 import { dropBoxGroups, dropBoxOptions, isBox } from "@/lib/box";
 import { isPaidStatus } from "@/lib/pickup";
 
@@ -38,8 +38,8 @@ export async function dropForecasts(): Promise<Record<string, DropForecast>> {
   const linkBy = groupLinks(links);
   const itemCost = (name: string) => linkedCost(name, linkBy, perItem);
   /** Average cost of `size` picks from these choices; null when any choice has no recipe. */
-  const pickCost = (options: string[], size: number) => {
-    const each = options.map(itemCost);
+  const pickCost = (box: string, options: string[], size: number) => {
+    const each = options.map((o) => itemCost(choiceKey(box, o)) ?? itemCost(o));
     if (each.length === 0 || each.some((c) => c === null)) return null;
     return ((each as number[]).reduce((a, b) => a + b, 0) / each.length) * size;
   };
@@ -78,8 +78,8 @@ export async function dropForecasts(): Promise<Record<string, DropForecast>> {
       if (isBox(dp.product)) {
         const groups = dropBoxGroups(dp.product.boxGroups, dp.boxOptions);
         const parts = groups.length
-          ? groups.map((g) => pickCost(g.options, g.size))
-          : [pickCost(dropBoxOptions(dp.product.boxOptions, dp.boxOptions), dp.product.boxSize ?? 0)];
+          ? groups.map((g) => pickCost(dp.product.name, g.options, g.size))
+          : [pickCost(dp.product.name, dropBoxOptions(dp.product.boxOptions, dp.boxOptions), dp.product.boxSize ?? 0)];
         if (!parts.some((c) => c === null)) cost = (cost ?? 0) + (parts as number[]).reduce((a, b) => a + b, 0);
       }
       if (cost === null) f.noCost.push(dp.product.name);

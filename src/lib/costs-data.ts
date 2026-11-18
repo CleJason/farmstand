@@ -144,6 +144,11 @@ export async function loadCosts() {
       cost: o.cost,
     })),
     soldNames: names,
+    // Every tag by name (products, box choices, and "<box> › <choice>")
+    tags: allLinks.reduce<Record<string, { recipeId: string | null; ingredientId: string | null; itemsPerUnit: number }[]>>((m, l) => {
+      (m[l.name] ??= []).push({ recipeId: l.recipeId, ingredientId: l.ingredientId, itemsPerUnit: l.itemsPerUnit });
+      return m;
+    }, {}),
     // Products tab: each product / box choice, its price and the recipes it uses
     products: names.map((name) => {
       const k = linkKey(name);
