@@ -53,6 +53,9 @@ export default function AdminProductsPage() {
   // A box's choices: the recipes each one uses, by choice name (only the ones changed)
   const [choiceTags, setChoiceTags] = useState<Record<string, RecipeTag[]>>({});
   const [openChoice, setOpenChoice] = useState<string | null>(null);
+  // Add-ons' cost tags (Extra Icing → the icing recipe), by add-on name; shared by every product offering it
+  const [addOnTags, setAddOnTags] = useState<Record<string, RecipeTag[]>>({});
+  const [openAddOn, setOpenAddOn] = useState<number | null>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
 
   const loadProducts = async () => {
@@ -89,6 +92,8 @@ export default function AdminProductsPage() {
     setTags(null);
     setChoiceTags({});
     setOpenChoice(null);
+    setAddOnTags({});
+    setOpenAddOn(null);
     setEditingName(null);
     setShowModal(true);
   };
@@ -111,6 +116,8 @@ export default function AdminProductsPage() {
     setTags(null);
     setChoiceTags({});
     setOpenChoice(null);
+    setAddOnTags({});
+    setOpenAddOn(null);
     setEditingName(product.name);
     setShowModal(true);
   };
@@ -173,6 +180,7 @@ export default function AdminProductsPage() {
       if (!res.ok) throw new Error();
       // Recipe tags only when they were loaded and touched (or the name changed)
       if (tags !== null || (editingName && editingName !== name)) await saveTags(name, tags ?? tagsFor(costs, editingName ?? name), editingName);
+      for (const [addOn, t] of Object.entries(addOnTags)) if (addOn.trim()) await saveTags(`+ ${addOn.trim()}`, t);
       // Box choices' own tags, under this box's name (moved along when it was renamed)
       const renamed = editingName && editingName !== name ? editingName : null;
       if (isBox) {
@@ -574,7 +582,8 @@ export default function AdminProductsPage() {
                   </span>
                 </div>
                 {addOns.map((a, i) => (
-                  <div key={i} className="flex gap-2">
+                  <div key={i} className="space-y-1">
+                  <div className="flex gap-2">
                     <input
                       value={a.name}
                       onChange={(e) => setAddOns(addOns.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
@@ -598,6 +607,29 @@ export default function AdminProductsPage() {
                     >
                       ×
                     </button>
+                  </div>
+                  {a.name.trim() && (() => {
+                    const t = addOnTags[a.name.trim()] ?? tagsFor(costs, `+ ${a.name.trim()}`);
+                    const open = openAddOn === i;
+                    return (
+                      <div className="pl-1">
+                        <button type="button" onClick={() => setOpenAddOn(open ? null : i)} className="text-[11px] text-stone-500 hover:text-stone-800">
+                          {t.length ? `Costs ${tagsCost(costs, t).toFixed(2)} to make` : "Cost to make: tag a recipe (e.g. Icing)"} {open ? "▴" : "▾"}
+                        </button>
+                        {open && (
+                          <div className="mt-1">
+                            <ProductRecipes
+                              data={costs}
+                              tags={t}
+                              onChange={(next) => setAddOnTags({ ...addOnTags, [a.name.trim()]: next })}
+                              priceDollars={a.price}
+                            />
+                            <p className="text-[11px] text-stone-500 mt-1">Shared by every product with a &quot;{a.name.trim()}&quot; add-on, and counts on past orders that had it too.</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   </div>
                 ))}
                 <button

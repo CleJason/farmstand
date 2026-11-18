@@ -54,7 +54,8 @@ export async function dropForecasts(): Promise<Record<string, DropForecast>> {
         const name = i.dropProduct?.product.name ?? i.name ?? "Item";
         const picks = Array.isArray(i.selections) ? (i.selections as { name: string; quantity: number }[]) : [];
         // Its own recipes plus what went in the box
-        const cost = soldItemCost(name, picks, itemCost);
+        const extras = Array.isArray(i.addOns) ? (i.addOns as { name: string }[]).map((a) => a.name) : [];
+        const cost = soldItemCost(name, picks, itemCost, extras);
         if (cost === null) {
           if (!sold.noCost.includes(name)) sold.noCost.push(name);
           continue;

@@ -3,7 +3,7 @@ import { isPaidStatus } from "@/lib/pickup";
 import { loadCosts } from "@/lib/costs-data";
 import { groupLinks, linkedCost, soldItemCost } from "@/lib/costs-plan";
 
-type SoldItem = { name: string; quantity: number; picks?: { name: string; quantity: number }[] };
+type SoldItem = { name: string; quantity: number; picks?: { name: string; quantity: number }[]; addOns?: { name: string; price: number }[] };
 
 export type SaleRow = {
   date: string;
@@ -49,7 +49,7 @@ export async function accounting(from: Date, to: Date) {
   const estCost = (items: SoldItem[]) => {
     let total = 0;
     for (const i of items) {
-      const c = soldItemCost(i.name, i.picks, itemCost);
+      const c = soldItemCost(i.name, i.picks, itemCost, i.addOns?.map((a) => a.name));
       if (c === null) return null;
       total += c * i.quantity;
     }
@@ -67,7 +67,17 @@ export async function accounting(from: Date, to: Date) {
       name: i.dropProduct?.product.name ?? i.farmstandItem?.name ?? i.name ?? (o.type === "GIFT" ? "Gift card" : "Item"),
       quantity: i.quantity,
       picks: Array.isArray(i.selections) ? (i.selections as { name: string; quantity: number }[]) : undefined,
+      addOns: Array.isArray(i.addOns) ? (i.addOns as { name: string; price: number }[]) : undefined,
     }));
+    // By product: each add-on is its own line ("+ Extra Icing"), taken out of its item's amount
+    const lines = o.items.flatMap((i, n) => {
+      const extras = items[n].addOns ?? [];
+      const extraEach = extras.reduce((s, a) => s + (Number(a.price) || 0), 0);
+      return [
+        { name: items[n].name, quantity: i.quantity, amount: ((i.priceAtPurchase - extraEach) * i.quantity) / 100 },
+        ...extras.map((a) => ({ name: `+ ${a.name}`, quantity: i.quantity, amount: ((Number(a.price) || 0) * i.quantity) / 100 })),
+      ];
+    });
     sales.push({
       date: day(o.createdAt),
       source: "Shop",
@@ -76,7 +86,7 @@ export async function accounting(from: Date, to: Date) {
       customer: o.guestName || o.user?.name || o.guestEmail || o.user?.email || "",
       items: describe(items),
       payment: o.total === 0 && o.giftAmount > 0 ? "Gift card" : PAYMENT[o.paymentMethod] ?? o.paymentMethod,
-      lines: o.items.map((i, n) => ({ name: items[n].name, quantity: i.quantity, amount: (i.priceAtPurchase * i.quantity) / 100 })),
+      lines,
       subtotal: o.subtotal / 100,
       discount: o.discount / 100,
       giftCardUsed: o.giftAmount / 100,
