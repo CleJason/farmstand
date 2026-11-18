@@ -16,7 +16,7 @@ type Usage = { ingredientId: string; amount: number }[];
 
 /** Everything the Costs page shows, with each ingredient's cost and each recipe's totals worked out. */
 export async function loadCosts() {
-  const [settings, ingredients, purchases, recipes, receipts, counts, bakes, itemsOut, names, drops, shopProducts] = await Promise.all([
+  const [settings, ingredients, purchases, recipes, receipts, counts, bakes, itemsOut, names, drops, shopProducts, allLinks] = await Promise.all([
     costSettings(),
     prisma.ingredient.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { recipeLines: true } } } }),
     prisma.ingredientPurchase.findMany({ orderBy: [{ date: "desc" }, { createdAt: "desc" }] }),
@@ -33,6 +33,7 @@ export async function loadCosts() {
       select: { id: true, title: true, orderOpenAt: true, orderCloseAt: true },
     }),
     prisma.product.findMany({ select: { name: true, price: true, boxSize: true, active: true } }),
+    prisma.recipeLink.findMany(),
   ]);
 
   // What's itemized in the purchase log for each receipt: same day, same store
@@ -153,7 +154,10 @@ export async function loadCosts() {
         price: product?.price ?? null, // cents; box choices have none
         isBox: !!product?.boxSize,
         active: product?.active ?? true,
-        links: recipes.flatMap((r) => r.links.filter((l) => l.name === k).map((l) => ({ recipeId: r.id, itemsPerUnit: l.itemsPerUnit }))),
+        // Recipes, or an ingredient/packaging item tagged directly
+        links: allLinks
+          .filter((l) => l.name === k)
+          .map((l) => ({ recipeId: l.recipeId, ingredientId: l.ingredientId, itemsPerUnit: l.itemsPerUnit })),
       };
     }),
     drops: drops.map((d) => ({ id: d.id, title: d.title, orderOpenAt: d.orderOpenAt.toISOString(), orderCloseAt: d.orderCloseAt.toISOString() })),

@@ -42,7 +42,7 @@ export async function accounting(from: Date, to: Date) {
     prisma.pastSale.findMany({ where: { placedAt: { gte: from, lt: to } }, orderBy: { placedAt: "asc" } }),
     prisma.recipeLink.findMany(),
   ]);
-  const perItem = new Map(costs.recipes.map((r) => [r.id, r.cost.perItem]));
+  const perItem = new Map([...costs.recipes.map((r) => [r.id, r.cost.perItem] as const), ...costs.ingredients.map((i) => [i.id, i.cost ?? 0] as const)]);
   const linkBy = groupLinks(links);
   const itemCost = (name: string) => linkedCost(name, linkBy, perItem);
   /** Cost to make what was sold; null unless every item has recipes tagged (so profit isn't overstated). */

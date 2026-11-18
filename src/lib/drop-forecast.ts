@@ -34,7 +34,7 @@ export async function dropForecasts(): Promise<Record<string, DropForecast>> {
       },
     }),
   ]);
-  const perItem = new Map(costs.recipes.map((r) => [r.id, r.cost.perItem]));
+  const perItem = new Map([...costs.recipes.map((r) => [r.id, r.cost.perItem] as const), ...costs.ingredients.map((i) => [i.id, i.cost ?? 0] as const)]);
   const linkBy = groupLinks(links);
   const itemCost = (name: string) => linkedCost(name, linkBy, perItem);
   /** Average cost of `size` picks from these choices; null when any choice has no recipe. */

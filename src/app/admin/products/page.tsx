@@ -6,7 +6,7 @@ import { formatPrice } from "@/lib/utils";
 import { productBoxGroups } from "@/lib/box";
 import ImageUpload from "@/components/ImageUpload";
 import ImagePositioner from "@/components/ImagePositioner";
-import ProductRecipes, { saveTags, tagsFor, useCostsData, type RecipeTag } from "@/components/costs/ProductRecipes";
+import ProductRecipes, { saveTags, tagsCost, tagsFor, useCostsData, type RecipeTag } from "@/components/costs/ProductRecipes";
 
 interface Product {
   id: string;
@@ -439,12 +439,11 @@ export default function AdminProductsPage() {
                       ),
                     ];
                     if (!choices.length) return <p className="text-xs text-stone-400">Add the box&apos;s choices below first.</p>;
-                    const perItem = new Map((costs?.recipes ?? []).map((r) => [r.id, r.cost.perItem]));
                     return (
                       <ul className="divide-y divide-stone-100">
                         {choices.map((c) => {
                           const t = choiceTags[c] ?? tagsFor(costs, c);
-                          const each = t.reduce((s, x) => s + (perItem.get(x.recipeId) ?? 0) * (Number(x.amount) || 0), 0);
+                          const each = tagsCost(costs, t);
                           const open = openChoice === c;
                           return (
                             <li key={c} className="py-2">

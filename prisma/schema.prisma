@@ -434,6 +434,7 @@ model Ingredient {
   purchases   IngredientPurchase[]
   recipeLines RecipeLine[]
   counts      StockCount[]
+  links       RecipeLink[] // products tagged with it directly (packaging)
 }
 
 // "There's actually this much on the shelf": on hand = this + purchases since − baking since
@@ -522,13 +523,17 @@ model Recipe {
 // What a recipe is sold as: a product's name, or a box option ("Chocolate Chip"
 // in a 6-cookie box). Each one sold uses `itemsPerUnit` of what the recipe makes.
 model RecipeLink {
-  id           String @id @default(cuid())
+  id           String      @id @default(cuid())
   name         String // product or box option, stored lowercase; one can use several recipes
-  recipeId     String
-  itemsPerUnit Float  @default(1) // how many of the recipe's items (its yield) one uses
-  recipe       Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  // What it uses: a recipe (in its yield units) or one ingredient/packaging item directly (in its base unit)
+  recipeId     String?
+  ingredientId String?
+  itemsPerUnit Float       @default(1) // how much one uses
+  recipe       Recipe?     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
 
   @@unique([name, recipeId])
+  @@unique([name, ingredientId])
 }
 
 // Batches baked (for a drop, the porch, trying a new recipe…): uses up ingredients

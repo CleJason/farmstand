@@ -16,18 +16,29 @@ export async function PUT(req: Request) {
     const data = await req.json().catch(() => ({}));
     const name = linkKey(String(data.name ?? "")).slice(0, 120);
     if (!name) throw new CostInputError("Which product?");
-    const known = new Set((await prisma.recipe.findMany({ select: { id: true } })).map((r) => r.id));
+    const [recipes, ingredients] = await Promise.all([
+      prisma.recipe.findMany({ select: { id: true } }),
+      prisma.ingredient.findMany({ select: { id: true } }),
+    ]);
+    const knownRecipe = new Set(recipes.map((r) => r.id));
+    const knownIngredient = new Set(ingredients.map((i) => i.id));
     const raw: unknown[] = Array.isArray(data.links) ? data.links.slice(0, 30) : [];
+    // Keyed "r:<id>" or "i:<id>" so the same thing tagged twice adds up
     const links = new Map<string, number>();
     for (const r of raw) {
       const l = (r ?? {}) as Record<string, unknown>;
-      const recipeId = String(l.recipeId ?? "");
-      if (!known.has(recipeId)) continue;
-      links.set(recipeId, (links.get(recipeId) ?? 0) + positive(l.itemsPerUnit ?? 1, "How much it uses")!);
+      const key = l.ingredientId ? `i:${l.ingredientId}` : `r:${l.recipeId ?? ""}`;
+      const id = key.slice(2);
+      if (key.startsWith("i:") ? !knownIngredient.has(id) : !knownRecipe.has(id)) continue;
+      links.set(key, (links.get(key) ?? 0) + positive(l.itemsPerUnit ?? 1, "How much it uses")!);
     }
     await prisma.$transaction([
       prisma.recipeLink.deleteMany({ where: { name } }),
-      prisma.recipeLink.createMany({ data: [...links].map(([recipeId, itemsPerUnit]) => ({ name, recipeId, itemsPerUnit })) }),
+      prisma.recipeLink.createMany({
+        data: [...links].map(([key, itemsPerUnit]) =>
+          key.startsWith("i:") ? { name, ingredientId: key.slice(2), itemsPerUnit } : { name, recipeId: key.slice(2), itemsPerUnit }
+        ),
+      }),
     ]);
     return NextResponse.json(await loadCosts());
   } catch (e) {

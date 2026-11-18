@@ -20,7 +20,8 @@ export function batchUsage(lines: LineLike[], ingredients: Map<string, Ingredien
 /** Links are matched by name, any case: a product name or a box option. */
 export const linkKey = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
 
-export type Link = { recipeId: string; itemsPerUnit: number };
+/** A tag: a recipe (in its yield units) or one ingredient/packaging item (in its base unit). */
+export type Link = { recipeId: string | null; ingredientId?: string | null; itemsPerUnit: number };
 
 /** Each product / box option's recipes: one can use several (rolls, frosting, streusel…). */
 export function groupLinks(links: ({ name: string } & Link)[]): Map<string, Link[]> {
@@ -29,11 +30,11 @@ export function groupLinks(links: ({ name: string } & Link)[]): Map<string, Link
   return by;
 }
 
-/** What one of `name` costs to make: the sum of its tagged recipes; null when it has none. */
+/** What one of `name` costs to make: the sum of its tags; null when it has none. `perItem` has recipe ids (per item) and ingredient ids (per base unit). */
 export function linkedCost(name: string, links: Map<string, Link[]>, perItem: Map<string, number>): number | null {
   const ls = links.get(linkKey(name));
   if (!ls?.length) return null;
-  return ls.reduce((s, l) => s + (perItem.get(l.recipeId) ?? 0) * l.itemsPerUnit, 0);
+  return ls.reduce((s, l) => s + (perItem.get((l.recipeId ?? l.ingredientId) || "") ?? 0) * l.itemsPerUnit, 0);
 }
 
 /**
@@ -95,7 +96,8 @@ export function itemsNeeded(sold: Map<string, Sold>, links: Map<string, Link[]>)
   const items = new Map<string, number>();
   const unlinked = new Map<string, number>();
   const add = (ls: Link[], n: number) => {
-    for (const l of ls) items.set(l.recipeId, (items.get(l.recipeId) ?? 0) + n * l.itemsPerUnit);
+    // Recipes to bake (packaging tagged directly isn't baked)
+    for (const l of ls) if (l.recipeId) items.set(l.recipeId, (items.get(l.recipeId) ?? 0) + n * l.itemsPerUnit);
   };
   for (const [k, s] of sold) {
     // Its own recipes (a box's packaging, or the whole thing), plus what went in it

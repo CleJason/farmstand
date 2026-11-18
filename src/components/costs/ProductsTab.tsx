@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { money } from "@/lib/costs";
 import { buttonClass, ghostClass, inputClass, type TabProps } from "@/components/costs/shared";
+import ProductRecipes, { linkRef, linksCost, refCost, saveTags, tagsFor, type RecipeTag } from "@/components/costs/ProductRecipes";
 
 type ProductRow = TabProps["data"]["products"][number];
 
@@ -14,9 +15,7 @@ type ProductRow = TabProps["data"]["products"][number];
 export default function ProductsTab({ data, save }: TabProps) {
   const [open, setOpen] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const perItem = new Map(data.recipes.map((r) => [r.id, r.cost.perItem]));
-  const costOf = (p: ProductRow) =>
-    p.links.length ? p.links.reduce((s, l) => s + (perItem.get(l.recipeId) ?? 0) * l.itemsPerUnit, 0) : null;
+  const costOf = (p: ProductRow) => (p.links.length ? linksCost(data, p.links) : null);
   const q = search.trim().toLowerCase();
   const list = data.products.filter((p) => !q || p.name.toLowerCase().includes(q));
   const untagged = data.products.filter((p) => p.active && !p.isBox && !p.links.length).length;
@@ -73,8 +72,8 @@ export default function ProductsTab({ data, save }: TabProps) {
                         {p.links.length
                           ? p.links
                               .map((l) => {
-                                const r = data.recipes.find((x) => x.id === l.recipeId);
-                                return r ? `${l.itemsPerUnit} ${r.yieldLabel} ${r.name}` : null;
+                                const c = refCost(data, linkRef(l));
+                                return c ? `${l.itemsPerUnit} ${c.unit} ${c.name}` : null;
                               })
                               .filter(Boolean)
                               .join(" + ")
@@ -136,71 +135,28 @@ function Row({
 }
 
 function Editor({ p, data, save, onClose }: TabProps & { p: ProductRow; onClose: () => void }) {
-  const [links, setLinks] = useState(p.links.map((l) => ({ recipeId: l.recipeId, amount: String(l.itemsPerUnit) })));
+  const [tags, setTags] = useState<RecipeTag[]>(tagsFor(data, p.name));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const recipe = (id: string) => data.recipes.find((r) => r.id === id);
-  const total = links.reduce((s, l) => s + (recipe(l.recipeId)?.cost.perItem ?? 0) * (Number(l.amount) || 0), 0);
 
   const submit = async () => {
     setBusy(true);
     setError("");
-    const { error: err } = await save("/api/costs/links", "PUT", {
-      name: p.name,
-      links: links.filter((l) => l.recipeId && Number(l.amount) > 0).map((l) => ({ recipeId: l.recipeId, itemsPerUnit: l.amount })),
-    });
-    setBusy(false);
-    if (err) return setError(err);
-    onClose();
+    try {
+      await saveTags(p.name, tags);
+      // Refresh the Costs data
+      const { error: err } = await save("/api/costs", "GET");
+      if (err) setError(err);
+      else onClose();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
       <p className="text-xs font-medium text-stone-600">One {p.name} uses:</p>
-      {links.map((l, i) => {
-        const r = recipe(l.recipeId);
-        return (
-          <div key={i} className="flex flex-wrap items-center gap-2 text-sm">
-            <input
-              type="number"
-              min={0}
-              step="any"
-              value={l.amount}
-              onChange={(e) => setLinks(links.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))}
-              className={`${inputClass} w-20`}
-            />
-            <span className="text-stone-600">{r?.yieldLabel ?? "of"} from</span>
-            <select
-              value={l.recipeId}
-              onChange={(e) => setLinks(links.map((x, j) => (j === i ? { ...x, recipeId: e.target.value } : x)))}
-              className={`${inputClass} w-56`}
-            >
-              <option value="">Pick a recipe…</option>
-              {data.recipes.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {x.name} (makes {x.yieldCount} {x.yieldLabel})
-                </option>
-              ))}
-            </select>
-            {r && <span className="text-xs text-stone-500">{money(r.cost.perItem * (Number(l.amount) || 0))}</span>}
-            <button onClick={() => setLinks(links.filter((_, j) => j !== i))} className="text-stone-400 hover:text-red-600" aria-label="Remove">
-              ✕
-            </button>
-          </div>
-        );
-      })}
-      <button onClick={() => setLinks([...links, { recipeId: "", amount: "1" }])} className="text-xs font-semibold text-amber-700 hover:underline">
-        + Add a recipe
-      </button>
-      <p className="text-sm">
-        Cost to make one: <b>{money(total)}</b>
-        {p.price !== null && total > 0 && (
-          <span className="text-stone-500">
-            {" "}
-            · sells for {money(p.price / 100)} · profit {money(p.price / 100 - total)}
-          </span>
-        )}
-      </p>
+      <ProductRecipes data={data} tags={tags} onChange={setTags} priceDollars={p.price !== null ? String(p.price / 100) : ""} />
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2">
         <button onClick={submit} disabled={busy} className={buttonClass}>
