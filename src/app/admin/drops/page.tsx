@@ -545,7 +545,7 @@ export default function AdminDropsPage() {
                           </div>
                           {forecasts[drop.id].sold.noCost.length > 0 && (
                             <div className="text-[11px] text-amber-800">
-                              No recipe linked yet: {forecasts[drop.id].sold.noCost.join(", ")}
+                              Not counted in profit until tagged in Costs: {forecasts[drop.id].sold.noCost.join(", ")}
                             </div>
                           )}
                         </div>

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { loadCosts } from "@/lib/costs-data";
-import { choiceKey, groupLinks, linkedCost, soldItemCost } from "@/lib/costs-plan";
+import { addOnKey, choiceKey, groupLinks, linkedCost, soldItemCost } from "@/lib/costs-plan";
 import { dropBoxGroups, dropBoxOptions, isBox } from "@/lib/box";
 import { isPaidStatus } from "@/lib/pickup";
 
@@ -57,7 +57,13 @@ export async function dropForecasts(): Promise<Record<string, DropForecast>> {
         const extras = Array.isArray(i.addOns) ? (i.addOns as { name: string }[]).map((a) => a.name) : [];
         const cost = soldItemCost(name, picks, itemCost, extras);
         if (cost === null) {
-          if (!sold.noCost.includes(name)) sold.noCost.push(name);
+          // Say what's actually missing: an add-on, a box choice, or the item itself
+          const note = (s: string) => !sold.noCost.includes(s) && sold.noCost.push(s);
+          if (soldItemCost(name, picks, itemCost) !== null) {
+            for (const a of extras) if (itemCost(addOnKey(a)) === null) note(`${a} (add-on)`);
+          } else if (picks.length && itemCost(name) === null) {
+            for (const p of picks) if (itemCost(choiceKey(name, p.name)) === null && itemCost(p.name) === null) note(`${p.name} (in ${name})`);
+          } else note(name);
           continue;
         }
         const paid = (i.priceAtPurchase * i.quantity) / 100;
