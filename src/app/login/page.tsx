@@ -17,7 +17,51 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const codeResult = searchParams.get("code");
+  const [error, setError] = useState<string | null>(
+    codeResult === "locked"
+      ? "Too many wrong codes. Request a new one in a little while."
+      : codeResult === "expired"
+        ? "That code or link has expired. Request a new one."
+        : codeResult
+          ? "That sign-in link didn't work. Request a new one."
+          : null,
+  );
+  const [code, setCode] = useState("");
+  const [checking, setChecking] = useState(false);
+
+  async function handleCode(e: React.FormEvent) {
+    e.preventDefault();
+    const digits = code.replace(/\D/g, "");
+    if (digits.length !== 6) return;
+    setChecking(true);
+    setError(null);
+    try {
+      const { result, email: normalized } = await fetch("/api/login/code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code: digits }),
+      }).then((r) => r.json());
+      if (result === "ok") {
+        window.location.href = `/api/auth/callback/nodemailer?${new URLSearchParams({
+          callbackUrl,
+          token: digits,
+          email: normalized,
+        })}`;
+        return;
+      }
+      setError(
+        result === "locked"
+          ? "Too many wrong codes. Request a new one in a little while."
+          : result === "expired"
+            ? "That code has expired. Request a new one."
+            : "That code isn't right. Check the email and try again.",
+      );
+    } catch {
+      setError("Something went wrong. Please try again.");
+    }
+    setChecking(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -73,10 +117,43 @@ function LoginForm() {
                 {text("login.sentText", { email })}
               </p>
             </div>
+            <form onSubmit={handleCode} className="space-y-3 pt-2">
+              <label className="block text-sm font-medium text-stone-700">Or type the 6-digit code</label>
+              <input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={7}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="123 456"
+                className="w-full text-center tracking-[0.4em] text-xl font-semibold border border-stone-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 placeholder:text-stone-300"
+              />
+              {error && (
+                <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+              )}
+              <button
+                type="submit"
+                disabled={checking || code.replace(/\D/g, "").length !== 6}
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded-xl font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {checking ? "Checking..." : "Sign in with code"}
+              </button>
+            </form>
             <SpamHint />
             <p className="text-xs text-stone-400">
               {text("login.expires")}
             </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSent(false);
+                setCode("");
+                setError(null);
+              }}
+              className="text-xs text-stone-500 underline"
+            >
+              Use a different email
+            </button>
           </div>
         ) : (
           <>
