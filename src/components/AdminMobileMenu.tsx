@@ -6,9 +6,9 @@ import { usePathname } from "next/navigation";
 import { CalendarDays, ClipboardList, Menu, MessageCircle, Sun, X } from "lucide-react";
 
 /**
- * The admin menu on phones: a bar that stays at the top while scrolling, with
- * a button that opens the list of pages, so a long page doesn't mean scrolling
- * all the way back up to switch.
+ * The admin menu on phones: tabs along the bottom for the main pages, and
+ * More, which opens the full list of pages above them. The top bar just shows
+ * the shop's name.
  */
 export default function AdminMobileMenu({
   siteName,
@@ -72,18 +72,13 @@ export default function AdminMobileMenu({
         <Link href="/admin" className="min-w-0 font-bold text-stone-900 truncate">
           {siteName}
         </Link>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-label={open ? "Close menu" : "Open menu"}
-          aria-expanded={open}
-          className="p-2 -mr-2 rounded-lg text-stone-700 hover:bg-stone-100"
-        >
-          {open ? <X size={22} /> : <Menu size={22} />}
-        </button>
       </div>
+    </div>
+      {/* "More": the full menu, opening up from the bottom tabs */}
       {open && (
-        <nav className="max-h-[calc(100vh-7.5rem)] overflow-y-auto border-t border-stone-100 p-3 space-y-0.5 shadow-lg bg-white">
+        <>
+        <button type="button" aria-label="Close menu" onClick={() => setOpen(false)} className="md:hidden print:hidden fixed inset-0 z-30 bg-black/30" />
+        <nav className="md:hidden print:hidden fixed inset-x-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-40 max-h-[calc(100vh-8rem)] overflow-y-auto border-t border-stone-200 rounded-t-2xl p-3 space-y-0.5 shadow-2xl bg-white">
           {items.map((item) => (
             <Link
               key={item.href}
@@ -107,8 +102,8 @@ export default function AdminMobileMenu({
           </div>
           <div className="text-[10px] text-stone-300 font-mono pt-1 px-1">v {version}</div>
         </nav>
+        </>
       )}
-    </div>
     </>
   );
 }
