@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { formatPrice } from "@/lib/utils";
 import { useSite } from "@/components/SiteProvider";
+import { describePicks } from "@/lib/box";
+import { describeAddOns } from "@/lib/addons";
 import {
   BAKE_STATUSES,
   bakeList,
@@ -42,7 +44,6 @@ const short = (name: string) => {
   const [first, last] = name.trim().split(/\s+/);
   return last ? `${first} ${last[0]}.` : first;
 };
-const itemsLine = (o: Order) => o.items.map((i) => `${i.quantity} ${itemName(i)}`).join(", ");
 
 /**
  * The owner's day at a glance: who's picking up today, what needs her (payments
@@ -227,26 +228,44 @@ export default function AdminTodayPage() {
                 {pickups.map((o) => {
                   const s = statusConfig[o.status] ?? { label: o.status, classes: "bg-stone-100 text-stone-600" };
                   return (
-                    <li key={o.id} className="px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm break-inside-avoid">
-                      <span className="w-16 font-semibold text-stone-900 tabular-nums">{pickupAt(o) ? time(pickupAt(o)!) : ""}</span>
-                      <span className="min-w-0 flex-1">
-                        <Link href={`/admin#order-${o.id}`} className="font-medium text-stone-900 hover:underline">
-                          {short(who(o))}
-                        </Link>{" "}
-                        <span className="text-xs text-stone-400">#{o.id.slice(-6).toUpperCase()}</span>
-                        <span className="block text-stone-600">{itemsLine(o)}</span>
-                        {o.notes && <span className="block text-xs text-amber-800">Note: {o.notes}</span>}
-                      </span>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${s.classes}`}>
-                        {o.status === "AWAITING_CONFIRM" ? `Awaiting ${o.paymentMethod === "PAYPAL" ? "PayPal" : "Venmo"}` : s.label}
-                      </span>
-                      <span className="print:hidden w-28 text-right">
-                        {o.status === "AWAITING_CONFIRM" && <Action onClick={() => change(o, "PAID")}>Confirm paid</Action>}
-                        {o.status === "PAID" && <Action onClick={() => change(o, "READY")}>Mark ready</Action>}
-                        {o.status === "READY" && <Action onClick={() => change(o, "PICKED_UP")} light>Picked up</Action>}
-                      </span>
-                      {/* On the printed sheet: a box to tick */}
-                      <span className="hidden print:inline-block w-5 h-5 border border-stone-400 rounded" />
+                    <li key={o.id} className="px-4 py-3 text-sm break-inside-avoid">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <span className="font-semibold text-stone-900 tabular-nums">{pickupAt(o) ? time(pickupAt(o)!) : ""}</span>
+                          <span className="text-stone-400"> · </span>
+                          <Link href={`/admin#order-${o.id}`} className="font-medium text-stone-900 hover:underline">
+                            {who(o)}
+                          </Link>
+                          <span className="ml-1.5 text-xs text-stone-400">#{o.id.slice(-6).toUpperCase()}</span>
+                        </div>
+                        <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${s.classes}`}>
+                          {o.status === "AWAITING_CONFIRM" ? `Awaiting ${o.paymentMethod === "PAYPAL" ? "PayPal" : "Venmo"}` : s.label}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 flex items-end justify-between gap-3">
+                        <ul className="min-w-0 space-y-0.5 text-stone-700">
+                          {o.items.map((i) => {
+                            const picks = describePicks(i.selections);
+                            const extras = describeAddOns(i.addOns);
+                            return (
+                              <li key={i.id}>
+                                <span className="font-semibold text-stone-900">{i.quantity}×</span> {itemName(i)}
+                                {(picks || extras) && (
+                                  <span className="block text-xs text-stone-500 pl-5">{[picks, extras].filter(Boolean).join(" · ")}</span>
+                                )}
+                              </li>
+                            );
+                          })}
+                          {o.notes && <li className="text-xs text-amber-800">Note: {o.notes}</li>}
+                        </ul>
+                        <span className="print:hidden shrink-0">
+                          {o.status === "AWAITING_CONFIRM" && <Action onClick={() => change(o, "PAID")}>Confirm paid</Action>}
+                          {o.status === "PAID" && <Action onClick={() => change(o, "READY")}>Mark ready</Action>}
+                          {o.status === "READY" && <Action onClick={() => change(o, "PICKED_UP")} light>Picked up</Action>}
+                        </span>
+                        {/* On the printed sheet: a box to tick */}
+                        <span className="hidden print:inline-block shrink-0 w-5 h-5 border border-stone-400 rounded" />
+                      </div>
                     </li>
                   );
                 })}
