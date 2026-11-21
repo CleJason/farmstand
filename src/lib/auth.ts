@@ -3,6 +3,9 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import Nodemailer from "next-auth/providers/nodemailer";
 import { prisma } from "@/lib/prisma";
 import { getAdminEmails, isAdminEmail } from "@/lib/admin-emails";
+import { CODE_MINUTES, newLoginCode } from "@/lib/login-code";
+import { getSetting } from "@/lib/settings";
+import { createTransport } from "nodemailer";
 
 // SQLite has no enums; User.role is a String column holding one of these.
 export type Role = "ADMIN" | "CUSTOMER";
@@ -77,6 +80,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth(async () => {
           secure: port === 465,
         },
         from: smtp.EMAIL_FROM || smtp.EMAIL_SERVER_USER || "noreply@example.com",
+        maxAge: CODE_MINUTES * 60,
+        // 6-digit code: the email's link still works, and the code can be typed in instead
+        generateVerificationToken: newLoginCode,
+        sendVerificationRequest: sendSignInEmail,
       }),
     ],
     callbacks: {
@@ -110,3 +117,40 @@ export const { handlers, signIn, signOut, auth } = NextAuth(async () => {
     },
   };
 });
+
+const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** Sign-in email with both a button and the 6-digit code. */
+async function sendSignInEmail({
+  identifier,
+  url,
+  token,
+  provider,
+}: {
+  identifier: string;
+  url: string;
+  token: string;
+  provider: { server?: unknown; from?: string };
+}) {
+  const shop = (await getSetting("SITE_NAME")) || new URL(url).host;
+  const color = (await getSetting("SITE_BRAND_COLOR")) || "#d97706";
+  const textColor = (await getSetting("SITE_BUTTON_TEXT_COLOR")) || "#ffffff";
+  const code = `${token.slice(0, 3)} ${token.slice(3)}`;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const transport = createTransport(provider.server as any);
+  const result = await transport.sendMail({
+    to: identifier,
+    from: provider.from,
+    subject: `${token} is your ${shop} sign-in code`,
+    text: `Sign in to ${shop}\n\nYour code: ${code}\n\nOr open this link:\n${url}\n\nThe code and link expire in ${CODE_MINUTES} minutes. If you didn't ask for this, you can ignore this email.\n`,
+    html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1c1917;text-align:center">
+<h2 style="margin:0 0 16px">Sign in to ${esc(shop)}</h2>
+<p style="margin:0 0 8px;color:#57534e">Your sign-in code</p>
+<p style="margin:0 0 24px;font-size:34px;font-weight:bold;letter-spacing:6px">${code}</p>
+<p style="margin:0 0 24px"><a href="${esc(url)}" style="background:${esc(color)};color:${esc(textColor)};text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:bold;display:inline-block">Sign in</a></p>
+<p style="margin:0;font-size:13px;color:#78716c">Type the code on the sign-in page, or tap the button. Both expire in ${CODE_MINUTES} minutes. If you didn't ask for this, ignore this email.</p>
+</div>`,
+  });
+  const failed = result.rejected.filter(Boolean);
+  if (failed.length) throw new Error(`Email (${failed.join(", ")}) could not be sent`);
+}
