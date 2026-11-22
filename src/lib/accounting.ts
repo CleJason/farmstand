@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { isPaidStatus } from "@/lib/pickup";
 import { loadCosts } from "@/lib/costs-data";
+import { costsAsOf } from "@/lib/costs-asof";
 import { groupLinks, linkedCost, soldItemCost } from "@/lib/costs-plan";
 
 type SoldItem = { name: string; quantity: number; picks?: { name: string; quantity: number }[]; addOns?: { name: string; price: number }[] };
@@ -42,11 +43,14 @@ export async function accounting(from: Date, to: Date) {
     prisma.pastSale.findMany({ where: { placedAt: { gte: from, lt: to } }, orderBy: { placedAt: "asc" } }),
     prisma.recipeLink.findMany(),
   ]);
-  const perItem = new Map([...costs.recipes.map((r) => [r.id, r.cost.perItem] as const), ...costs.ingredients.map((i) => [i.id, i.cost ?? 0] as const)]);
+  // Each sale is costed at the prices of its day, so new prices don't rewrite old profit
+  const asOf = costsAsOf(costs);
+  let perItem = asOf(new Date());
   const linkBy = groupLinks(links);
   const itemCost = (name: string) => linkedCost(name, linkBy, perItem);
   /** Cost to make what was sold; null unless every item has recipes tagged (so profit isn't overstated). */
-  const estCost = (items: SoldItem[]) => {
+  const estCost = (items: SoldItem[], on: Date) => {
+    perItem = asOf(on);
     let total = 0;
     for (const i of items) {
       const c = soldItemCost(i.name, i.picks, itemCost, i.addOns?.map((a) => a.name));
@@ -95,7 +99,7 @@ export async function accounting(from: Date, to: Date) {
       fees: null,
       refunded: 0,
       revenue: o.total / 100,
-      estCost: o.type === "GIFT" ? null : estCost(items),
+      estCost: o.type === "GIFT" ? null : estCost(items, o.createdAt),
     });
   }
   for (const s of past) {
@@ -119,7 +123,7 @@ export async function accounting(from: Date, to: Date) {
       fees: s.fees / 100,
       refunded: s.refunded / 100,
       revenue: s.revenue / 100,
-      estCost: estCost(items),
+      estCost: estCost(items, s.placedAt),
     });
   }
   sales.sort((a, b) => a.date.localeCompare(b.date));

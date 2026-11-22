@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { loadCosts } from "@/lib/costs-data";
+import { costsAsOf } from "@/lib/costs-asof";
 import { addOnKey, choiceKey, groupLinks, linkedCost, soldItemCost } from "@/lib/costs-plan";
 import { dropBoxGroups, dropBoxOptions, isBox } from "@/lib/box";
 import { isPaidStatus } from "@/lib/pickup";
@@ -34,7 +35,9 @@ export async function dropForecasts(): Promise<Record<string, DropForecast>> {
       },
     }),
   ]);
-  const perItem = new Map([...costs.recipes.map((r) => [r.id, r.cost.perItem] as const), ...costs.ingredients.map((i) => [i.id, i.cost ?? 0] as const)]);
+  // Each drop is costed at the prices of its time (when ordering closed), so new prices don't rewrite old drops
+  const asOf = costsAsOf(costs);
+  let perItem = asOf(new Date());
   const linkBy = groupLinks(links);
   const itemCost = (name: string) => linkedCost(name, linkBy, perItem);
   /** Average cost of `size` picks from these choices; null when any choice has no recipe. */
@@ -46,6 +49,7 @@ export async function dropForecasts(): Promise<Record<string, DropForecast>> {
 
   const out: Record<string, DropForecast> = {};
   for (const drop of drops) {
+    perItem = asOf(drop.orderCloseAt);
     const sold: DropForecast["sold"] = { revenue: 0, profit: 0, costedRevenue: 0, noCost: [] };
     for (const o of drop.orders) {
       if (!isPaidStatus(o.status)) continue;

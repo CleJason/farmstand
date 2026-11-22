@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/admin-input";
-import { loadCosts } from "@/lib/costs-data";
+import { costSettings, loadCosts } from "@/lib/costs-data";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,16 @@ export async function PUT(req: Request) {
     }
     updates.push(["COST_OVERHEAD_RATE", String(rate)]);
   }
-  if (data.basis !== undefined) updates.push(["COST_PRICE_BASIS", data.basis === "latest" ? "latest" : "average"]);
+  if (data.basis !== undefined) {
+    const basis = data.basis === "latest" ? "latest" : "average";
+    const { basis: was, basisHistory } = await costSettings();
+    if (basis !== was) {
+      // Remember the switch: drops and sales before now keep the old basis
+      const history = basisHistory.length ? basisHistory : [{ from: new Date(0).toISOString(), basis: was }];
+      updates.push(["COST_BASIS_HISTORY", JSON.stringify([...history, { from: new Date().toISOString(), basis }])]);
+    }
+    updates.push(["COST_PRICE_BASIS", basis]);
+  }
   for (const [key, value] of updates) {
     await prisma.setting.upsert({ where: { key }, update: { value }, create: { key, value } });
   }

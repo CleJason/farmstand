@@ -1,15 +1,26 @@
 import { prisma } from "@/lib/prisma";
 import { getSetting } from "@/lib/settings";
+import type { BasisChange } from "@/lib/costs-asof";
 import { costRecipe, unitCosts, type CostIngredient } from "@/lib/costs";
 import { linkKey, soldNames } from "@/lib/costs-plan";
 
 export type PriceBasis = "average" | "latest";
 
 /** Admin → Costs settings: the overhead (labor/bake time) rate per hour, and which price to cost with. */
-export async function costSettings(): Promise<{ overheadRate: number; basis: PriceBasis }> {
-  const [rate, basis] = await Promise.all([getSetting("COST_OVERHEAD_RATE", "15"), getSetting("COST_PRICE_BASIS", "average")]);
+export async function costSettings(): Promise<{ overheadRate: number; basis: PriceBasis; basisHistory: BasisChange[] }> {
+  const [rate, basis, history] = await Promise.all([
+    getSetting("COST_OVERHEAD_RATE", "15"),
+    getSetting("COST_PRICE_BASIS", "average"),
+    // When the basis was switched, so older drops and sales keep the one they had
+    getSetting("COST_BASIS_HISTORY", "[]"),
+  ]);
   const n = Number(rate);
-  return { overheadRate: Number.isFinite(n) && n >= 0 ? n : 15, basis: basis === "latest" ? "latest" : "average" };
+  let basisHistory: BasisChange[] = [];
+  try {
+    const parsed = JSON.parse(history);
+    if (Array.isArray(parsed)) basisHistory = parsed.filter((h) => h && typeof h.from === "string" && (h.basis === "latest" || h.basis === "average"));
+  } catch {}
+  return { overheadRate: Number.isFinite(n) && n >= 0 ? n : 15, basis: basis === "latest" ? "latest" : "average", basisHistory };
 }
 
 type Usage = { ingredientId: string; amount: number }[];
