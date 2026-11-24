@@ -121,8 +121,21 @@ class Api(context: Context) {
             "DELETE" -> req.delete(rb)
             else -> req.method(method, rb ?: "{}".toRequestBody("application/json".toMediaType()))
         }
+        val request = req.build()
+        // One quiet retry: the first call after the phone wakes up often hits a stale connection
+        val response = try {
+            client.newCall(request).execute()
+        } catch (e: java.io.IOException) {
+            // Only reads are retried, so a text or status change is never sent twice
+            if (method != "GET") throw ApiException("Can't reach ${site.ifBlank { "the shop" }}. Check your connection.")
+            try {
+                client.newCall(request).execute()
+            } catch (e2: Exception) {
+                throw ApiException("Can't reach ${site.ifBlank { "the shop" }}. Check your connection.")
+            }
+        }
         try {
-            client.newCall(req.build()).execute().use { res ->
+            response.use { res ->
                 val text = res.body?.string() ?: ""
                 if (res.code == 401 || res.code == 403 || (res.code in 300..399 && res.header("Location")?.contains("/login") == true)) {
                     throw ApiException("Signed out", 401)
