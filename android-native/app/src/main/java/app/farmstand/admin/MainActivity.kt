@@ -46,6 +46,7 @@ import app.farmstand.admin.ui.MessagesScreen
 import app.farmstand.admin.ui.MoreScreen
 import app.farmstand.admin.ui.OrdersScreen
 import app.farmstand.admin.ui.TodayScreen
+import app.farmstand.admin.ui.WebPage
 
 enum class Tab(val label: String, val icon: ImageVector) {
     Today("Today", Icons.Filled.WbSunny),
@@ -87,6 +88,8 @@ fun App(api: Api, startTab: String?, onSignedIn: () -> Unit) {
     var signedIn by remember { mutableStateOf<Boolean?>(null) }
     var tab by rememberSaveable { mutableStateOf(Tab.entries.firstOrNull { it.name == startTab } ?: Tab.Today) }
     var unread by remember { mutableIntStateOf(0) }
+    var web by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val openWeb = { title: String, path: String -> web = title to path }
     val signOut = {
         api.signOut()
         CheckWorker.cancel(api.appContext)
@@ -104,7 +107,9 @@ fun App(api: Api, startTab: String?, onSignedIn: () -> Unit) {
             signedIn = true
             onSignedIn()
         }
-        true -> {
+        true -> web?.let { (title, path) ->
+            WebPage(api, title, path) { web = null }
+        } ?: run {
             BackHandler(enabled = tab != Tab.Today) { tab = Tab.Today }
             Scaffold(
                 bottomBar = {
@@ -132,8 +137,8 @@ fun App(api: Api, startTab: String?, onSignedIn: () -> Unit) {
                         Tab.Today -> TodayScreen(api, onAuthError, onUnread = { unread = it }, goTo = { tab = it })
                         Tab.Orders -> OrdersScreen(api, onAuthError)
                         Tab.Messages -> MessagesScreen(api, onAuthError, onUnread = { unread = it })
-                        Tab.Drops -> DropsScreen(api, onAuthError)
-                        Tab.More -> MoreScreen(api, onSignOut = signOut)
+                        Tab.Drops -> DropsScreen(api, onAuthError, openWeb)
+                        Tab.More -> MoreScreen(api, openWeb, onSignOut = signOut)
                     }
                 }
             }

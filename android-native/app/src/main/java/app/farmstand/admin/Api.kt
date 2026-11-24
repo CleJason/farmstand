@@ -73,6 +73,12 @@ private class SavedCookies(private val prefs: SharedPreferences) : CookieJar {
     }
 
     @Synchronized
+    fun all(): List<Cookie> {
+        prune()
+        return cookies.toList()
+    }
+
+    @Synchronized
     fun clear() {
         cookies.clear()
         save()
@@ -194,5 +200,16 @@ class Api(context: Context) {
         false
     }
 
-    fun signOut() = jar.clear()
+    fun signOut() {
+        jar.clear()
+        android.webkit.CookieManager.getInstance().removeAllCookies(null)
+    }
+
+    /** Gives the in-app web pages the same sign-in as the app. */
+    fun shareCookiesWithWebView() {
+        val cm = android.webkit.CookieManager.getInstance()
+        cm.setAcceptCookie(true)
+        for (c in jar.all()) cm.setCookie(base, c.toString())
+        cm.flush()
+    }
 }
