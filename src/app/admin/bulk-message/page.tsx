@@ -156,7 +156,7 @@ export default function AdminBulkMessagePage() {
                 edit(setDropId)(e.target.value);
                 setAudience("skip");
               }}
-              className="text-sm px-2 py-1 border border-stone-200 rounded-lg max-w-full"
+              className="text-sm px-2 py-1 border border-stone-200 rounded-lg max-w-full bg-white text-stone-900"
             >
               {drops.map((d, i) => (
                 <option key={d.id} value={d.id}>
