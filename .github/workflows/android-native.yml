@@ -1,0 +1,92 @@
+name: Build native Android admin app
+
+# Builds the native admin app (android-native/). Every push that changes it
+# makes a test build; pushes to main (and manual runs) also publish the APK
+# as a GitHub release to download on your phone.
+on:
+  push:
+    paths:
+      - "android-native/**"
+      - ".github/workflows/android-native.yml"
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "Shop website to prefill on the sign-in screen, e.g. shop.example.com (optional)"
+        required: false
+
+permissions:
+  contents: write # attach the APK to a GitHub release
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    env:
+      KEY_ALIAS: farmstand
+      VERSION_CODE: ${{ github.run_number }}
+      VERSION_NAME: 2.0.${{ github.run_number }}
+      DEFAULT_SITE: ${{ inputs.site || vars.SHOP_SITE || '' }}
+      PUBLISH: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      # Same key as the other Android build (repo secrets), so updates install over each other.
+      - name: Signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/signing"
+          ks="$RUNNER_TEMP/signing/farmstand.keystore"
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$ks"
+            pass="$KEYSTORE_PASSWORD"
+          else
+            echo "::warning::No ANDROID_KEYSTORE_BASE64/ANDROID_KEYSTORE_PASSWORD secrets: using a throwaway key (later builds won't install over this one)."
+            pass=$(openssl rand -hex 24)
+            keytool -genkeypair -keystore "$ks" -storetype PKCS12 -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 \
+              -validity 10000 -storepass "$pass" -keypass "$pass" -dname "CN=farmstand"
+          fi
+          echo "::add-mask::$pass"
+          echo "KS_PASS=$pass" >> "$GITHUB_ENV"
+          echo "KEYSTORE_PATH=$ks" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        run: |
+          set -o pipefail
+          cd android-native
+          if ! gradle --no-daemon assembleRelease 2>&1 | tee "$RUNNER_TEMP/build.log"; then
+            # Surface compile errors as annotations
+            grep -E "^e: |error:|What went wrong|> " "$RUNNER_TEMP/build.log" | head -n 40 | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+            exit 1
+          fi
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          apk="$GITHUB_WORKSPACE/out/shop-admin-${VERSION_NAME}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$apk"
+          echo "APK=$apk" >> "$GITHUB_ENV"
+
+      - name: Keep APK as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shop-admin-apk
+          path: ${{ env.APK }}
+          retention-days: 14
+
+      - name: Publish APK as a release
+        if: env.PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "app-${VERSION_NAME}" "$APK" \
+            --title "Shop Admin app ${VERSION_NAME}" \
+            --notes "Native admin app. Download the .apk on your phone and open it to install. Updates install over the previous version."
