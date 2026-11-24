@@ -23,7 +23,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,7 +63,10 @@ class MainActivity : ComponentActivity() {
         val startTab = intent.getStringExtra("tab")
         setContent {
             AppTheme {
-                App(api, startTab, onSignedIn = { askForNotifications() })
+                // Paint the theme's background so text is readable in light and dark mode
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    App(api, startTab, onSignedIn = { askForNotifications() })
+                }
             }
         }
     }
