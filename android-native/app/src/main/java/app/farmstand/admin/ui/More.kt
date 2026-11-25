@@ -33,8 +33,8 @@ private val WEB_PAGES = listOf(
     "Gift Cards" to "native:giftcards",
     "Rewards" to "native:rewards",
     "Reviews" to "native:reviews",
-    "Site" to "/admin/site",
-    "Settings" to "/admin/settings",
+    "Site" to "native:site",
+    "Settings" to "native:settings",
     "View storefront" to "/",
 )
 

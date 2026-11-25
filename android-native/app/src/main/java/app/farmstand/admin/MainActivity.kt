@@ -124,6 +124,8 @@ fun App(api: Api, startTab: String?, onSignedIn: () -> Unit) {
                 "bulk" -> app.farmstand.admin.ui.BulkMessageScreen(api, onAuthError, close)
                 "rewards" -> app.farmstand.admin.ui.RewardsScreen(api, onAuthError, close)
                 "costs" -> app.farmstand.admin.ui.CostsScreen(api, onAuthError, close) { page = it }
+                "site" -> app.farmstand.admin.ui.SiteScreen(api, onAuthError, close) { page = it }
+                "settings" -> app.farmstand.admin.ui.SettingsScreen(api, onAuthError, close)
                 else -> {
                     val (title, path) = p.split("|", limit = 2).let { it[0] to it.getOrElse(1) { "/admin" } }
                     WebPage(api, title, path, close)
