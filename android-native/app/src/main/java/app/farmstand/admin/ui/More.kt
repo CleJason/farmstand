@@ -26,7 +26,7 @@ private val WEB_PAGES = listOf(
     "Customers" to "native:customers",
     "Sales" to "native:sales",
     "Farm stand" to "native:farmstand",
-    "Costs" to "/admin/costs",
+    "Costs" to "native:costs",
     "Drop Alerts" to "native:alerts",
     "Bulk Message" to "native:bulk",
     "Discounts" to "native:discounts",
