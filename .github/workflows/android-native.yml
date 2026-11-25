@@ -65,9 +65,10 @@ jobs:
           cd android-native
           if ! gradle --no-daemon assembleRelease 2>&1 | tee "$RUNNER_TEMP/build.log"; then
             # Surface compile errors as annotations
-            grep -E "^e: |error:|What went wrong|> " "$RUNNER_TEMP/build.log" | head -n 40 | while IFS= read -r line; do
-              echo "::error::${line}"
-            done
+            # (GitHub shows at most 10 per step, so compiler errors go first, a few per annotation)
+            { grep -E "^e: " "$RUNNER_TEMP/build.log"; grep -A3 "What went wrong" "$RUNNER_TEMP/build.log"; } \
+              | sed -E 's#file:///home/runner/work/[^ ]*/android-native/##' | head -n 30 | paste -d'|' - - - \
+              | while IFS= read -r line; do echo "::error::${line}"; done
             exit 1
           fi
           mkdir -p "$GITHUB_WORKSPACE/out"

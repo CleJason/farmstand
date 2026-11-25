@@ -46,7 +46,17 @@ data class OrderItem(
 }
 
 @Serializable
-data class PickupSlot(val label: String? = null, val location: String? = null, val pickupDate: String, val endDate: String? = null)
+data class PickupSlot(
+    val id: String? = null,
+    val label: String? = null,
+    val location: String? = null,
+    val address: String? = null,
+    val pickupDate: String,
+    val endDate: String? = null,
+    val intervalMinutes: Int = 30,
+    val maxPerTime: Int? = null,
+    val blockedTimes: List<String> = emptyList(),
+)
 
 @Serializable
 data class OrderUser(val name: String? = null, val email: String? = null, val phone: String? = null)
@@ -96,17 +106,85 @@ data class Order(
 }
 
 @Serializable
+data class DropProductProduct(val name: String? = null, val price: Int = 0, val boxOptions: List<String> = emptyList())
+
+@Serializable
 data class DropProduct(
     val id: String,
+    val productId: String = "",
     val quantityLimit: Int? = null,
     val quantitySold: Int = 0,
-    val product: NameOnly? = null,
+    val priceOverride: Int? = null,
+    val boxOptions: List<String> = emptyList(),
+    val product: DropProductProduct? = null,
 )
+
+@Serializable
+data class AddOn(val name: String, val price: Int = 0)
+
+@Serializable
+data class BoxGroup(val label: String = "", val size: Int = 1, val options: List<String> = emptyList(), val allSame: Boolean = false)
+
+@Serializable
+data class Product(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+    val price: Int = 0,
+    val imageUrl: String? = null,
+    val imagePosition: String? = null,
+    val category: String? = null,
+    val active: Boolean = true,
+    val boxSize: Int? = null,
+    val boxOptions: List<String> = emptyList(),
+    val boxGroups: JsonElement? = null,
+    val addOns: List<AddOn> = emptyList(),
+) {
+    val groups: List<BoxGroup>
+        get() = runCatching { json.decodeFromJsonElement(kotlinx.serialization.builtins.ListSerializer(BoxGroup.serializer()), boxGroups!!) }
+            .getOrDefault(emptyList())
+}
+
+@Serializable
+data class CustomerOrder(val id: String, val createdAt: String, val type: String = "", val status: String = "", val paymentMethod: String = "", val total: Int = 0)
+
+@Serializable
+data class PointAdjustment(val id: String, val points: Int, val reason: String = "", val createdAt: String = "")
+
+@Serializable
+data class Imported(val orders: Int = 0, val spent: Int = 0, val firstOrderAt: String? = null, val lastOrderAt: String? = null)
+
+@Serializable
+data class Customer(
+    val key: String,
+    val kind: String = "guest",
+    val name: String? = null,
+    val email: String? = null,
+    val phone: String? = null,
+    val previousEmails: List<String> = emptyList(),
+    val previousPhones: List<String> = emptyList(),
+    val contactId: String? = null,
+    val imported: Imported? = null,
+    val note: String? = null,
+    val signedUpAt: String? = null,
+    val orderCount: Int = 0,
+    val totalSpent: Int = 0,
+    val points: Int = 0,
+    val pointAdjustments: List<PointAdjustment> = emptyList(),
+    val lastOrderAt: String? = null,
+    val orders: List<CustomerOrder> = emptyList(),
+) {
+    val label: String get() = name ?: email ?: phone ?: "Customer"
+}
 
 @Serializable
 data class Drop(
     val id: String,
     val title: String,
+    val description: String? = null,
+    val alertNote: String? = null,
+    val maxOrders: Int? = null,
+    val reminderSentAt: String? = null,
     val status: String = "DRAFT",
     val orderOpenAt: String,
     val orderCloseAt: String,

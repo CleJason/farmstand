@@ -156,6 +156,7 @@ class Api(context: Context) {
     suspend fun get(path: String) = call("GET", path)
     suspend fun post(path: String, body: JsonObject? = null) = call("POST", path, body)
     suspend fun put(path: String, body: JsonObject) = call("PUT", path, body)
+    suspend fun patch(path: String, body: JsonObject) = call("PATCH", path, body)
     suspend fun delete(path: String) = call("DELETE", path)
 
     suspend inline fun <reified T> getAs(path: String): T = json.decodeFromString(get(path))
@@ -212,6 +213,49 @@ class Api(context: Context) {
     } catch (e: Exception) {
         false
     }
+
+    /** Upload a photo (Admin's /api/upload); returns its URL. */
+    suspend fun upload(bytes: ByteArray, mime: String, name: String): String = withContext(Dispatchers.IO) {
+        val body = okhttp3.MultipartBody.Builder().setType(okhttp3.MultipartBody.FORM)
+            .addFormDataPart("file", name, bytes.toRequestBody(mime.toMediaType()))
+            .build()
+        val res = try {
+            client.newCall(Request.Builder().url("$base/api/upload").post(body).build()).execute()
+        } catch (e: java.io.IOException) {
+            throw ApiException("Can't reach ${site.ifBlank { "the shop" }}. Check your connection.")
+        }
+        res.use {
+            val text = it.body?.string() ?: ""
+            val o = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull()
+            if (it.code == 401) throw ApiException("Signed out", 401)
+            if (!it.isSuccessful) throw ApiException(o?.get("error")?.jsonPrimitive?.content ?: "Upload failed", it.code)
+            o?.get("url")?.jsonPrimitive?.content ?: throw ApiException("Upload failed")
+        }
+    }
+
+    /** Send files as a form (field "file", one per file) plus text fields; returns the reply text. */
+    suspend fun postFiles(path: String, files: List<Triple<String, String, ByteArray>>, fields: Map<String, String> = emptyMap()): String = withContext(Dispatchers.IO) {
+        val b = okhttp3.MultipartBody.Builder().setType(okhttp3.MultipartBody.FORM)
+        files.forEach { (name, mime, bytes) -> b.addFormDataPart("file", name, bytes.toRequestBody(mime.toMediaType())) }
+        fields.forEach { (k, v) -> b.addFormDataPart(k, v) }
+        val res = try {
+            client.newCall(Request.Builder().url(base + path).post(b.build()).build()).execute()
+        } catch (e: java.io.IOException) {
+            throw ApiException("Can't reach ${site.ifBlank { "the shop" }}. Check your connection.")
+        }
+        res.use {
+            val text = it.body?.string() ?: ""
+            if (it.code == 401) throw ApiException("Signed out", 401)
+            if (!it.isSuccessful) {
+                val msg = runCatching { json.parseToJsonElement(text).jsonObject["error"]?.jsonPrimitive?.content }.getOrNull()
+                throw ApiException(msg ?: "Something went wrong (${it.code})", it.code)
+            }
+            text
+        }
+    }
+
+    /** A photo URL as the app can load it (the site may store it as a path). */
+    fun absolute(url: String): String = if (url.startsWith("http")) url else base + (if (url.startsWith("/")) url else "/$url")
 
     fun signOut() {
         jar.clear()

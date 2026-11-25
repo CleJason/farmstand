@@ -20,31 +20,32 @@ import androidx.compose.ui.unit.dp
 import app.farmstand.admin.Api
 import app.farmstand.admin.BuildConfig
 
+// "native:x" opens the app's own screen; a path opens that website page inside the app
 private val WEB_PAGES = listOf(
-    "Sales" to "/admin/sales",
-    "Farm stand" to "/admin/farmstand",
-    "Products" to "/admin/products",
-    "Costs" to "/admin/costs",
-    "Customers" to "/admin/customers",
-    "Drop Alerts" to "/admin/alerts",
-    "Bulk Message" to "/admin/bulk-message",
-    "Discounts" to "/admin/discounts",
-    "Gift Cards" to "/admin/gift-cards",
-    "Rewards" to "/admin/rewards",
-    "Reviews" to "/admin/reviews",
-    "Site" to "/admin/site",
-    "Settings" to "/admin/settings",
+    "Products" to "native:products",
+    "Customers" to "native:customers",
+    "Sales" to "native:sales",
+    "Farm stand" to "native:farmstand",
+    "Costs" to "native:costs",
+    "Drop Alerts" to "native:alerts",
+    "Bulk Message" to "native:bulk",
+    "Discounts" to "native:discounts",
+    "Gift Cards" to "native:giftcards",
+    "Rewards" to "native:rewards",
+    "Reviews" to "native:reviews",
+    "Site" to "native:site",
+    "Settings" to "native:settings",
     "View storefront" to "/",
 )
 
 @Composable
-fun MoreScreen(api: Api, openWeb: (String, String) -> Unit, onSignOut: () -> Unit) {
+fun MoreScreen(api: Api, open: (String) -> Unit, onSignOut: () -> Unit) {
     val ctx = LocalContext.current
     LazyColumn(Modifier.fillMaxWidth()) {
         item { ScreenTitle("More") }
         items(WEB_PAGES) { (label, path) ->
             Row(
-                Modifier.fillMaxWidth().clickable { openWeb(label, path) }.padding(horizontal = 16.dp, vertical = 14.dp),
+                Modifier.fillMaxWidth().clickable { open(if (path.startsWith("native:")) path.removePrefix("native:") else "$label|$path") }.padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(label, Modifier.weight(1f))
