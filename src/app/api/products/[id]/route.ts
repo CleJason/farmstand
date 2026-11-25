@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { cleanPosition } from "@/lib/image-position";
 import { cleanBoxGroups, cleanBoxOptions, cleanBoxSize } from "@/lib/box";
 import { cleanAddOns } from "@/lib/addons";
+import { linkKey } from "@/lib/costs-plan";
 
 export async function PUT(
   req: Request,
@@ -20,6 +21,7 @@ export async function PUT(
   const { name, description, price, imageUrl, category, active } = data;
 
   const groups = cleanBoxGroups(data.boxGroups);
+  const before = await prisma.product.findUnique({ where: { id }, select: { name: true } });
   const product = await prisma.product.update({
     where: { id },
     data: {
@@ -44,6 +46,19 @@ export async function PUT(
       addOns: data.addOns !== undefined ? cleanAddOns(data.addOns) : undefined,
     },
   });
+
+  // Renamed: its recipe tags (and its box choices' tags) follow it to the new name,
+  // unless something is already tagged under the new name
+  if (before && typeof name === "string" && linkKey(before.name) !== linkKey(name)) {
+    const [oldKey, newKey] = [linkKey(before.name), linkKey(name)];
+    const taken = await prisma.recipeLink.count({ where: { name: newKey } });
+    if (!taken) await prisma.recipeLink.updateMany({ where: { name: oldKey }, data: { name: newKey } });
+    const choices = await prisma.recipeLink.findMany({ where: { name: { startsWith: `${oldKey} › ` } }, select: { id: true, name: true } });
+    for (const c of choices) {
+      const to = newKey + c.name.slice(oldKey.length);
+      if (!(await prisma.recipeLink.count({ where: { name: to } }))) await prisma.recipeLink.update({ where: { id: c.id }, data: { name: to } });
+    }
+  }
 
   return NextResponse.json(product);
 }

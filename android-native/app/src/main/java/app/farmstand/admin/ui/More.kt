@@ -20,12 +20,13 @@ import androidx.compose.ui.unit.dp
 import app.farmstand.admin.Api
 import app.farmstand.admin.BuildConfig
 
+// "native:x" opens the app's own screen; a path opens that website page inside the app
 private val WEB_PAGES = listOf(
+    "Products" to "native:products",
+    "Customers" to "native:customers",
     "Sales" to "/admin/sales",
     "Farm stand" to "/admin/farmstand",
-    "Products" to "/admin/products",
     "Costs" to "/admin/costs",
-    "Customers" to "/admin/customers",
     "Drop Alerts" to "/admin/alerts",
     "Bulk Message" to "/admin/bulk-message",
     "Discounts" to "/admin/discounts",
@@ -38,13 +39,13 @@ private val WEB_PAGES = listOf(
 )
 
 @Composable
-fun MoreScreen(api: Api, openWeb: (String, String) -> Unit, onSignOut: () -> Unit) {
+fun MoreScreen(api: Api, open: (String) -> Unit, onSignOut: () -> Unit) {
     val ctx = LocalContext.current
     LazyColumn(Modifier.fillMaxWidth()) {
         item { ScreenTitle("More") }
         items(WEB_PAGES) { (label, path) ->
             Row(
-                Modifier.fillMaxWidth().clickable { openWeb(label, path) }.padding(horizontal = 16.dp, vertical = 14.dp),
+                Modifier.fillMaxWidth().clickable { open(if (path.startsWith("native:")) path.removePrefix("native:") else "$label|$path") }.padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(label, Modifier.weight(1f))

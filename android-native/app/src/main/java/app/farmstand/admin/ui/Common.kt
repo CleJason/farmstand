@@ -126,3 +126,98 @@ fun SmallAction(text: String, onClick: () -> Unit) =
 fun Refreshable(refreshing: Boolean, onRefresh: () -> Unit, content: @Composable () -> Unit) {
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) { content() }
 }
+
+private val dateFmt = java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d, yyyy", java.util.Locale.US)
+private val timeFmt = java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.US)
+
+/** A tappable field that opens the phone's date picker. */
+@Composable
+fun DateField(label: String, date: java.time.LocalDate?, modifier: Modifier = Modifier, onChange: (java.time.LocalDate) -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    PickerField(label, date?.format(dateFmt) ?: "Pick a date", modifier) {
+        val d = date ?: java.time.LocalDate.now()
+        android.app.DatePickerDialog(ctx, { _, y, m, day -> onChange(java.time.LocalDate.of(y, m + 1, day)) }, d.year, d.monthValue - 1, d.dayOfMonth).show()
+    }
+}
+
+/** A tappable field that opens the phone's time picker. */
+@Composable
+fun TimeField(label: String, time: java.time.LocalTime?, modifier: Modifier = Modifier, onChange: (java.time.LocalTime) -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    PickerField(label, time?.format(timeFmt) ?: "Pick a time", modifier) {
+        val t = time ?: java.time.LocalTime.of(16, 0)
+        android.app.TimePickerDialog(ctx, { _, h, min -> onChange(java.time.LocalTime.of(h, min)) }, t.hour, t.minute, false).show()
+    }
+}
+
+@Composable
+private fun PickerField(label: String, value: String, modifier: Modifier, onClick: () -> Unit) {
+    androidx.compose.material3.OutlinedCard(onClick = onClick, modifier = modifier) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Muted(label)
+            Text(value)
+        }
+    }
+}
+
+/** Plain text field used across the editors. */
+@Composable
+fun Field(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier.fillMaxWidth(),
+    number: Boolean = false,
+    decimal: Boolean = false,
+    lines: Int = 1,
+    placeholder: String? = null,
+    onChange: (String) -> Unit,
+) {
+    androidx.compose.material3.OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(label) },
+        placeholder = placeholder?.let { { Text(it) } },
+        singleLine = lines == 1,
+        minLines = lines,
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+            keyboardType = when {
+                decimal -> androidx.compose.ui.text.input.KeyboardType.Decimal
+                number -> androidx.compose.ui.text.input.KeyboardType.Number
+                else -> androidx.compose.ui.text.input.KeyboardType.Text
+            },
+            capitalization = if (number || decimal) androidx.compose.ui.text.input.KeyboardCapitalization.None
+            else androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+        ),
+        modifier = modifier,
+    )
+}
+
+/** Header for a full-screen editor: back arrow, title, and an action on the right. */
+@Composable
+fun EditorBar(title: String, onBack: () -> Unit, action: (@Composable () -> Unit)? = null) {
+    Column {
+        Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.IconButton(onClick = onBack) {
+                androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.ArrowBack, "Back")
+            }
+            Text(title, Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            action?.invoke()
+        }
+        androidx.compose.material3.HorizontalDivider()
+    }
+}
+
+/** Yes/no question; `onYes` runs when confirmed. */
+@Composable
+fun ConfirmDialog(title: String, text: String, yes: String, onDismiss: () -> Unit, onYes: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(text) },
+        confirmButton = { TextButton(onClick = { onDismiss(); onYes() }) { Text(yes) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+fun dollarsText(cents: Int?): String = cents?.let { "%.2f".format(java.util.Locale.US, it / 100.0) } ?: ""
+fun centsOf(text: String): Int? = text.trim().removePrefix("$").toDoubleOrNull()?.let { Math.round(it * 100).toInt() }
