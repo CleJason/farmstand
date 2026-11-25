@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -38,17 +38,17 @@ private val WEB_PAGES = listOf(
 )
 
 @Composable
-fun MoreScreen(api: Api, onSignOut: () -> Unit) {
+fun MoreScreen(api: Api, openWeb: (String, String) -> Unit, onSignOut: () -> Unit) {
     val ctx = LocalContext.current
     LazyColumn(Modifier.fillMaxWidth()) {
-        item { ScreenTitle("More", "These open on the website (sign in there once).") }
+        item { ScreenTitle("More") }
         items(WEB_PAGES) { (label, path) ->
             Row(
-                Modifier.fillMaxWidth().clickable { ctx.open(api.webUrl(path)) }.padding(horizontal = 16.dp, vertical = 14.dp),
+                Modifier.fillMaxWidth().clickable { openWeb(label, path) }.padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(label, Modifier.weight(1f))
-                Icon(Icons.Filled.OpenInNew, null, tint = Stone)
+                Icon(Icons.Filled.ChevronRight, null, tint = Stone)
             }
             HorizontalDivider(Modifier.padding(start = 16.dp))
         }

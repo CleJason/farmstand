@@ -23,7 +23,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +46,7 @@ import app.farmstand.admin.ui.MessagesScreen
 import app.farmstand.admin.ui.MoreScreen
 import app.farmstand.admin.ui.OrdersScreen
 import app.farmstand.admin.ui.TodayScreen
+import app.farmstand.admin.ui.WebPage
 
 enum class Tab(val label: String, val icon: ImageVector) {
     Today("Today", Icons.Filled.WbSunny),
@@ -61,7 +64,10 @@ class MainActivity : ComponentActivity() {
         val startTab = intent.getStringExtra("tab")
         setContent {
             AppTheme {
-                App(api, startTab, onSignedIn = { askForNotifications() })
+                // Paint the theme's background so text is readable in light and dark mode
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    App(api, startTab, onSignedIn = { askForNotifications() })
+                }
             }
         }
     }
@@ -82,6 +88,8 @@ fun App(api: Api, startTab: String?, onSignedIn: () -> Unit) {
     var signedIn by remember { mutableStateOf<Boolean?>(null) }
     var tab by rememberSaveable { mutableStateOf(Tab.entries.firstOrNull { it.name == startTab } ?: Tab.Today) }
     var unread by remember { mutableIntStateOf(0) }
+    var web by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val openWeb = { title: String, path: String -> web = title to path }
     val signOut = {
         api.signOut()
         CheckWorker.cancel(api.appContext)
@@ -99,7 +107,9 @@ fun App(api: Api, startTab: String?, onSignedIn: () -> Unit) {
             signedIn = true
             onSignedIn()
         }
-        true -> {
+        true -> web?.let { (title, path) ->
+            WebPage(api, title, path) { web = null }
+        } ?: run {
             BackHandler(enabled = tab != Tab.Today) { tab = Tab.Today }
             Scaffold(
                 bottomBar = {
@@ -127,8 +137,8 @@ fun App(api: Api, startTab: String?, onSignedIn: () -> Unit) {
                         Tab.Today -> TodayScreen(api, onAuthError, onUnread = { unread = it }, goTo = { tab = it })
                         Tab.Orders -> OrdersScreen(api, onAuthError)
                         Tab.Messages -> MessagesScreen(api, onAuthError, onUnread = { unread = it })
-                        Tab.Drops -> DropsScreen(api, onAuthError)
-                        Tab.More -> MoreScreen(api, onSignOut = signOut)
+                        Tab.Drops -> DropsScreen(api, onAuthError, openWeb)
+                        Tab.More -> MoreScreen(api, openWeb, onSignOut = signOut)
                     }
                 }
             }

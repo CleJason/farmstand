@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 
 @Composable
-fun DropsScreen(api: Api, onAuthError: () -> Unit) {
+fun DropsScreen(api: Api, onAuthError: () -> Unit, openWeb: (String, String) -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var drops by remember { mutableStateOf<List<Drop>?>(null) }
@@ -45,7 +45,7 @@ fun DropsScreen(api: Api, onAuthError: () -> Unit) {
         LazyColumn(Modifier.fillMaxWidth()) {
             item {
                 ScreenTitle("Drops", "Tap a drop for what's sold") {
-                    TextButton(onClick = { ctx.open(api.webUrl("/admin/drops")) }) { Text("Edit on web") }
+                    TextButton(onClick = { openWeb("Edit drops", "/admin/drops") }) { Text("Edit drops") }
                 }
             }
             val list = drops

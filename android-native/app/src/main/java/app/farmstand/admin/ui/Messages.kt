@@ -64,18 +64,13 @@ fun MessagesScreen(api: Api, onAuthError: () -> Unit, onUnread: (Int) -> Unit) {
     var open by remember { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
 
-    suspend fun load() {
-        ctx.attempt(onAuthError) { api.getAs<List<Thread>>("/api/messages") }?.let { t ->
+    suspend fun load(quiet: Boolean = false) {
+        ctx.attempt(onAuthError, quiet) { api.getAs<List<Thread>>("/api/messages") }?.let { t ->
             threads = t
             onUnread(t.sumOf { it.unread })
         }
     }
-    LaunchedEffect(open) {
-        while (open == null) {
-            load()
-            delay(30_000)
-        }
-    }
+    if (open == null) AutoRefresh(Unit, 30_000) { first -> load(quiet = !first) }
 
     open?.let { phone ->
         BackHandler { open = null }
@@ -123,15 +118,10 @@ private fun ConversationView(api: Api, phone: String, onAuthError: () -> Unit, o
     var sending by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
-    suspend fun load() {
-        ctx.attempt(onAuthError) { api.getAs<Conversation>("/api/messages?phone=${URLEncoder.encode(phone, "UTF-8")}") }?.let { convo = it }
+    suspend fun load(quiet: Boolean = false) {
+        ctx.attempt(onAuthError, quiet) { api.getAs<Conversation>("/api/messages?phone=${URLEncoder.encode(phone, "UTF-8")}") }?.let { convo = it }
     }
-    LaunchedEffect(phone) {
-        while (true) {
-            load()
-            delay(15_000)
-        }
-    }
+    AutoRefresh(phone, 15_000) { first -> load(quiet = !first) }
     LaunchedEffect(convo?.messages?.size) {
         val n = convo?.messages?.size ?: 0
         if (n > 0) listState.scrollToItem(n - 1)

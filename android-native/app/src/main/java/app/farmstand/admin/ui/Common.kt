@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.farmstand.admin.ApiException
+import androidx.lifecycle.repeatOnLifecycle
 
 fun Context.toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
 
@@ -41,11 +42,31 @@ fun Context.call(phone: String) = open("tel:$phone")
 fun Context.email(address: String) = open("mailto:$address")
 
 /** Runs an API call; a signed-out answer sends you back to sign in, other errors show a message. */
-suspend fun <T> Context.attempt(onAuthError: () -> Unit, block: suspend () -> T): T? = try {
+suspend fun <T> Context.attempt(onAuthError: () -> Unit, quiet: Boolean = false, block: suspend () -> T): T? = try {
     block()
 } catch (e: ApiException) {
-    if (e.code == 401) onAuthError() else toast(e.message ?: "Something went wrong")
+    if (e.code == 401) onAuthError() else if (!quiet) toast(e.message ?: "Something went wrong")
     null
+}
+
+/**
+ * Re-runs `block` every `everyMs` while the app is on screen (not in the
+ * background). `first` is true on the first run after coming back, so only
+ * that one reports errors; later background refreshes stay quiet.
+ */
+@Composable
+fun AutoRefresh(key: Any?, everyMs: Long, block: suspend (first: Boolean) -> Unit) {
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.LaunchedEffect(key, owner) {
+        owner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            var first = true
+            while (true) {
+                block(first)
+                first = false
+                kotlinx.coroutines.delay(everyMs)
+            }
+        }
+    }
 }
 
 @Composable

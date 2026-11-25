@@ -59,13 +59,13 @@ fun TodayScreen(api: Api, onAuthError: () -> Unit, onUnread: (Int) -> Unit, goTo
     var refreshing by remember { mutableStateOf(false) }
     var openOrder by remember { mutableStateOf<Order?>(null) }
 
-    suspend fun load() {
-        ctx.attempt(onAuthError) { api.getAs<List<Order>>("/api/orders") }?.let { orders = it }
-        ctx.attempt(onAuthError) { api.getAs<List<Thread>>("/api/messages") }?.let { t ->
+    suspend fun load(quiet: Boolean = false) {
+        ctx.attempt(onAuthError, quiet) { api.getAs<List<Order>>("/api/orders") }?.let { orders = it }
+        ctx.attempt(onAuthError, true) { api.getAs<List<Thread>>("/api/messages") }?.let { t ->
             threads = t
             onUnread(t.sumOf { it.unread })
         }
-        ctx.attempt(onAuthError) { api.getAs<List<Drop>>("/api/drops") }?.let { drops = it }
+        ctx.attempt(onAuthError, true) { api.getAs<List<Drop>>("/api/drops") }?.let { drops = it }
     }
 
     fun refresh() {
@@ -76,13 +76,8 @@ fun TodayScreen(api: Api, onAuthError: () -> Unit, onUnread: (Int) -> Unit, goTo
         }
     }
 
-    LaunchedEffect(Unit) {
-        // Stays fresh while it's left open on the counter
-        while (true) {
-            load()
-            delay(60_000)
-        }
-    }
+    // Stays fresh while it's left open on the counter
+    AutoRefresh(Unit, 60_000) { first -> load(quiet = !first) }
 
     fun change(o: Order, status: String, notify: Boolean = true) {
         scope.launch {
