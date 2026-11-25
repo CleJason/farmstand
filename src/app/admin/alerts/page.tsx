@@ -85,7 +85,7 @@ export default function AdminAlertsPage() {
       .catch(() => setSubscribers([]))
       .finally(() => setLoading(false));
 
-  const [optOuts, setOptOuts] = useState<{ phone: string; name: string | null; createdAt: string }[]>([]);
+  const [optOuts, setOptOuts] = useState<{ phone: string; name: string | null; createdAt: string; gettingEmails?: boolean }[]>([]);
   const [stopPhone, setStopPhone] = useState("");
   const loadOptOuts = () =>
     fetch("/api/subscribers/opt-outs")
@@ -116,6 +116,19 @@ export default function AdminAlertsPage() {
     if (!confirm(`Allow texts to ${phone} again? Only do this if it was marked by mistake. If they replied STOP, they have to reply START themselves.`)) return;
     const res = await fetch(`/api/subscribers/opt-outs?phone=${encodeURIComponent(phone)}`, { method: "DELETE" });
     if (!res.ok) return alert("Couldn't undo that");
+    loadOptOuts();
+    load();
+  };
+
+  /** Replied STOP and wants nothing: off Drop Alerts, email remembered so it isn't re-added. */
+  const unsubscribeEmails = async (o: { phone: string; name: string | null }) => {
+    if (!confirm(`Also stop all emails to ${o.name ?? o.phone}? They come off Drop Alerts, and their email won't be added back by imports.`)) return;
+    const res = await fetch("/api/subscribers/opt-outs", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: o.phone }),
+    });
+    if (!res.ok) return alert("Couldn't unsubscribe them");
     loadOptOuts();
     load();
   };
@@ -368,6 +381,13 @@ export default function AdminAlertsPage() {
                   </span>
                   <span className="flex items-center gap-3 text-xs text-stone-500 whitespace-nowrap">
                     {shortDate(o.createdAt)}
+                    {o.gettingEmails ? (
+                      <button onClick={() => unsubscribeEmails(o)} className="font-semibold text-amber-700 hover:underline">
+                        Unsubscribe from emails too
+                      </button>
+                    ) : (
+                      <span className="text-stone-400">no emails</span>
+                    )}
                     <button onClick={() => undoStop(o.phone)} className="text-stone-400 hover:text-red-600">
                       Undo
                     </button>
