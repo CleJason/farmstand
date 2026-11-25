@@ -233,6 +233,27 @@ class Api(context: Context) {
         }
     }
 
+    /** Send files as a form (field "file", one per file) plus text fields; returns the reply text. */
+    suspend fun postFiles(path: String, files: List<Triple<String, String, ByteArray>>, fields: Map<String, String> = emptyMap()): String = withContext(Dispatchers.IO) {
+        val b = okhttp3.MultipartBody.Builder().setType(okhttp3.MultipartBody.FORM)
+        files.forEach { (name, mime, bytes) -> b.addFormDataPart("file", name, bytes.toRequestBody(mime.toMediaType())) }
+        fields.forEach { (k, v) -> b.addFormDataPart(k, v) }
+        val res = try {
+            client.newCall(Request.Builder().url(base + path).post(b.build()).build()).execute()
+        } catch (e: java.io.IOException) {
+            throw ApiException("Can't reach ${site.ifBlank { "the shop" }}. Check your connection.")
+        }
+        res.use {
+            val text = it.body?.string() ?: ""
+            if (it.code == 401) throw ApiException("Signed out", 401)
+            if (!it.isSuccessful) {
+                val msg = runCatching { json.parseToJsonElement(text).jsonObject["error"]?.jsonPrimitive?.content }.getOrNull()
+                throw ApiException(msg ?: "Something went wrong (${it.code})", it.code)
+            }
+            text
+        }
+    }
+
     /** A photo URL as the app can load it (the site may store it as a path). */
     fun absolute(url: String): String = if (url.startsWith("http")) url else base + (if (url.startsWith("/")) url else "/$url")
 

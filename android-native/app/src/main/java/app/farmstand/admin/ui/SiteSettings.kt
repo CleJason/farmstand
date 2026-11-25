@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -71,13 +72,14 @@ private fun isOn(v: String?) = v == "true" || v == "1"
 
 /** Admin → Site: the words, logo and colors customers see. */
 @Composable
-fun SiteScreen(api: Api, onAuthError: () -> Unit, onBack: () -> Unit, openWeb: (String) -> Unit) {
+fun SiteScreen(api: Api, onAuthError: () -> Unit, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val values = remember { mutableStateMapOf<String, String>() }
     var loaded by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var uploading by remember { mutableStateOf<String?>(null) } // which key
+    var wording by remember { mutableStateOf(false) }
 
     fun fill(r: String) {
         val o = json.parseToJsonElement(r).jsonObject
@@ -103,6 +105,10 @@ fun SiteScreen(api: Api, onAuthError: () -> Unit, onBack: () -> Unit, openWeb: (
             if (url != null) save(if (key == "SITE_COVER_URL") mapOf(key to url, "SITE_COVER_POSITION" to "") else mapOf(key to url))
             uploading = null
         }
+    }
+    if (wording) {
+        CopyEditor(api, onAuthError, values, saving, { wording = false }) { scope.launch { save() } }
+        return
     }
     BackHandler(onBack = onBack)
 
@@ -160,8 +166,9 @@ fun SiteScreen(api: Api, onAuthError: () -> Unit, onBack: () -> Unit, openWeb: (
                 }
             }
             SectionCard("Text & buttons") {
-                Muted("Changing the storefront's button and label wording is on the website.")
-                OutlinedButton(onClick = { openWeb("Site|/admin/site") }) { Text("Open on the website") }
+                val changed = copyOverrides(values["SITE_COPY"]).size
+                Muted("Change any wording customers see: buttons, labels and messages on every page." + if (changed > 0) " $changed changed." else "")
+                OutlinedButton(onClick = { wording = true }) { Text("Edit text & buttons") }
             }
             Button(enabled = !saving, onClick = { scope.launch { save() } }, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 Text(if (saving) "Saving…" else "Save site settings")
@@ -319,6 +326,70 @@ fun SettingsScreen(api: Api, onAuthError: () -> Unit, onBack: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@kotlinx.serialization.Serializable
+data class CopyEntry(val key: String, val group: String, val label: String, val default: String = "", val long: Boolean = false)
+
+private fun copyOverrides(raw: String?): Map<String, String> = runCatching {
+    json.parseToJsonElement(raw ?: "").jsonObject.mapNotNull { (k, v) -> (v as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }?.let { k to it } }.toMap()
+}.getOrDefault(emptyMap())
+
+/** Site → Text & buttons: every customer-facing label, grouped by page. Empty = the default wording. */
+@Composable
+private fun CopyEditor(api: Api, onAuthError: () -> Unit, values: MutableMap<String, String>, saving: Boolean, onBack: () -> Unit, onSave: () -> Unit) {
+    val ctx = LocalContext.current
+    var entries by remember { mutableStateOf<List<CopyEntry>?>(null) }
+    var search by remember { mutableStateOf("") }
+    val open = remember { mutableStateMapOf<String, Boolean>() }
+    LaunchedEffect(Unit) { ctx.attempt(onAuthError) { api.getAs<List<CopyEntry>>("/api/settings/copy") }?.let { entries = it } }
+    BackHandler(onBack = onBack)
+    val overrides = copyOverrides(values["SITE_COPY"])
+    fun set(e: CopyEntry, text: String) {
+        val next = overrides.toMutableMap()
+        if (text.isNotEmpty() && text != e.default) next[e.key] = text else next.remove(e.key)
+        values["SITE_COPY"] = if (next.isEmpty()) "" else JsonObject(next.mapValues { JsonPrimitive(it.value) }).toString()
+    }
+    Column(Modifier.fillMaxSize()) {
+        EditorBar("Text & buttons", onBack) { TextButton(enabled = !saving, onClick = onSave) { Text(if (saving) "Saving…" else "Save") } }
+        val list = entries
+        if (list == null) { Muted("Loading…", Modifier.padding(16.dp)); return@Column }
+        val q = search.trim().lowercase()
+        val shown = list.filter { e -> q.isEmpty() || e.label.lowercase().contains(q) || e.default.lowercase().contains(q) || overrides[e.key]?.lowercase()?.contains(q) == true }
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.imePadding()) {
+            item {
+                Muted("Leave a box empty to use the default (shown in grey). Words in {curly} brackets are filled in for you, like {count}, {shop} or {total}." +
+                    if (overrides.isNotEmpty()) " ${overrides.size} changed." else "", Modifier.padding(16.dp))
+                Field("Search, e.g. checkout or Venmo", search, Modifier.fillMaxWidth().padding(horizontal = 16.dp)) { search = it }
+            }
+            shown.groupBy { it.group }.forEach { (group, inGroup) ->
+                val expanded = q.isNotEmpty() || open[group] == true
+                item(key = "g:$group") {
+                    val n = inGroup.count { overrides.containsKey(it.key) }
+                    Row(
+                        Modifier.fillMaxWidth().clickable { open[group] = !(open[group] ?: false) }.padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(group, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                        if (n > 0) Text("$n changed  ", color = AmberDark)
+                        Text(if (expanded) "▲" else "▼", color = Stone)
+                    }
+                    HorizontalDivider()
+                }
+                if (expanded) items(inGroup.size, key = { "e:" + inGroup[it].key }) { i ->
+                    val e = inGroup[i]
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(e.label, Modifier.weight(1f))
+                            if (overrides.containsKey(e.key)) TextButton(onClick = { set(e, "") }) { Text("Reset") }
+                        }
+                        Field("", overrides[e.key] ?: "", lines = if (e.long) 3 else 1, placeholder = e.default) { set(e, it) }
+                    }
+                }
+            }
+            item { Spacer(Modifier.height(24.dp)) }
         }
     }
 }

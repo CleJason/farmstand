@@ -30,7 +30,7 @@ typealias CostSave = suspend (method: String, path: String, body: JsonObject?) -
 private val TABS = listOf("Products", "Recipes", "Baking", "Ingredients", "Purchases", "Receipts", "Import / Export")
 
 @Composable
-fun CostsScreen(api: Api, onAuthError: () -> Unit, onBack: () -> Unit, openWeb: (String) -> Unit) {
+fun CostsScreen(api: Api, onAuthError: () -> Unit, onBack: () -> Unit) {
     val ctx = LocalContext.current
     var data by remember { mutableStateOf<CostsData?>(null) }
     var tab by remember { mutableIntStateOf(1) }
@@ -51,13 +51,13 @@ fun CostsScreen(api: Api, onAuthError: () -> Unit, onBack: () -> Unit, openWeb: 
         EditorBar("Costs", onBack)
         ScrollableTabRow(selectedTabIndex = tab, edgePadding = 8.dp) {
             TABS.forEachIndexed { i, t ->
-                Tab(selected = tab == i, onClick = { if (i == TABS.lastIndex) openWeb("Costs|/admin/costs") else tab = i }, text = { Text(t) })
+                Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) })
             }
         }
         val d = data
         if (d == null) { Muted("Loading…", Modifier.padding(16.dp)); return@Column }
         if (d.ingredients.isEmpty() && d.recipes.isEmpty()) {
-            Muted("Nothing here yet. Use Import / Export (on the website) to bring in your cost spreadsheet or Mealie recipes, or add ingredients and purchases by hand.", Modifier.padding(16.dp))
+            Muted("Nothing here yet. Use Import / Export to bring in your cost spreadsheet or Mealie recipes, or add ingredients and purchases by hand.", Modifier.padding(16.dp))
         }
         when (tab) {
             0 -> CostProductsTab(d, save)
@@ -66,6 +66,7 @@ fun CostsScreen(api: Api, onAuthError: () -> Unit, onBack: () -> Unit, openWeb: 
             3 -> IngredientsTab(d, save)
             4 -> PurchasesTab(d, save)
             5 -> ReceiptsTab(api, d, save)
+            6 -> ImportExportTab(api, onAuthError, d, save)
         }
     }
 }
