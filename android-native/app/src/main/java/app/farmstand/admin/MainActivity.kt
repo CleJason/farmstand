@@ -115,6 +115,11 @@ fun App(api: Api, startTab: String?, onSignedIn: () -> Unit) {
             when (p) {
                 "products" -> ProductsScreen(api, onAuthError, close)
                 "customers" -> CustomersScreen(api, onAuthError, close)
+                "sales" -> app.farmstand.admin.ui.SalesScreen(api, onAuthError, close)
+                "farmstand" -> app.farmstand.admin.ui.FarmstandScreen(api, onAuthError, close)
+                "discounts" -> app.farmstand.admin.ui.DiscountsScreen(api, onAuthError, close)
+                "giftcards" -> app.farmstand.admin.ui.GiftCardsScreen(api, onAuthError, close)
+                "reviews" -> app.farmstand.admin.ui.ReviewsScreen(api, onAuthError, close)
                 else -> {
                     val (title, path) = p.split("|", limit = 2).let { it[0] to it.getOrElse(1) { "/admin" } }
                     WebPage(api, title, path, close)
