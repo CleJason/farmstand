@@ -397,6 +397,20 @@ export const COPY = {
     long: true,
   },
   "review.back": { group: "Review form", label: "Back button", default: "Back to {shop}" },
+
+  // ── Texts to customers (the shop name goes in front on its own; {name} = first name)
+  "sms.pickupSoon": {
+    group: "Texts to customers",
+    label: "Pickup reminder, before pickup ({name}, {order}, {when}, {address})",
+    default: "Hi {name}! Reminder: your order #{order} is ready for pickup {when} at {address}. Reply here if you need a different time. See you soon!",
+    long: true,
+  },
+  "sms.pickupMissed": {
+    group: "Texts to customers",
+    label: "Still waiting for pickup ({name}, {order}, {address})",
+    default: "Hi {name}! Your order #{order} is still waiting for you at {address}. Reply here to let us know when you can pick it up. Thanks!",
+    long: true,
+  },
 } satisfies Record<string, Entry>;
 
 export type CopyKey = keyof typeof COPY;

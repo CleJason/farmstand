@@ -6,6 +6,7 @@ import { isOptedOut } from "@/lib/sms-opt-out";
 import { getSiteSettings, isOn } from "@/lib/site";
 import { sendShopEmail } from "@/lib/send-email";
 import { pickupAddressFor } from "@/lib/pickup";
+import { textFor } from "@/lib/copy";
 
 /**
  * Pickup reminders: a text (or an email when there's no number to text) a
@@ -73,13 +74,15 @@ async function remindOrder(
   const no = o.id.slice(-6).toUpperCase();
   const first = (o.guestName || o.user?.name || "").split(" ")[0];
   const where = pickupAddressFor(o.pickupSlot, site);
-  const hi = `Hi${first ? ` ${first}` : ""}!`;
-  const body =
-    kind === "upcoming" && at
-      ? `${hi} Reminder: your order #${no} is ready for pickup ${sameDay(at, now) ? "today" : dayOf(at)} at ${timeOf(at)}` +
-        `${where ? ` at ${where}` : ""}. Reply here if you need a different time. See you soon!`
-      : `${hi} Your order #${no} is still waiting for you${where ? ` at ${where}` : ""}. ` +
-        `Reply here to let us know when you can pick it up. Thanks!`;
+  // Wording from Admin → Site → Text & buttons → Texts to customers
+  const text = textFor(site);
+  const vars = {
+    name: first || "there",
+    order: no,
+    when: at ? `${sameDay(at, now) ? "today" : dayOf(at)} at ${timeOf(at)}` : "soon",
+    address: where || "our pickup spot",
+  };
+  const body = text(kind === "upcoming" && at ? "sms.pickupSoon" : "sms.pickupMissed", vars);
 
   const phone = phoneKey(o.guestPhone || o.user?.phone);
   const email = (o.guestEmail || o.user?.email || "").trim();

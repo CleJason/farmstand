@@ -30,6 +30,8 @@ function previewFor(group: string, stand: string): { href: string; how?: string 
       return [{ href: "/my-orders" }, { href: "/login" }];
     case "Review form":
       return [{ href: "/review?preview=1" }];
+    case "Texts to customers":
+      return [{ href: "/admin/today", how: "sent automatically before pickup, or with Send pickup reminder on the Today page" }];
     default:
       return [];
   }
