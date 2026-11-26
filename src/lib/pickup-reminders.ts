@@ -50,31 +50,66 @@ export async function sendPickupReminders() {
     // Marked first, so a slow send never repeats
     const claimed = await prisma.order.updateMany({ where: { id: o.id, pickupReminderAt: null }, data: { pickupReminderAt: now } });
     if (!claimed.count) continue;
-    const at = o.pickupTime ?? o.pickupSlot?.pickupDate;
-    if (!at) continue;
-    const no = o.id.slice(-6).toUpperCase();
-    const first = (o.guestName || o.user?.name || "").split(" ")[0];
-    const when = `${sameDay(at, now) ? "today" : dayOf(at)} at ${timeOf(at)}`;
-    const where = pickupAddressFor(o.pickupSlot, site);
-    const body =
-      `Hi${first ? ` ${first}` : ""}! Reminder: your order #${no} is ready for pickup ${when}` +
-      `${where ? ` at ${where}` : ""}. Reply here if you need a different time. See you soon!`;
-
-    const phone = phoneKey(o.guestPhone || o.user?.phone);
-    const email = (o.guestEmail || o.user?.email || "").trim();
-    try {
-      if (phone && !(await isOptedOut(phone))) {
-        const message = `${shop ? `${shop}: ` : ""}${body}`;
-        const e164 = phone.length === 10 ? `+1${phone}` : `+${phone}`;
-        if (await fireNotification("sms.send", { phone: e164, message })) {
-          await prisma.smsMessage.create({ data: { phone, direction: "OUT", body: message, read: true } });
-          continue;
-        }
-      }
-      // No number to text (or STOP): email instead
-      if (email) await sendShopEmail({ to: email, subject: `${shop || "Your order"}: pickup reminder #${no}`, text: body });
-    } catch (e) {
-      console.error("[pickup-reminders] Couldn't send", o.id, e);
-    }
+    await remindOrder(o, "upcoming", site, shop);
   }
+}
+
+type ReminderOrder = Awaited<ReturnType<typeof loadOrder>>;
+const loadOrder = (id: string) => prisma.order.findUnique({ where: { id }, include: { user: true, pickupSlot: true } });
+
+/**
+ * One reminder: "upcoming" (before pickup) or "missed" (the pickup time
+ * passed and it's still here). A text, or an email when there's no number to
+ * text. Returns how it went, or null if it couldn't be sent.
+ */
+async function remindOrder(
+  o: NonNullable<ReminderOrder>,
+  kind: "upcoming" | "missed",
+  site: Awaited<ReturnType<typeof getSiteSettings>>,
+  shop: string
+): Promise<"text" | "email" | null> {
+  const now = new Date();
+  const at = o.pickupTime ?? o.pickupSlot?.pickupDate;
+  const no = o.id.slice(-6).toUpperCase();
+  const first = (o.guestName || o.user?.name || "").split(" ")[0];
+  const where = pickupAddressFor(o.pickupSlot, site);
+  const hi = `Hi${first ? ` ${first}` : ""}!`;
+  const body =
+    kind === "upcoming" && at
+      ? `${hi} Reminder: your order #${no} is ready for pickup ${sameDay(at, now) ? "today" : dayOf(at)} at ${timeOf(at)}` +
+        `${where ? ` at ${where}` : ""}. Reply here if you need a different time. See you soon!`
+      : `${hi} Your order #${no} is still waiting for you${where ? ` at ${where}` : ""}. ` +
+        `Reply here to let us know when you can pick it up. Thanks!`;
+
+  const phone = phoneKey(o.guestPhone || o.user?.phone);
+  const email = (o.guestEmail || o.user?.email || "").trim();
+  try {
+    if (phone && !(await isOptedOut(phone))) {
+      const message = `${shop ? `${shop}: ` : ""}${body}`;
+      const e164 = phone.length === 10 ? `+1${phone}` : `+${phone}`;
+      if (await fireNotification("sms.send", { phone: e164, message })) {
+        await prisma.smsMessage.create({ data: { phone, direction: "OUT", body: message, read: true } });
+        return "text";
+      }
+    }
+    // No number to text (or STOP): email instead
+    if (email && !(await sendShopEmail({ to: email, subject: `${shop || "Your order"}: pickup reminder #${no}`, text: body }))) return "email";
+  } catch (e) {
+    console.error("[pickup-reminders] Couldn't send", o.id, e);
+  }
+  return null;
+}
+
+/** Admin → Today → "Send pickup reminder": orders still waiting after their pickup time. */
+export async function remindMissedPickups(ids: string[]) {
+  const site = await getSiteSettings();
+  const shop = isOn(site.SITE_NAME_IN_NOTIFICATIONS) ? site.SITE_NAME : "";
+  const result = { sent: 0, failed: [] as string[] };
+  for (const id of ids.slice(0, 100)) {
+    const o = await loadOrder(id);
+    if (!o || !["PAID", "READY", "AWAITING_CONFIRM"].includes(o.status)) continue;
+    if (await remindOrder(o, "missed", site, shop)) result.sent++;
+    else result.failed.push(`#${o.id.slice(-6).toUpperCase()}`);
+  }
+  return result;
 }

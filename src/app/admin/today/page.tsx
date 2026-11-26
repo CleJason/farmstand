@@ -56,6 +56,8 @@ export default function AdminTodayPage() {
   const [drops, setDrops] = useState<DropRow[]>([]);
   const [unpaidHours, setUnpaidHours] = useState(0);
   const [busy, setBusy] = useState(false);
+  // Orders sent a "still waiting" reminder while this page was open
+  const [reminded, setReminded] = useState<Set<string>>(new Set());
 
   const load = useCallback(() => {
     fetch("/api/orders")
@@ -152,6 +154,28 @@ export default function AdminTodayPage() {
     ? orders.filter((o) => o.type === "DROP" && o.status === "AWAITING_CONFIRM" && onDay(o, nextDayStart)).length
     : 0;
 
+  // Past their pickup time and still not picked up (paid ones)
+  const notPickedUp = pickups.filter((o) => {
+    const at = pickupAt(o);
+    return ["PAID", "READY"].includes(o.status) && !!at && new Date(at) < now && !reminded.has(o.id);
+  });
+  /** "Send pickup reminder": a text (or email) saying their order is still waiting. */
+  const remindPickup = async (list: Order[]) => {
+    const names = list.map((o) => short(who(o))).join(", ");
+    if (!confirm(`Text ${list.length === 1 ? names : `${list.length} people (${names})`} that their order is still waiting for pickup?`)) return;
+    setBusy(true);
+    const res = await fetch("/api/orders/remind-pickup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: list.map((o) => o.id) }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) return alert(d.error || "Couldn't send them");
+    setReminded(new Set([...reminded, ...list.map((o) => o.id)]));
+    alert(`Sent ${d.sent}.${d.failed?.length ? ` Couldn't reach ${d.failed.join(", ")} (no phone or email).` : ""}`);
+  };
+
   const markAllReady = async () => {
     if (!confirm(`Mark ${toMarkReady.length} order${toMarkReady.length === 1 ? "" : "s"} ready? Each customer gets a "ready for pickup" message.`)) return;
     setBusy(true);
@@ -211,6 +235,15 @@ export default function AdminTodayPage() {
                   <button onClick={() => window.print()} className="text-xs font-medium px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700">
                     Print pickup sheet
                   </button>
+                  {notPickedUp.length > 0 && (
+                    <button
+                      onClick={() => remindPickup(notPickedUp)}
+                      disabled={busy}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50"
+                    >
+                      Send pickup reminder ({notPickedUp.length})
+                    </button>
+                  )}
                   {toMarkReady.length > 0 && (
                     <button
                       onClick={markAllReady}
@@ -258,7 +291,16 @@ export default function AdminTodayPage() {
                           })}
                           {o.notes && <li className="text-xs text-amber-800">Note: {o.notes}</li>}
                         </ul>
-                        <span className="print:hidden shrink-0">
+                        <span className="print:hidden shrink-0 flex flex-col items-end gap-1.5">
+                          {reminded.has(o.id) ? (
+                            <span className="text-[11px] text-stone-400">Reminder sent</span>
+                          ) : (
+                            notPickedUp.includes(o) && (
+                              <Action onClick={() => remindPickup([o])} light>
+                                Send reminder
+                              </Action>
+                            )
+                          )}
                           {o.status === "AWAITING_CONFIRM" && <Action onClick={() => change(o, "PAID")}>Confirm paid</Action>}
                           {o.status === "PAID" && <Action onClick={() => change(o, "READY")}>Mark ready</Action>}
                           {o.status === "READY" && <Action onClick={() => change(o, "PICKED_UP")} light>Picked up</Action>}
