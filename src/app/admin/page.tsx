@@ -157,6 +157,23 @@ export default function AdminDashboardPage() {
   };
 
   // "Payment reminder" on an unpaid order: a text and email in the shop's name
+  // Pickup reminder text, this many hours before each paid order's pickup (0 = off)
+  const [reminderHours, setReminderHours] = useState<string>("");
+  useEffect(() => {
+    fetch("/api/settings/pickup-reminders")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setReminderHours(String(d.hours)))
+      .catch(() => {});
+  }, []);
+  const saveReminderHours = async () => {
+    const res = await fetch("/api/settings/pickup-reminders", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hours: Number(reminderHours) }),
+    });
+    if (!res.ok) alert((await res.json().catch(() => ({}))).error || "Couldn't save that");
+  };
+
   const remindToPay = (order: Order) => sendPayReminder(order, site.SITE_NAME, Number(unpaidHours) || 0);
 
   // Links like /admin#order-<id> (from Customers) scroll to and highlight that order
@@ -425,6 +442,22 @@ export default function AdminDashboardPage() {
                 className="w-16 text-xs px-2 py-1 border border-stone-200 rounded-lg"
               />
               hours (0 = never). Cancelling gives back their items and pickup time.
+            </label>
+          )}
+          {reminderHours !== "" && (
+            <label className="flex flex-wrap items-center gap-2 text-xs text-stone-500">
+              Pickup reminder text goes out
+              <input
+                type="number"
+                min={0}
+                max={48}
+                value={reminderHours}
+                onChange={(e) => setReminderHours(e.target.value)}
+                onBlur={saveReminderHours}
+                aria-label="Hours before pickup to send the reminder"
+                className="w-16 text-xs px-2 py-1 border border-stone-200 rounded-lg"
+              />
+              hours before each paid order&apos;s pickup time (0 = off). Emailed instead when there&apos;s no number to text.
             </label>
           )}
           {byDay && (

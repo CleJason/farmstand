@@ -5,6 +5,7 @@ import { sendScheduled } from "@/lib/marketing-send";
 import { cancelStaleUnpaid } from "@/lib/unpaid-orders";
 import { sendDueReviewRequests } from "@/lib/review-requests";
 import { issueDueRewards } from "@/lib/rewards";
+import { sendPickupReminders } from "@/lib/pickup-reminders";
 
 let running = false;
 
@@ -20,6 +21,7 @@ export async function runBackgroundJobs(): Promise<void> {
     await cancelStaleUnpaid();
     await sendDueReviewRequests();
     await issueDueRewards();
+    await sendPickupReminders();
   } finally {
     running = false;
   }

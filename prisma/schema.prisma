@@ -205,6 +205,7 @@ model Order {
   manualPaymentRef      String?
   // "How was it?" email after pickup (not every order: see lib/review-requests)
   reviewToken     String?  @unique
+  pickupReminderAt DateTime? // when the "pickup is coming up" reminder went out (once)
   reviewDueAt     DateTime? // picked up: when its review request goes out (spread over the next day)
   reviewRequestedAt DateTime?
   reviewVia       String?  // how the review request went: email | text | both
