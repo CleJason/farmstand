@@ -3,6 +3,7 @@ import { getSiteSettings, isOn } from "@/lib/site";
 import { describePicks } from "@/lib/box";
 import { describeAddOns } from "@/lib/addons";
 import { isOptedOut } from "@/lib/sms-opt-out";
+import { textFor } from "@/lib/copy";
 
 /**
  * Fire a notification event to n8n.
@@ -53,6 +54,22 @@ export function notificationItems(items: NamedItem[]) {
   });
 }
 
+/** "Made For Sunday: Thanks Erin! Order #BBFFCB is confirmed ($24.00). Pickup: … Reply STOP to opt out." */
+async function confirmationText(p: Record<string, unknown>) {
+  const site = await getSiteSettings();
+  const shop = isOn(site.SITE_NAME_IN_NOTIFICATIONS) ? site.SITE_NAME : "";
+  const when = String(p.pickupTime || p.pickupSlot || "");
+  const where = String(p.pickupAddress || p.pickupLocation || "").replace(/\n/g, ", ");
+  const pickup = p.type === "DROP" && when ? `Pickup: ${when}.${where ? ` ${where}` : ""}` : "";
+  const body = textFor(site)("sms.orderConfirmed", {
+    name: String(p.customerName ?? "").trim().split(/\s+/)[0] || "there",
+    order: String(p.orderId ?? "").slice(-6).toUpperCase(),
+    total: `$${(Number(p.total ?? 0) / 100).toFixed(2)}`,
+    pickup,
+  });
+  return `${shop ? `${shop}: ` : ""}${body.replace(/\s+/g, " ").trim()} Reply STOP to opt out.`;
+}
+
 export async function fireNotification(
   event: NotificationEvent,
   payload: Record<string, unknown>
@@ -64,6 +81,8 @@ export async function fireNotification(
   const url = `${baseUrl}/${event}`;
   // n8n only texts a customer when this is true (they haven't replied STOP)
   if (payload.customerPhone) payload = { ...payload, customerCanText: !(await isOptedOut(String(payload.customerPhone))) };
+  // The confirmation text, in the owner's wording (Admin → Site → Text & buttons)
+  if ((event === "order.confirmed" || event === "farmstand.purchased") && payload.customerPhone) payload = { ...payload, customerSms: await confirmationText(payload) };
 
   const body = JSON.stringify({ event, businessName: await businessName(), ...payload });
   // n8n can be briefly unavailable (restarting, or the workflow being re-published): try 3 times

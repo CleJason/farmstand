@@ -6,7 +6,8 @@
  * Safe for client code.
  */
 
-type Entry = { group: string; label: string; default: string; long?: boolean };
+/** `vars`: the {placeholders} a text can use and what each becomes (shown under the box). */
+type Entry = { group: string; label: string; default: string; long?: boolean; vars?: Record<string, string> };
 
 export const COPY = {
   // ── Site menu & footer
@@ -398,18 +399,49 @@ export const COPY = {
   },
   "review.back": { group: "Review form", label: "Back button", default: "Back to {shop}" },
 
-  // ── Texts to customers (the shop name goes in front on its own; {name} = first name)
+  // ── Texts to customers (the shop name goes in front and "Reply STOP to opt out." at the end on their own)
+  "sms.orderConfirmed": {
+    group: "Texts to customers",
+    label: "Order confirmed (right after they pay)",
+    default: "Thanks {name}! Order #{order} is confirmed ({total}). {pickup}",
+    long: true,
+    vars: {
+      name: "their first name (\"there\" if unknown)",
+      order: "order number, e.g. BBFFCB",
+      total: "what they paid, e.g. $24.00",
+      pickup: "pickup time and address, e.g. \"Pickup: Sat, Nov 29, 4:30 PM. 123 Main St\" (blank for Porch Pickup)",
+    },
+  },
   "sms.pickupSoon": {
     group: "Texts to customers",
-    label: "Pickup reminder, before pickup ({name}, {order}, {when}, {address})",
+    label: "Pickup reminder (automatic, before pickup)",
     default: "Hi {name}! Reminder: your order #{order} is ready for pickup {when} at {address}. Reply here if you need a different time. See you soon!",
     long: true,
+    vars: {
+      name: "their first name (\"there\" if unknown)",
+      order: "order number",
+      when: "e.g. \"today at 4:30 PM\" or \"Saturday at 4:30 PM\"",
+      address: "the pickup address",
+    },
   },
   "sms.pickupMissed": {
     group: "Texts to customers",
-    label: "Still waiting for pickup ({name}, {order}, {address})",
+    label: "Still waiting for pickup (Send pickup reminder button)",
     default: "Hi {name}! Your order #{order} is still waiting for you at {address}. Reply here to let us know when you can pick it up. Thanks!",
     long: true,
+    vars: { name: "their first name (\"there\" if unknown)", order: "order number", address: "the pickup address" },
+  },
+  "sms.reviewRequest": {
+    group: "Texts to customers",
+    label: "Review request (about a day after pickup)",
+    default: "Thanks for ordering, {name}! How did you like {item}? Leave a quick review: {link} {reward}",
+    long: true,
+    vars: {
+      name: "their first name (\"there\" if unknown)",
+      item: "what they got, e.g. \"your Biscoff Cookie\" (or \"your order\")",
+      link: "their private review link (keep this in!)",
+      reward: "\"Your first review gets 10% off your next order.\" (blank if they've reviewed before)",
+    },
   },
 } satisfies Record<string, Entry>;
 

@@ -31,7 +31,7 @@ function previewFor(group: string, stand: string): { href: string; how?: string 
     case "Review form":
       return [{ href: "/review?preview=1" }];
     case "Texts to customers":
-      return [{ href: "/admin/today", how: "sent automatically before pickup, or with Send pickup reminder on the Today page" }];
+      return [];
     default:
       return [];
   }
@@ -88,7 +88,13 @@ export default function CopyEditor({ value, onChange }: { value: string; onChang
               {groupChanged > 0 && <span className="ml-2 text-xs font-normal text-amber-700">{groupChanged} changed</span>}
             </summary>
             <div className="space-y-3 px-3 pb-3">
-              <p className="text-[11px] text-stone-500">
+              {group === "Texts to customers" && (
+                <p className="text-[11px] text-stone-500">
+                  Your shop name is added in front and &quot;Reply STOP to opt out.&quot; at the end automatically, so don&apos;t type them.
+                  Words in {"{curly}"} brackets are filled in for each customer.
+                </p>
+              )}
+              {previewFor(group, stand).length > 0 && <p className="text-[11px] text-stone-500">
                 Save, then preview:{" "}
                 {previewFor(group, stand).map((p, i) => (
                   <span key={p.href}>
@@ -99,7 +105,7 @@ export default function CopyEditor({ value, onChange }: { value: string; onChang
                     {p.how && ` (${p.how})`}
                   </span>
                 ))}
-              </p>
+              </p>}
               {keys.map((k) => {
                 const entry = COPY[k];
                 const long = "long" in entry && entry.long;
@@ -117,6 +123,27 @@ export default function CopyEditor({ value, onChange }: { value: string; onChang
                         </button>
                       )}
                     </span>
+                    {"vars" in entry && entry.vars && (
+                      <span className="block mb-1.5 rounded-md bg-white border border-stone-200 px-2 py-1.5 text-[11px] text-stone-600">
+                        <span className="font-semibold text-stone-700">You can type these (tap to add):</span>
+                        {Object.entries(entry.vars).map(([v, meaning]) => (
+                          <span key={v} className="block">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const current = overrides[k] ?? entry.default;
+                                set(k, `${current.trimEnd()} {${v}}`);
+                              }}
+                              className="font-mono font-semibold text-amber-700 hover:underline"
+                            >
+                              {`{${v}}`}
+                            </button>{" "}
+                            = {meaning}
+                          </span>
+                        ))}
+                      </span>
+                    )}
                     {long ? (
                       <textarea
                         rows={3}

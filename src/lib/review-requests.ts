@@ -7,6 +7,7 @@ import { isOptedOut } from "@/lib/sms-opt-out";
 import { getSiteSettings, isOn } from "@/lib/site";
 import { sendMarketing } from "@/lib/marketing-send";
 import { isTextingTime, nextTextingTime } from "@/lib/text-hours";
+import { textFor } from "@/lib/copy";
 
 /**
  * Customer reviews: after an order is picked up, the customer may get a
@@ -187,9 +188,14 @@ async function sendReviewLink({
     const shop = isOn(site.SITE_NAME_IN_NOTIFICATIONS) ? site.SITE_NAME : "";
     // "your Biscoff Cookie", but "The Sunday Roll" as is
     const what = products.length !== 1 ? "your order" : /^the\s/i.test(products[0]) ? products[0] : `your ${products[0]}`;
-    const smsMessage =
-      `${shop ? `${shop}: ` : ""}Thanks for ordering! How did you like ${what}? Leave a quick review: ${reviewUrl}` +
-      `${reward ? ` Your first review gets ${reward}% off your next order.` : ""} Reply STOP to opt out.`;
+    // In the owner's wording (Admin → Site → Text & buttons → Texts to customers)
+    const body = textFor(site)("sms.reviewRequest", {
+      name: name?.trim().split(/\s+/)[0] || "there",
+      item: what,
+      link: reviewUrl,
+      reward: reward ? `Your first review gets ${reward}% off your next order.` : "",
+    });
+    const smsMessage = `${shop ? `${shop}: ` : ""}${body.replace(/\s+/g, " ").trim()} Reply STOP to opt out.`;
     // Waits for texting hours, like other texts that aren't about an order
     await sendMarketing("broadcast", { smsMessage, texts: [{ phone }], emails: [] }, { body: smsMessage, phones: [phone] });
   }
