@@ -5,7 +5,7 @@ import { phoneKey } from "@/lib/phone";
 import { optedOutSet } from "@/lib/sms-opt-out";
 import { getSiteSettings, isOn } from "@/lib/site";
 import { countsStock } from "@/lib/stock";
-import { channelsFor } from "@/lib/subscribers";
+import { channelsFor, knownNames } from "@/lib/subscribers";
 
 export const MAX_MESSAGE = 1000;
 
@@ -165,10 +165,12 @@ export async function bulkMessage({
   if (send && !text) return { ...empty, error: "Write the message first" };
   if (text.length > MAX_MESSAGE) return { ...empty, error: `Keep it under ${MAX_MESSAGE} characters` };
 
-  const [to, site, appUrl] = await Promise.all([
+  const [to, site, appUrl, names] = await Promise.all([
     recipients({ skipDropId, by, legacy: "both" }),
     getSiteSettings(),
     getSetting("APP_URL", process.env.NEXT_PUBLIC_APP_URL || ""),
+    // {name} in the message: each person's first name, from their orders and customer record
+    /\{name\}/i.test(text) ? knownNames() : Promise.resolve(null),
   ]);
   const counts = sendCounts(to);
   if (!send) return { sent: false, ...counts };
@@ -178,6 +180,8 @@ export async function bulkMessage({
   // "…first come first serve" + "." so the opt-out reads as its own sentence
   const ended = /[.!?)"']$/.test(text) ? text : `${text}.`;
   const smsMessage = `${shop ? `${shop}: ` : ""}${/\bSTOP\b/.test(text) ? text : `${ended} Reply STOP to opt out.`}`;
+  const first = (full: string | undefined) => full?.trim().split(/\s+/)[0] || "there";
+  const personal = (s: string, name: string | undefined) => s.replace(/\{name\}/gi, first(name));
   const heading = subject?.trim().slice(0, 150) || (shop ? `News from ${shop}` : "News from us");
   const homeUrl = appUrl.replace(/\/+$/, "");
 
@@ -185,17 +189,19 @@ export async function bulkMessage({
   const { sent, scheduledFor } = await sendMarketing(
     "broadcast",
     {
-      smsMessage,
-      texts: to.texts.map((phone) => ({ phone })),
-      emails: to.emails,
+      smsMessage: personal(smsMessage, undefined),
+      texts: to.texts.map((phone) => (names ? { phone, message: personal(smsMessage, names.byPhone.get(phone)) } : { phone })),
+      emails: names
+        ? to.emails.map((e) => ({ ...e, lines: personal(text, names.byEmail.get(e.email)).split(/\r?\n/).map(escapeHtml) }))
+        : to.emails,
       emailSubject: heading,
       emailHeading: escapeHtml(heading),
       // n8n puts these into the email as-is, one per line
-      emailLines: text.split(/\r?\n/).map(escapeHtml),
+      emailLines: personal(text, undefined).split(/\r?\n/).map(escapeHtml),
       buttonText: homeUrl ? `Visit ${escapeHtml(site.SITE_NAME || "the shop")}` : "",
       buttonUrl: homeUrl,
     },
-    { body: smsMessage, phones: to.texts }
+    { body: personal(smsMessage, undefined), phones: to.texts }
   );
   if (!sent) return { sent: false, ...counts, error: "Couldn't send it. Check that n8n is running and the workflow is published." };
   return { sent: true, ...counts, scheduledFor };

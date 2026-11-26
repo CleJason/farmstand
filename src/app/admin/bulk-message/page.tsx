@@ -113,7 +113,7 @@ export default function AdminBulkMessagePage() {
             className="w-full text-sm px-3 py-2 border border-stone-200 rounded-lg"
           />
           <span className="block text-[11px] text-stone-400 mt-1">
-            {message.trim().length} characters. Texts start with your shop name and end with &quot;Reply STOP to opt
+            {message.trim().length} characters. Type <b>{"{name}"}</b> for each person&apos;s first name (&quot;Hi {"{name}"}!&quot;; &quot;there&quot; when we don&apos;t know it). Texts start with your shop name and end with &quot;Reply STOP to opt
             out.&quot;{message.trim().length > 140 && " Long texts may arrive as more than one message."}
           </span>
         </label>

@@ -4,10 +4,14 @@ import { fireNotification } from "@/lib/notifications";
 import { nextTextingTime } from "@/lib/text-hours";
 
 /** Show the texts in Admin → Messages, like any other text the shop sends. */
-async function logTexts(body: string | null, phones: string[]) {
+async function logTexts(body: string | null, phones: string[], payload?: unknown) {
   if (!body || !phones.length) return;
+  // Personalized texts ({name}) carry their own wording per number
+  const own = new Map<string, string>();
+  const texts = (payload as { texts?: { phone?: string; message?: string }[] } | undefined)?.texts;
+  if (Array.isArray(texts)) for (const t of texts) if (t?.phone && t.message) own.set(String(t.phone), t.message);
   await prisma.smsMessage
-    .createMany({ data: phones.map((phone) => ({ phone, direction: "OUT", body, read: true })) })
+    .createMany({ data: phones.map((phone) => ({ phone, direction: "OUT", body: own.get(phone) ?? body, read: true })) })
     .catch((err) => console.error("[marketing] Couldn't save the texts to Messages:", err));
 }
 
@@ -30,7 +34,7 @@ export async function sendMarketing(
     return { sent: true, scheduledFor: at.toISOString() };
   }
   const sent = await fireNotification(event, payload);
-  if (sent) await logTexts(sms.body, sms.phones);
+  if (sent) await logTexts(sms.body, sms.phones, payload);
   return { sent };
 }
 
@@ -46,6 +50,6 @@ export async function sendScheduled(): Promise<void> {
       await prisma.scheduledSend.update({ where: { id: s.id }, data: { sentAt: null } });
       continue;
     }
-    await logTexts(s.smsBody, s.smsPhones);
+    await logTexts(s.smsBody, s.smsPhones, s.payload);
   }
 }
